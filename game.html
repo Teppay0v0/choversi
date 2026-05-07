@@ -315,7 +315,7 @@
     text-align: center;
     padding: 8px 18px;
     border: 2px solid rgba(58, 53, 48, 0.18);
-    border-radius: 100px;
+    border-radius: 16px; /* 盤面と同じ */
     background: rgba(255, 255, 255, 0.55);
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     display: flex;
@@ -324,15 +324,18 @@
     gap: 8px;
     width: 100%;
     box-sizing: border-box;
-    transition: border-color 0.25s ease, background 0.25s ease;
+    transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease;
   }
   /* 手番の色で囲み色を変える */
   .status-text.turn-D {
     border-color: var(--dark);
+    background: var(--dark);
+    color: var(--cream);
   }
   .status-text.turn-L {
     border-color: var(--light);
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--text);
   }
   .status-bar .chain-indicator {
     position: absolute;
@@ -898,6 +901,7 @@
     .status-text {
       font-size: 13px;
       padding: 5px 14px;
+      border-radius: 8px; /* モバイル盤面のRと同じ */
     }
     .chain-indicator {
       font-size: 10px;
@@ -933,10 +937,9 @@
     .panel-ai.active {
       background: var(--sage);
     }
-    /* 「○の手番」を目立たせる */
+    /* 「○の手番」を目立たせる（背景・文字色は .turn-D / .turn-L で上書き） */
     .status-text {
       font-weight: 600;
-      color: var(--text);
     }
     .status-text::before {
       content: '';
@@ -949,6 +952,8 @@
       background: var(--sage);
       animation: turnDotPulse 1.6s ease-in-out infinite;
     }
+    /* 黒番の中ではドットを白系に */
+    .status-text.turn-D::before { background: var(--cream); }
     @keyframes turnDotPulse {
       0%, 100% { opacity: 0.7; transform: scale(1); }
       50%      { opacity: 1;   transform: scale(1.25); }
