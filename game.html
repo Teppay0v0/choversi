@@ -774,9 +774,13 @@
     }
 
     /* Reorder: opponent → board → me */
+    /* デフォルト：プレイヤー黒 → 白(相手)が上、黒(自分)が下 */
     #panel-L { order: 1; }
     .board-area { order: 2; }
     #panel-D { order: 3; }
+    /* プレイヤーが白の時は順序を入れ替えて自分を下に */
+    body[data-player="L"] #panel-D { order: 1; }
+    body[data-player="L"] #panel-L { order: 3; }
 
     /* ===== OPPONENT (top, single-row compact) ===== */
     #panel-L {
@@ -1320,6 +1324,8 @@ function newGame() {
   const roleL = document.getElementById('role-L');
   if (roleD) roleD.textContent = (playerColor === 'D' ? 'YOU' : 'CPU') + ' · D';
   if (roleL) roleL.textContent = (playerColor === 'L' ? 'YOU' : 'CPU') + ' · L';
+  // パネル順序：プレイヤーを画面下に配置（モバイルCSSで参照）
+  document.body.dataset.player = playerColor;
   hideResult();
   log('NEW GAME', aiOn ? 'vs AI' : 'vs Human');
   render();
@@ -1512,21 +1518,6 @@ async function makeMove(r, c) {
   // Standard placement check
   const flips = getFlipsForPlace(r, c, state.turn);
   if (flips.length === 0) return;
-
-  // モバイル(touch端末)：異能石選択中は2タップ確定
-  // 1タップ目=プレビュー表示、同マス2タップ目=確定
-  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-  if (isTouch && state.selectedSkill >= 0) {
-    const cm = state.confirmCell;
-    if (!cm || cm.r !== r || cm.c !== c) {
-      state.confirmCell = { r, c };
-      clearPreview();
-      showPreview(r, c);
-      renderBoard();
-      return;
-    }
-    state.confirmCell = null; // 同マス2タップ目→確定
-  }
 
   state.busy = true;
   state.chainCount = 0;
@@ -2244,7 +2235,6 @@ function renderHands() {
           <div class="skill-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--muted);font-weight:500;">?</div>
           <div class="skill-text">
             <span style="color:var(--muted);">？？</span>
-            <span class="pt">?pt</span>
           </div>
         `;
       } else {
