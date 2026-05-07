@@ -1108,7 +1108,8 @@
     <div class="gyakushu-banner" id="gyakushu-banner">⚡ <span class="ja">逆襲が発動できます</span> — 光る石をタップ</div>
     <div class="board" id="board"></div>
     <div class="actions">
-      <button class="btn" onclick="newGame()">NEW GAME</button>
+      <button class="btn secondary" onclick="confirmReset()">RESET</button>
+      <button class="btn" onclick="confirmNewGame()">NEW GAME</button>
       <button class="btn secondary" id="pass-btn" onclick="passTurn()">PASS</button>
     </div>
     <div class="toolbar">
@@ -1267,6 +1268,22 @@ function isBeginnerMode() {
     return new URLSearchParams(window.location.search).get('beg') === '1';
   } catch (e) {}
   return false;
+}
+
+// 「RESET」: 同設定で対戦やり直し
+function confirmReset() {
+  if (state && !state.ended) {
+    if (!confirm('現在の対戦をリセットして、同じ条件で最初からやり直しますか？')) return;
+  }
+  newGame();
+}
+
+// 「NEW GAME」: トップページに戻って色選択からやり直し
+function confirmNewGame() {
+  if (state && !state.ended) {
+    if (!confirm('対戦を中断してトップページに戻りますか？')) return;
+  }
+  window.location.href = 'index.html';
 }
 
 function newGame() {
