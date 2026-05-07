@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>バッジコレクション ｜ ChoVersi</title>
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F2EBE0;
+    --cream-deep: #E8DCC4;
+    --beige: #E8DCC4;
+    --sage: #D4B36A;
+    --sage-dark: #B49858;
+    --dark: #3A3530;
+    --light: #F5E8D0;
+    --text: #4A443D;
+    --muted: #9A9085;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', 'Noto Sans JP', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    font-weight: 300;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  .ja { font-family: 'Noto Sans JP', sans-serif; }
+  header {
+    max-width: 720px;
+    margin: 0 auto 24px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .back-link {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+  }
+  .back-link:hover { color: var(--text); }
+  h1 {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+  }
+  .summary {
+    max-width: 720px;
+    margin: 0 auto 28px;
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    align-items: center;
+    background: rgba(58, 53, 48, 0.05);
+    border-radius: 16px;
+    padding: 18px 20px;
+    flex-wrap: wrap;
+  }
+  .summary .stat {
+    text-align: center;
+  }
+  .summary .stat-num {
+    font-family: 'Manrope', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--sage-dark);
+    line-height: 1;
+  }
+  .summary .stat-label {
+    font-family: 'Manrope', sans-serif;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .group {
+    max-width: 720px;
+    margin: 0 auto 28px;
+  }
+  .group-title {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+    padding-left: 4px;
+    letter-spacing: 0.1em;
+  }
+  .badge-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  @media (min-width: 640px) {
+    .badge-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  .badge {
+    background: var(--cream-deep);
+    border-radius: 12px;
+    padding: 14px 12px;
+    text-align: center;
+    transition: transform 0.15s;
+    border: 2px solid transparent;
+  }
+  .badge.earned {
+    background: linear-gradient(135deg, rgba(212, 179, 106, 0.25), rgba(212, 179, 106, 0.1));
+    border-color: var(--sage);
+  }
+  .badge.locked {
+    opacity: 0.5;
+  }
+  .badge-icon {
+    font-size: 28px;
+    margin-bottom: 6px;
+    filter: grayscale(0%);
+  }
+  .badge.locked .badge-icon { filter: grayscale(100%); }
+  .badge-name {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+  .badge.locked .badge-name { color: var(--muted); }
+  .badge-hint {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .badge.earned .badge-hint::before {
+    content: '✓ ';
+    color: var(--sage-dark);
+    font-weight: 700;
+  }
+  .footer-actions {
+    max-width: 720px;
+    margin: 30px auto 0;
+    display: flex;
+    justify-content: center;
+  }
+  .btn {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--dark);
+    color: var(--cream);
+    padding: 14px 60px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back-link" href="index.html">← BACK</a>
+  <h1>🏆 バッジコレクション</h1>
+  <span style="width: 60px;"></span>
+</header>
+
+<div class="summary">
+  <div class="stat"><div class="stat-num" id="earned-count">0</div><div class="stat-label">Earned</div></div>
+  <div class="stat"><div class="stat-num" id="total-count">40</div><div class="stat-label">Total</div></div>
+  <div class="stat"><div class="stat-num" id="percent">0%</div><div class="stat-label">Complete</div></div>
+</div>
+
+<div id="groups"></div>
+
+<div class="footer-actions">
+  <a class="btn" href="index.html">トップへ戻る</a>
+</div>
+
+<script>
+'use strict';
+// game.htmlと同じBADGE定義（参照のみ。check関数は不要）
+const BADGE_GROUPS = [
+  {
+    title: '🌱 進捗',
+    badges: [
+      { id: 'first_game', icon: '🌟', name: '初陣',     hint: '1戦目を完了する' },
+      { id: 'first_win',  icon: '🥇', name: '初勝利',   hint: '初めて勝利する' },
+      { id: 'lv_5',       icon: '⭐', name: '見習い',   hint: 'LV5到達' },
+      { id: 'lv_10',      icon: '🌠', name: '一人前',   hint: 'LV10到達' },
+      { id: 'lv_25',      icon: '💫', name: '熟練者',   hint: 'LV25到達' },
+      { id: 'lv_50',      icon: '🏅', name: '達人',     hint: 'LV50到達' },
+      { id: 'lv_75',      icon: '🥈', name: '超達人',   hint: 'LV75到達' },
+      { id: 'lv_99',      icon: '👑', name: 'マスター', hint: 'LV99到達' },
+      { id: 'games_10',   icon: '🎲', name: '十戦錬磨', hint: '通算10戦' },
+      { id: 'games_100',  icon: '🎯', name: '百戦錬磨', hint: '通算100戦' },
+    ]
+  },
+  {
+    title: '🏆 試合結果',
+    badges: [
+      { id: 'shutout',    icon: '🛡️', name: '完封勝利',   hint: '相手の石を0にして勝利' },
+      { id: 'big_win',    icon: '💪', name: '大勝',       hint: '30点差以上で勝利' },
+      { id: 'huge_win',   icon: '🚀', name: '大圧勝',     hint: '50点差以上で勝利' },
+      { id: 'narrow_win', icon: '🎈', name: '辛勝',       hint: '1点差で勝利' },
+      { id: 'comeback',   icon: '🔥', name: '逆転勝利',   hint: '劣勢から勝利' },
+      { id: 'streak_3',   icon: '🔗', name: '三連勝',     hint: '3連勝' },
+      { id: 'streak_5',   icon: '⛓️', name: '五連勝',     hint: '5連勝' },
+      { id: 'streak_10',  icon: '🌪️', name: '十連勝',     hint: '10連勝' },
+    ]
+  },
+  {
+    title: '⚡ 連鎖・異能',
+    badges: [
+      { id: 'chain_3',       icon: '🔀', name: '連鎖の使い手', hint: '3連鎖達成' },
+      { id: 'chain_5',       icon: '🌀', name: '連鎖の魔術師', hint: '5連鎖達成' },
+      { id: 'chain_8',       icon: '💥', name: '連鎖の覇者',   hint: '8連鎖達成' },
+      { id: 'gyakushu_fire', icon: '⚡', name: '逆襲発動',     hint: '逆襲を成功' },
+      { id: 'bakudan_5',     icon: '💣', name: '爆破職人',     hint: '爆弾で5石以上裏返し' },
+      { id: 'tanchi_win',    icon: '🔍', name: '探知の眼',     hint: '探知を使った試合に勝利' },
+      { id: 'shoshitsu_win', icon: '🌫️', name: '消滅の使者',   hint: '消滅を使った試合に勝利' },
+      { id: 'zoshoku_win',   icon: '🌱', name: '増殖の達人',   hint: '増殖を使った試合に勝利' },
+      { id: 'all_skills',    icon: '🌈', name: '9種コンプ',    hint: '1試合中に9種すべて発動' },
+      { id: 'no_skill_win',  icon: '🎴', name: '連鎖縛り勝利', hint: '異能なしで勝利' },
+    ]
+  },
+  {
+    title: '🎯 戦略',
+    badges: [
+      { id: 'all_corners',    icon: '🏰', name: '角占有',     hint: '4隅すべて取得' },
+      { id: 'no_corner_lost', icon: '🛡️', name: '無傷の角',   hint: '角を奪われずに勝利' },
+      { id: 'no_chain_lost',  icon: '🚫', name: '完全防衛',   hint: '相手連鎖をゼロに' },
+      { id: 'fast_win',       icon: '⚡', name: '電撃戦',     hint: '30手以内で勝利' },
+      { id: 'long_win',       icon: '🐢', name: '長期戦',     hint: '50手以上で勝利' },
+      { id: 'close_3',        icon: '🤝', name: '接戦の名人', hint: '5点差以内の勝利を3回' },
+    ]
+  },
+  {
+    title: '🎨 サイドストーリー',
+    badges: [
+      { id: 'black_10',   icon: '⚫', name: '黒の覚悟',   hint: '黒で10勝' },
+      { id: 'white_10',   icon: '⚪', name: '白の余裕',   hint: '白で10勝' },
+      { id: 'both_10',    icon: '🔄', name: '両刀使い',   hint: '黒・白それぞれ10勝' },
+      { id: 'beat_lv99',  icon: '👹', name: 'AI破壊者',   hint: 'LV99のAIに勝利' },
+      { id: 'never_quit', icon: '🦴', name: '不屈の魂',   hint: '5連敗からの勝利' },
+      { id: 'same_day_5', icon: '☀️', name: '同日の覇者', hint: '同日に5連勝' },
+    ]
+  },
+];
+
+function loadOwned() {
+  try { return new Set(JSON.parse(localStorage.getItem('choversi.badges') || '[]')); }
+  catch (e) { return new Set(); }
+}
+
+const owned = loadOwned();
+let totalAll = 0, earnedAll = 0;
+const groupsContainer = document.getElementById('groups');
+BADGE_GROUPS.forEach(group => {
+  totalAll += group.badges.length;
+  let earnedInGroup = 0;
+  const cards = group.badges.map(b => {
+    const isEarned = owned.has(b.id);
+    if (isEarned) { earnedInGroup++; earnedAll++; }
+    return `
+      <div class="badge ${isEarned ? 'earned' : 'locked'}">
+        <div class="badge-icon">${isEarned ? b.icon : '🔒'}</div>
+        <div class="badge-name">${b.name}</div>
+        <div class="badge-hint">${b.hint}</div>
+      </div>`;
+  }).join('');
+  const block = document.createElement('div');
+  block.className = 'group';
+  block.innerHTML = `
+    <div class="group-title">${group.title}　<span style="color:var(--muted);font-weight:400;font-size:11px;">${earnedInGroup} / ${group.badges.length}</span></div>
+    <div class="badge-grid">${cards}</div>`;
+  groupsContainer.appendChild(block);
+});
+document.getElementById('earned-count').textContent = earnedAll;
+document.getElementById('total-count').textContent = totalAll;
+document.getElementById('percent').textContent = totalAll ? Math.round(earnedAll / totalAll * 100) + '%' : '0%';
+</script>
+
+</body>
+</html>

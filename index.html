@@ -52,8 +52,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px 24px;
-    gap: 60px;
+    padding: 24px 24px 56px;
+    gap: 24px;
   }
 
   /* ロゴ */
@@ -68,9 +68,9 @@
     margin: 0 auto;
   }
   .start-tagline {
-    margin-top: 32px;
+    margin-top: 16px;
     font-family: 'Noto Sans JP', sans-serif;
-    font-size: 15px;
+    font-size: 14px;
     color: var(--text);
     letter-spacing: 0.3em;
     font-weight: 400;
@@ -91,6 +91,124 @@
     gap: 16px;
     align-items: center;
   }
+
+  /* === モード選択 === */
+  .mode-picker {
+    width: 100%;
+    max-width: 360px;
+    margin-bottom: 6px;
+  }
+  .mode-tabs {
+    display: flex;
+    background: rgba(58, 53, 48, 0.06);
+    border-radius: 100px;
+    padding: 4px;
+    margin-bottom: 12px;
+    gap: 4px;
+  }
+  .mode-tab {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 9px 8px;
+    border-radius: 100px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.2s, color 0.2s;
+  }
+  .mode-tab.active {
+    background: var(--dark);
+    color: var(--cream);
+  }
+  .mode-panel {
+    background: rgba(58, 53, 48, 0.04);
+    border-radius: 14px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .mode-panel.hidden { display: none; }
+  .lv-display .lv-num {
+    font-family: 'Manrope', sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .lv-display .lv-num span { color: var(--sage-dark); font-size: 28px; }
+  .xp-bar {
+    height: 8px;
+    background: rgba(58, 53, 48, 0.1);
+    border-radius: 100px;
+    overflow: hidden;
+    margin: 6px 0;
+  }
+  .xp-bar .xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--sage), var(--sage-dark));
+    border-radius: 100px;
+    transition: width 0.4s ease;
+  }
+  .xp-text {
+    font-family: 'Manrope', sans-serif;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+  .mode-desc {
+    margin-top: 8px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .lv-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .lv-slider-row .lv-slider-label {
+    font-family: 'Manrope', sans-serif;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+  }
+  .lv-slider-row #single-lv-input {
+    width: 56px;
+    padding: 6px 8px;
+    border: 1.5px solid rgba(58, 53, 48, 0.2);
+    border-radius: 8px;
+    text-align: center;
+    font-family: 'Manrope', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--cream);
+  }
+  .lv-slider-row #single-lv-slider {
+    flex: 1;
+    accent-color: var(--sage-dark);
+  }
+
+  .footer-links {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+  }
+  .footer-links a {
+    color: var(--muted);
+    text-decoration: none;
+    padding: 6px 4px;
+  }
+  .footer-links a:hover { color: var(--text); }
+  .footer-links span { color: var(--muted); opacity: 0.4; }
 
   /* 先手選択（タイル型・大きめタッチターゲット） */
   .color-picker {
@@ -234,14 +352,16 @@
 
   /* フッター */
   .start-footer {
-    position: absolute;
-    bottom: 16px;
+    position: fixed;
+    bottom: 8px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 10px;
+    font-size: 9px;
     color: var(--muted);
+    opacity: 0.6;
     letter-spacing: 0.3em;
     text-align: center;
+    pointer-events: none;
   }
 
   /* 背景の微細なテクスチャ（飾り）— ゴールド系のゆっくり浮遊 */
@@ -298,10 +418,15 @@
 
   /* モバイル */
   @media (max-width: 720px) {
-    .start { gap: 40px; padding: 20px; }
-    .start-logo img { width: 240px; }
-    .start-tagline { font-size: 13px; }
-    .btn { padding: 16px 60px; min-width: 220px; }
+    .start { gap: 18px; padding: 16px 20px 56px; }
+    .start-logo img { width: 200px; }
+    .start-tagline { margin-top: 10px; font-size: 12px; }
+    .start-tagline-en { font-size: 10px; }
+    .btn { padding: 14px 50px; min-width: 200px; font-size: 13px; }
+    .mode-panel { padding: 12px 14px; }
+    .lv-display .lv-num { font-size: 18px; }
+    .lv-display .lv-num span { font-size: 24px; }
+    .mode-desc { font-size: 10px; }
   }
 </style>
 </head>
@@ -321,6 +446,31 @@
   </div>
 
   <div class="start-buttons">
+
+    <!-- モード選択：キャンペーン / シングル -->
+    <div class="mode-picker" id="mode-picker">
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="campaign">キャンペーン</button>
+        <button class="mode-tab" data-mode="single">シングル</button>
+      </div>
+      <div class="mode-panel" id="campaign-panel">
+        <div class="lv-display">
+          <div class="lv-num">LV <span id="campaign-lv">1</span></div>
+          <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div></div>
+          <div class="xp-text"><span id="xp-text">0 / 5</span> XP — 次のLVまで</div>
+        </div>
+        <div class="mode-desc">勝てば強敵に、負ければ少し優しい敵に。最大 LV99。</div>
+      </div>
+      <div class="mode-panel hidden" id="single-panel">
+        <div class="lv-slider-row">
+          <span class="lv-slider-label">LV</span>
+          <input type="number" id="single-lv-input" min="1" max="99" value="30">
+          <input type="range" id="single-lv-slider" min="1" max="99" value="30">
+        </div>
+        <div class="mode-desc">単発1戦のみ。経験値・LVには影響なし。</div>
+      </div>
+    </div>
+
     <div class="color-picker" id="color-picker">
       <div class="color-picker-label">あなたの色を選ぶ</div>
       <div class="color-options">
@@ -346,21 +496,44 @@
       <span>初心者向け（連鎖が起きやすいデッキ）</span>
     </label>
     <a href="#" id="start-btn" class="btn">はじめる</a>
-    <a href="rules.html" class="btn secondary">ルール</a>
+    <div class="footer-links">
+      <a href="rules.html">ルール</a>
+      <span>·</span>
+      <a href="badges.html">🏆 バッジ</a>
+      <span>·</span>
+      <a href="#" id="reset-progress">進捗リセット</a>
+    </div>
   </div>
 </div>
 
 <script>
 (function() {
+  // === XPカーブ（game.htmlと同じ式） ===
+  const MAX_LEVEL = 99;
+  function xpToNext(lv) {
+    if (lv < 10) return 5;
+    if (lv < 30) return 8;
+    if (lv < 50) return 14;
+    if (lv < 70) return 18;
+    if (lv < 90) return 22;
+    return 24 + (lv - 90) * 2;
+  }
+  function xpToLevel(xp) {
+    let lv = 1, remain = xp;
+    while (lv < MAX_LEVEL && remain >= xpToNext(lv)) { remain -= xpToNext(lv); lv++; }
+    return { lv, intoLv: remain, needForNext: lv < MAX_LEVEL ? xpToNext(lv) : 0 };
+  }
+  function ls(key, fallback) {
+    try { const v = localStorage.getItem(key); return v != null ? v : fallback; }
+    catch (e) { return fallback; }
+  }
+
+  // === 色選択 ===
   const picker = document.getElementById('color-picker');
   const startBtn = document.getElementById('start-btn');
   let selected = 'D';
-  // localStorage で前回選択を復元
-  try {
-    const saved = localStorage.getItem('choversi.player');
-    if (saved) selected = saved;
-  } catch (e) {}
-  function updateUI() {
+  try { const s = localStorage.getItem('choversi.player'); if (s) selected = s; } catch (e) {}
+  function updateColorUI() {
     picker.querySelectorAll('.color-option').forEach(el => {
       el.classList.toggle('active', el.dataset.color === selected);
     });
@@ -369,28 +542,86 @@
     const opt = e.target.closest('.color-option');
     if (!opt) return;
     selected = opt.dataset.color;
-    try { localStorage.setItem('choversi.player', selected); } catch(e) {}
-    updateUI();
+    try { localStorage.setItem('choversi.player', selected); } catch (e) {}
+    updateColorUI();
   });
-  // 初心者モード復元
+
+  // === 初心者モード ===
   const begCheck = document.getElementById('beginner-mode');
   try {
-    const begSaved = localStorage.getItem('choversi.beginner');
-    if (begSaved === '1') begCheck.checked = true;
-  } catch(e) {}
+    if (localStorage.getItem('choversi.beginner') === '1') begCheck.checked = true;
+  } catch (e) {}
   begCheck.addEventListener('change', () => {
-    try { localStorage.setItem('choversi.beginner', begCheck.checked ? '1' : '0'); } catch(e) {}
+    try { localStorage.setItem('choversi.beginner', begCheck.checked ? '1' : '0'); } catch (e) {}
   });
+
+  // === モード（campaign / single） ===
+  let mode = ls('choversi.mode', '"campaign"');
+  try { mode = JSON.parse(mode); } catch(e) { mode = 'campaign'; }
+  const modePicker = document.getElementById('mode-picker');
+  const tabs = modePicker.querySelectorAll('.mode-tab');
+  const campaignPanel = document.getElementById('campaign-panel');
+  const singlePanel = document.getElementById('single-panel');
+
+  function updateModeUI() {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+    campaignPanel.classList.toggle('hidden', mode !== 'campaign');
+    singlePanel.classList.toggle('hidden', mode !== 'single');
+    try { localStorage.setItem('choversi.mode', JSON.stringify(mode)); } catch (e) {}
+  }
+  tabs.forEach(t => t.addEventListener('click', () => {
+    mode = t.dataset.mode;
+    updateModeUI();
+  }));
+
+  // === キャンペーン LV/XP表示 ===
+  const xp = Number(ls('choversi.xp', '0'));
+  const { lv, intoLv, needForNext } = xpToLevel(xp);
+  document.getElementById('campaign-lv').textContent = lv;
+  document.getElementById('xp-text').textContent =
+    needForNext === 0 ? 'MAX' : `${intoLv} / ${needForNext}`;
+  const fillPct = needForNext === 0 ? 100 : Math.round(intoLv / needForNext * 100);
+  document.getElementById('xp-fill').style.width = fillPct + '%';
+
+  // === シングル LV ピッカー ===
+  const singleInput = document.getElementById('single-lv-input');
+  const singleSlider = document.getElementById('single-lv-slider');
+  let singleLv = Math.max(1, Math.min(99, Number(ls('choversi.singleLv', '30'))));
+  singleInput.value = singleLv;
+  singleSlider.value = singleLv;
+  function setSingleLv(v) {
+    singleLv = Math.max(1, Math.min(99, parseInt(v, 10) || 1));
+    singleInput.value = singleLv;
+    singleSlider.value = singleLv;
+    try { localStorage.setItem('choversi.singleLv', String(singleLv)); } catch (e) {}
+  }
+  singleInput.addEventListener('input', () => setSingleLv(singleInput.value));
+  singleSlider.addEventListener('input', () => setSingleLv(singleSlider.value));
+
+  updateColorUI();
+  updateModeUI();
+
+  // === 進捗リセット ===
+  document.getElementById('reset-progress').addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!confirm('XP・LV・バッジ・戦績をすべてリセットします。よろしいですか？')) return;
+    try {
+      ['choversi.xp','choversi.badges','choversi.stats'].forEach(k => localStorage.removeItem(k));
+    } catch (e) {}
+    location.reload();
+  });
+
+  // === はじめる ===
   startBtn.addEventListener('click', (e) => {
     e.preventDefault();
     let actual = selected;
     if (actual === 'random') actual = Math.random() < 0.5 ? 'D' : 'L';
-    const beg = begCheck.checked ? '&beg=1' : '';
-    // キャッシュ回避：常に新しいクエリでgame.htmlを取得
-    const v = Date.now();
-    window.location.href = `game.html?as=${actual}${beg}&v=${v}`;
+    const params = [`as=${actual}`, `mode=${mode}`];
+    if (mode === 'single') params.push(`lv=${singleLv}`);
+    if (begCheck.checked) params.push('beg=1');
+    params.push(`v=${Date.now()}`);
+    window.location.href = `game.html?${params.join('&')}`;
   });
-  updateUI();
 })();
 </script>
 
