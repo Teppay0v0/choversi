@@ -360,7 +360,7 @@
     opacity: 1;
     transform: scale(1);
   }
-  /* 逆襲発動可能バナー */
+  /* 逆襲発動可能バナー：常にスペースを確保し、表示時はopacityでフェードイン */
   .gyakushu-banner {
     background: linear-gradient(90deg, rgba(184, 92, 63, 0.15), rgba(184, 92, 63, 0.25), rgba(184, 92, 63, 0.15));
     color: #B85C3F;
@@ -373,10 +373,16 @@
     margin-bottom: 10px;
     width: 100%;
     max-width: 560px;
-    display: none;
+    opacity: 0;                 /* 非表示時も領域は確保 */
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .gyakushu-banner.show {
+    opacity: 1;
+    visibility: visible;
     animation: gyakushuBannerPulse 2s ease-in-out infinite;
   }
-  .gyakushu-banner.show { display: block; }
   @keyframes gyakushuBannerPulse {
     0%, 100% { opacity: 0.85; }
     50%      { opacity: 1; }
