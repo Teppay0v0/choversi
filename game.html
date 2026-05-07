@@ -1506,6 +1506,8 @@ function clearPreview() {
 // ============================================================
 async function makeMove(r, c) {
   if (state.busy || state.ended) return;
+  // AIの手番中はプレイヤーのタップを無視（誤入力防止）
+  if (state.aiMode && state.turn === state.aiColor) return;
 
   // Pending special action
   if (state.pendingAction === 'vanish-target') return execVanish(r, c);
@@ -1882,6 +1884,8 @@ function showPassBurst(player) {
 
 function passTurn() {
   if (state.busy || state.ended) return;
+  // AIの手番中は無視
+  if (state.aiMode && state.turn === state.aiColor) return;
   // 配置可能な手がある時はパス不可
   if (getValidMoves(state.turn).length > 0) {
     log('パス不可', '配置可能な手があります');
