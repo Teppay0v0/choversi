@@ -1802,6 +1802,39 @@ function triggerAIIfNeeded() {
   }
 }
 
+// パスの実行（自動／手動 共通）
+async function executePass(player) {
+  if (state.ended || state.busy) return;
+  state.busy = true;
+  showPassBurst(player);
+  log(`${labelOf(player)} パス`, '配置不可');
+  await delay(950);
+  state.passes++;
+  if (state.passes >= 2) {
+    state.busy = false;
+    endGame();
+    return;
+  }
+  state.selectedSkill = -1;
+  state.pendingAction = null;
+  state.busy = false;
+  switchTurn();
+  render();
+  checkPassOrEnd();
+  triggerAIIfNeeded();
+}
+
+// パス通知の大演出（skill-burst 要素を再利用）
+function showPassBurst(player) {
+  const el = document.getElementById('skill-burst');
+  if (!el) return;
+  document.getElementById('burst-name').textContent = 'パス';
+  document.getElementById('burst-en').textContent = `${labelOf(player)}・PASS`;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
 function passTurn() {
   if (state.busy || state.ended) return;
   // 配置可能な手がある時はパス不可
@@ -1809,31 +1842,20 @@ function passTurn() {
     log('パス不可', '配置可能な手があります');
     return;
   }
-  state.passes++;
-  log(`${labelOf(state.turn)} pass`);
-  if (state.passes >= 2) { endGame(); return; }
-  state.selectedSkill = -1;
-  state.pendingAction = null;
-  switchTurn();
-  render();
-  checkPassOrEnd();
-  triggerAIIfNeeded();
+  executePass(state.turn);
 }
 
 function checkPassOrEnd() {
-  // Both players can no longer move
+  // 配置不可なら自動パス
+  if (state.busy || state.ended) return;
   const moves = getValidMoves(state.turn);
   if (moves.length === 0) {
+    const player = state.turn;
     setTimeout(() => {
-      if (state.ended) return;
-      state.passes++;
-      log(`${labelOf(state.turn)} auto-pass（置ける場所なし）`);
-      if (state.passes >= 2) { endGame(); return; }
-      switchTurn();
-      render();
-      checkPassOrEnd();
-      triggerAIIfNeeded();
-    }, 700);
+      if (state.ended || state.busy) return;
+      if (state.turn !== player) return; // 他処理で変わっていれば中止
+      executePass(player);
+    }, 400);
   }
 }
 
