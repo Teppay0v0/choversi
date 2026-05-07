@@ -877,7 +877,18 @@
     }
 
     /* モバイルではアクションボタン・ログ・ツールバー非表示 */
-    .actions { display: none; }
+    /* モバイル: NEW GAMEのみコンパクトに表示、PASSは非表示（自動パス機能に統合） */
+    .actions {
+      display: flex;
+      margin-top: 6px;
+      justify-content: center;
+    }
+    .actions .btn {
+      padding: 8px 22px;
+      font-size: 10px;
+      letter-spacing: 0.2em;
+    }
+    #pass-btn { display: none; }
     .toolbar { display: none; }
     .log { display: none; }
 
