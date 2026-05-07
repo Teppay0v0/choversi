@@ -793,13 +793,13 @@
       grid-column: 1;
       grid-row: 1;
       margin: 0;
-      font-size: 12px;
+      font-size: 11px;
       display: flex;
       align-items: baseline;
-      gap: 8px;
+      gap: 6px;
     }
     .panel-ai .player-name .en {
-      font-size: 9px;
+      font-size: 8px;
       letter-spacing: 0.2em;
       margin-left: 0;
     }
@@ -807,12 +807,12 @@
       grid-column: 1;
       grid-row: 1;
       justify-self: end;
-      font-size: 18px;
+      font-size: 15px;
       margin-bottom: 0;
       line-height: 1;
       align-self: center;
     }
-    .panel-ai .player-score .small { font-size: 10px; }
+    .panel-ai .player-score .small { font-size: 9px; }
     .panel-ai .hand-title { display: none; }
     .panel-ai .hand {
       grid-column: 2;
@@ -823,11 +823,11 @@
       align-items: center;
     }
     .panel-ai .skill-card {
-      padding: 3px;
+      padding: 2px;
       flex: 0 0 auto;
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
+      width: 26px;
+      height: 26px;
+      border-radius: 5px;
     }
     .panel-ai .skill-card .skill-text { display: none; }
     .panel-ai .skill-card .skill-icon {
@@ -938,19 +938,21 @@
       align-items: baseline;
       gap: 8px;
       margin-bottom: 0;
-      font-size: 12px;
+      font-size: 14px;
+      font-weight: 600;
     }
     .panel-player .player-name .en {
       margin-left: 0;
-      font-size: 9px;
+      font-size: 10px;
     }
     .panel-player .player-score {
       grid-area: info;
       justify-self: end;
-      font-size: 18px;
+      font-size: 22px;
       margin-bottom: 0;
       line-height: 1;
       align-self: center;
+      font-weight: 700;
     }
     .panel-player .hand-title { display: none; }
     .panel-player .hand {
@@ -965,22 +967,19 @@
       min-width: 0;
       flex-direction: column;
       align-items: center;
-      padding: 7px 3px;
+      padding: 10px 4px;
       text-align: center;
-      gap: 4px;
+      gap: 6px;
     }
     .panel-player .skill-card .skill-icon {
-      width: 32px;
-      height: 32px;
-    }
-    .panel-player .skill-card .skill-text {
-      font-size: 10px;
+      width: 44px;
+      height: 44px;
     }
     .panel-player .skill-card .skill-text {
       flex-direction: column;
       align-items: center;
-      gap: 1px;
-      font-size: 11px;
+      gap: 2px;
+      font-size: 12px;
       width: 100%;
     }
     .panel-player .skill-card .skill-text .pt {
@@ -1072,11 +1071,13 @@
      ========================================================== */
   @media (max-width: 380px) {
     .panel-player .skill-card .skill-icon {
-      width: 36px;
-      height: 36px;
+      width: 40px;
+      height: 40px;
     }
-    .panel-player .skill-card .skill-text { font-size: 10px; }
-    .panel-player .player-score { font-size: 24px; }
+    .panel-player .skill-card { padding: 8px 3px; }
+    .panel-player .skill-card .skill-text { font-size: 11px; }
+    .panel-player .player-score { font-size: 20px; }
+    .panel-ai .skill-card { width: 24px; height: 24px; }
     .status-text { font-size: 13px; }
   }
 </style>
