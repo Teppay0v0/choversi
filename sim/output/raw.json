@@ -1,0 +1,3877 @@
+[
+  {
+    "seed": 42,
+    "turns": 64,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 20,
+      "L": 44
+    },
+    "moves": {
+      "D": 32,
+      "L": 32
+    },
+    "skillUses": {
+      "muko": 2,
+      "zoshoku": 2,
+      "tanchi": 2,
+      "hogeki": 2,
+      "hanten": 10,
+      "gyakushu": 2,
+      "kyozo": 2,
+      "shoshitsu": 2
+    },
+    "chains": [
+      1,
+      1,
+      2,
+      1,
+      1,
+      2,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 19,
+    "maxChain": 2,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 1,
+      "L": 1
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 7961,
+    "turns": 67,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 18,
+      "L": 46
+    },
+    "moves": {
+      "D": 33,
+      "L": 33
+    },
+    "skillUses": {
+      "tanchi": 2,
+      "muko": 2,
+      "hogeki": 2,
+      "bakudan": 2,
+      "zoshoku": 2,
+      "gyakushu": 2,
+      "shoshitsu": 2,
+      "kyozo": 2,
+      "hanten": 3
+    },
+    "chains": [
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      3,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 15,
+    "maxChain": 3,
+    "passes": {
+      "D": 1,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 1,
+      "L": 1
+    },
+    "bakudanExplosions": 2,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 1,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 15880,
+    "turns": 65,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 15,
+      "L": 49
+    },
+    "moves": {
+      "D": 33,
+      "L": 32
+    },
+    "skillUses": {
+      "hogeki": 2,
+      "muko": 2,
+      "tanchi": 2,
+      "bakudan": 2,
+      "zoshoku": 2,
+      "gyakushu": 1,
+      "hanten": 2,
+      "kyozo": 2,
+      "shoshitsu": 2
+    },
+    "chains": [
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      3,
+      2,
+      1
+    ],
+    "chainCount": 13,
+    "maxChain": 3,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 1,
+      "L": 0
+    },
+    "bakudanExplosions": 2,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 23799,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "tanchi": 1,
+      "hogeki": 1
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 31718,
+    "turns": 66,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 20,
+      "L": 44
+    },
+    "moves": {
+      "D": 33,
+      "L": 33
+    },
+    "skillUses": {
+      "hogeki": 2,
+      "muko": 2,
+      "tanchi": 2,
+      "zoshoku": 2,
+      "bakudan": 2,
+      "gyakushu": 2,
+      "hanten": 6,
+      "kyozo": 1,
+      "shoshitsu": 2
+    },
+    "chains": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      3,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 18,
+    "maxChain": 3,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 1,
+      "L": 1
+    },
+    "bakudanExplosions": 2,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 1,
+    "handD": [
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 39637,
+    "turns": 4,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 8
+    },
+    "moves": {
+      "D": 2,
+      "L": 2
+    },
+    "skillUses": {
+      "tanchi": 1,
+      "hogeki": 1,
+      "muko": 1
+    },
+    "chains": [
+      1,
+      1,
+      1
+    ],
+    "chainCount": 3,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 47556,
+    "turns": 65,
+    "truncated": false,
+    "winner": "D",
+    "score": {
+      "D": 33,
+      "L": 31
+    },
+    "moves": {
+      "D": 33,
+      "L": 32
+    },
+    "skillUses": {
+      "muko": 2,
+      "hogeki": 2,
+      "tanchi": 2,
+      "zoshoku": 2,
+      "bakudan": 2,
+      "shoshitsu": 2,
+      "gyakushu": 1,
+      "hanten": 9
+    },
+    "chains": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 19,
+    "maxChain": 2,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 1
+    },
+    "bakudanExplosions": 2,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 55475,
+    "turns": 65,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 18,
+      "L": 46
+    },
+    "moves": {
+      "D": 33,
+      "L": 32
+    },
+    "skillUses": {
+      "muko": 2,
+      "bakudan": 2,
+      "zoshoku": 2,
+      "tanchi": 2,
+      "hogeki": 2,
+      "hanten": 3,
+      "gyakushu": 1,
+      "kyozo": 2,
+      "shoshitsu": 2
+    },
+    "chains": [
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      3,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 14,
+    "maxChain": 3,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 1,
+      "L": 0
+    },
+    "bakudanExplosions": 2,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 63394,
+    "turns": 65,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 24,
+      "L": 40
+    },
+    "moves": {
+      "D": 33,
+      "L": 32
+    },
+    "skillUses": {
+      "tanchi": 2,
+      "muko": 2,
+      "zoshoku": 2,
+      "hogeki": 2,
+      "bakudan": 2,
+      "hanten": 9,
+      "shoshitsu": 2,
+      "kyozo": 2,
+      "gyakushu": 1
+    },
+    "chains": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 21,
+    "maxChain": 2,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 1
+    },
+    "bakudanExplosions": 2,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 71313,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "tanchi": 2
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 79232,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "tanchi": 2
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 87151,
+    "turns": 65,
+    "truncated": false,
+    "winner": "D",
+    "score": {
+      "D": 39,
+      "L": 25
+    },
+    "moves": {
+      "D": 33,
+      "L": 32
+    },
+    "skillUses": {
+      "muko": 2,
+      "tanchi": 2,
+      "bakudan": 2,
+      "gyakushu": 1,
+      "hogeki": 2,
+      "zoshoku": 2,
+      "kyozo": 2,
+      "hanten": 6,
+      "shoshitsu": 2
+    },
+    "chains": [
+      1,
+      1,
+      2,
+      1,
+      1,
+      3,
+      1,
+      1,
+      3,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 16,
+    "maxChain": 3,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 1
+    },
+    "bakudanExplosions": 2,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 95070,
+    "turns": 63,
+    "truncated": false,
+    "winner": "D",
+    "score": {
+      "D": 32,
+      "L": 31
+    },
+    "moves": {
+      "D": 32,
+      "L": 31
+    },
+    "skillUses": {
+      "muko": 2,
+      "zoshoku": 2,
+      "tanchi": 2,
+      "hogeki": 2,
+      "shoshitsu": 2,
+      "kyozo": 2,
+      "gyakushu": 1,
+      "bakudan": 1,
+      "hanten": 3
+    },
+    "chains": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      3,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 14,
+    "maxChain": 3,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 1
+    },
+    "bakudanExplosions": 1,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 1,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 102989,
+    "turns": 68,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 10,
+      "L": 54
+    },
+    "moves": {
+      "D": 31,
+      "L": 34
+    },
+    "skillUses": {
+      "hogeki": 2,
+      "bakudan": 2,
+      "tanchi": 2,
+      "muko": 2,
+      "zoshoku": 2,
+      "gyakushu": 1,
+      "kyozo": 2,
+      "hanten": 2,
+      "shoshitsu": 2
+    },
+    "chains": [
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2
+    ],
+    "chainCount": 13,
+    "maxChain": 2,
+    "passes": {
+      "D": 3,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 1
+    },
+    "bakudanExplosions": 2,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 1,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 110908,
+    "turns": 66,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 29,
+      "L": 35
+    },
+    "moves": {
+      "D": 33,
+      "L": 33
+    },
+    "skillUses": {
+      "tanchi": 2,
+      "muko": 2,
+      "zoshoku": 2,
+      "hogeki": 2,
+      "gyakushu": 2,
+      "bakudan": 2,
+      "kyozo": 2,
+      "hanten": 7,
+      "shoshitsu": 2
+    },
+    "chains": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      3,
+      2,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 18,
+    "maxChain": 3,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 1,
+      "L": 1
+    },
+    "bakudanExplosions": 2,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 118827,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "tanchi": 1,
+      "hogeki": 1
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 126746,
+    "turns": 66,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 21,
+      "L": 43
+    },
+    "moves": {
+      "D": 33,
+      "L": 33
+    },
+    "skillUses": {
+      "zoshoku": 2,
+      "muko": 2,
+      "tanchi": 2,
+      "hogeki": 2,
+      "gyakushu": 2,
+      "hanten": 12,
+      "bakudan": 2,
+      "kyozo": 2,
+      "shoshitsu": 2
+    },
+    "chains": [
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      3,
+      1,
+      3,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 21,
+    "maxChain": 3,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 1,
+      "L": 1
+    },
+    "bakudanExplosions": 2,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 134665,
+    "turns": 64,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 23,
+      "L": 41
+    },
+    "moves": {
+      "D": 32,
+      "L": 32
+    },
+    "skillUses": {
+      "muko": 2,
+      "hogeki": 2,
+      "gyakushu": 1,
+      "zoshoku": 2,
+      "tanchi": 2,
+      "bakudan": 1,
+      "hanten": 9,
+      "kyozo": 2,
+      "shoshitsu": 2
+    },
+    "chains": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 21,
+    "maxChain": 2,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 1,
+      "L": 0
+    },
+    "bakudanExplosions": 1,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 142584,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "hogeki": 1,
+      "tanchi": 1
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 150503,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "tanchi": 1,
+      "hogeki": 1
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 158422,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "tanchi": 2
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 166341,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "hogeki": 1,
+      "tanchi": 1
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 174260,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "tanchi": 2
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 182179,
+    "turns": 63,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 22,
+      "L": 42
+    },
+    "moves": {
+      "D": 32,
+      "L": 31
+    },
+    "skillUses": {
+      "tanchi": 2,
+      "zoshoku": 2,
+      "bakudan": 1,
+      "hogeki": 2,
+      "muko": 2,
+      "kyozo": 2,
+      "shoshitsu": 2,
+      "hanten": 1
+    },
+    "chains": [
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1
+    ],
+    "chainCount": 12,
+    "maxChain": 2,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 1,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 190098,
+    "turns": 64,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 17,
+      "L": 47
+    },
+    "moves": {
+      "D": 32,
+      "L": 32
+    },
+    "skillUses": {
+      "zoshoku": 2,
+      "tanchi": 2,
+      "gyakushu": 2,
+      "muko": 2,
+      "hogeki": 2,
+      "kyozo": 2,
+      "hanten": 5,
+      "shoshitsu": 2
+    },
+    "chains": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 19,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 1,
+      "L": 1
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 198017,
+    "turns": 64,
+    "truncated": false,
+    "winner": "D",
+    "score": {
+      "D": 40,
+      "L": 24
+    },
+    "moves": {
+      "D": 32,
+      "L": 32
+    },
+    "skillUses": {
+      "muko": 2,
+      "tanchi": 2,
+      "gyakushu": 1,
+      "zoshoku": 2,
+      "bakudan": 1,
+      "hogeki": 2,
+      "hanten": 4,
+      "kyozo": 2,
+      "shoshitsu": 2
+    },
+    "chains": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      3,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 15,
+    "maxChain": 3,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 1
+    },
+    "bakudanExplosions": 1,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 205936,
+    "turns": 66,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 14,
+      "L": 50
+    },
+    "moves": {
+      "D": 33,
+      "L": 33
+    },
+    "skillUses": {
+      "muko": 2,
+      "hogeki": 2,
+      "bakudan": 2,
+      "tanchi": 2,
+      "zoshoku": 2,
+      "gyakushu": 2,
+      "kyozo": 2,
+      "hanten": 8,
+      "shoshitsu": 2
+    },
+    "chains": [
+      1,
+      2,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "chainCount": 20,
+    "maxChain": 2,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 1,
+      "L": 1
+    },
+    "gyakushuFires": {
+      "D": 1,
+      "L": 1
+    },
+    "bakudanExplosions": 2,
+    "zoshokuSpawns": 2,
+    "hantenBlocks": 2,
+    "kyozoTriggered": 2,
+    "handD": [
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      }
+    ],
+    "handL": [
+      {
+        "s": "kyozo",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": true
+      },
+      {
+        "s": "zoshoku",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": true
+      },
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": true
+      },
+      {
+        "s": "gyakushu",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": true
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 213855,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "tanchi": 1,
+      "hogeki": 1
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "hogeki",
+        "used": true
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 221774,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "tanchi": 2
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      }
+    ],
+    "errors": []
+  },
+  {
+    "seed": 229693,
+    "turns": 2,
+    "truncated": false,
+    "winner": "L",
+    "score": {
+      "D": 0,
+      "L": 6
+    },
+    "moves": {
+      "D": 1,
+      "L": 1
+    },
+    "skillUses": {
+      "tanchi": 2
+    },
+    "chains": [
+      1,
+      1
+    ],
+    "chainCount": 2,
+    "maxChain": 1,
+    "passes": {
+      "D": 0,
+      "L": 0
+    },
+    "vanishUses": {
+      "D": 0,
+      "L": 0
+    },
+    "gyakushuFires": {
+      "D": 0,
+      "L": 0
+    },
+    "bakudanExplosions": 0,
+    "zoshokuSpawns": 0,
+    "hantenBlocks": 0,
+    "kyozoTriggered": 0,
+    "handD": [
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      }
+    ],
+    "handL": [
+      {
+        "s": "bakudan",
+        "used": false
+      },
+      {
+        "s": "tanchi",
+        "used": true
+      },
+      {
+        "s": "shoshitsu",
+        "used": false
+      },
+      {
+        "s": "muko",
+        "used": false
+      },
+      {
+        "s": "hanten",
+        "used": false
+      },
+      {
+        "s": "hogeki",
+        "used": false
+      },
+      {
+        "s": "gyakushu",
+        "used": false
+      },
+      {
+        "s": "zoshoku",
+        "used": false
+      },
+      {
+        "s": "kyozo",
+        "used": false
+      }
+    ],
+    "errors": []
+  }
+]

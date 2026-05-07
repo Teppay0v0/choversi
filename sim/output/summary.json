@@ -1,0 +1,149 @@
+{
+  "numGames": 30,
+  "blackWins": 4,
+  "whiteWins": 26,
+  "draws": 0,
+  "truncatedGames": 0,
+  "gamesWithErrors": 0,
+  "errors": [],
+  "avgTurns": 37.8,
+  "medianTurns": 63.5,
+  "scoreMargin": {
+    "avg": 14.766666666666667,
+    "distribution": {
+      "tight_le5": 2,
+      "mid_6to15": 15,
+      "blowout_gt15": 13
+    }
+  },
+  "avgFinalScore": {
+    "D": 13.166666666666666,
+    "L": 25.733333333333334
+  },
+  "avgMoves": {
+    "D": 18.9,
+    "L": 18.766666666666666
+  },
+  "totalPasses": {
+    "D": 4,
+    "L": 0
+  },
+  "totalChains": 315,
+  "maxChainOverall": 3,
+  "avgMaxChainPerGame": 1.8333333333333333,
+  "longChains_ge3": 11,
+  "longChains_ge5": 0,
+  "skillUseTotals": {
+    "muko": 35,
+    "zoshoku": 34,
+    "tanchi": 53,
+    "hogeki": 41,
+    "hanten": 99,
+    "gyakushu": 23,
+    "kyozo": 31,
+    "shoshitsu": 34,
+    "bakudan": 26
+  },
+  "skillUsageByColor": {
+    "kyozo": {
+      "D_consumed": 17,
+      "L_consumed": 17
+    },
+    "zoshoku": {
+      "D_consumed": 17,
+      "L_consumed": 17
+    },
+    "hanten": {
+      "D_consumed": 17,
+      "L_consumed": 17
+    },
+    "gyakushu": {
+      "D_consumed": 17,
+      "L_consumed": 17
+    },
+    "muko": {
+      "D_consumed": 17,
+      "L_consumed": 18
+    },
+    "hogeki": {
+      "D_consumed": 20,
+      "L_consumed": 21
+    },
+    "bakudan": {
+      "D_consumed": 17,
+      "L_consumed": 18
+    },
+    "shoshitsu": {
+      "D_consumed": 17,
+      "L_consumed": 17
+    },
+    "tanchi": {
+      "D_consumed": 28,
+      "L_consumed": 25
+    }
+  },
+  "bakudanExplosions": 26,
+  "zoshokuSpawns": 34,
+  "hantenBlocks": 31,
+  "kyozoTriggered": 31,
+  "vanishUsesD": 17,
+  "vanishUsesL": 17,
+  "gyakushuFiresD": 10,
+  "gyakushuFiresL": 13,
+  "winsBySkillUse": {
+    "kyozo": {
+      "D_use_D_win": 4,
+      "D_use_total": 17,
+      "L_use_L_win": 13,
+      "L_use_total": 17
+    },
+    "zoshoku": {
+      "D_use_D_win": 4,
+      "D_use_total": 17,
+      "L_use_L_win": 13,
+      "L_use_total": 17
+    },
+    "hanten": {
+      "D_use_D_win": 4,
+      "D_use_total": 17,
+      "L_use_L_win": 13,
+      "L_use_total": 17
+    },
+    "gyakushu": {
+      "D_use_D_win": 4,
+      "D_use_total": 17,
+      "L_use_L_win": 13,
+      "L_use_total": 17
+    },
+    "muko": {
+      "D_use_D_win": 4,
+      "D_use_total": 17,
+      "L_use_L_win": 14,
+      "L_use_total": 18
+    },
+    "hogeki": {
+      "D_use_D_win": 4,
+      "D_use_total": 20,
+      "L_use_L_win": 17,
+      "L_use_total": 21
+    },
+    "bakudan": {
+      "D_use_D_win": 4,
+      "D_use_total": 17,
+      "L_use_L_win": 14,
+      "L_use_total": 18
+    },
+    "shoshitsu": {
+      "D_use_D_win": 4,
+      "D_use_total": 17,
+      "L_use_L_win": 13,
+      "L_use_total": 17
+    },
+    "tanchi": {
+      "D_use_D_win": 4,
+      "D_use_total": 28,
+      "L_use_L_win": 21,
+      "L_use_total": 25
+    }
+  }
+}

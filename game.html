@@ -847,20 +847,23 @@
     #panel-D .hand {
       grid-area: hand;
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
+      grid-template-columns: repeat(4, 1fr); /* 黒は手札4枚 */
+      gap: 5px;
     }
     #panel-D .skill-card {
       min-width: 0;
       flex-direction: column;
       align-items: center;
-      padding: 8px 4px;
+      padding: 7px 3px;
       text-align: center;
       gap: 4px;
     }
     #panel-D .skill-card .skill-icon {
-      width: 38px;
-      height: 38px;
+      width: 32px;
+      height: 32px;
+    }
+    #panel-D .skill-card .skill-text {
+      font-size: 10px;
     }
     #panel-D .skill-card .skill-text {
       flex-direction: column;
@@ -1091,7 +1094,15 @@ const DECK_TEMPLATES = {
   D: [...FULL_DECK],  // 9枚（全種1枚ずつ）
   L: [...FULL_DECK],  // 9枚（全種1枚ずつ）
 };
-const HAND_SIZE = 3;
+// 先手補正：黒は手札+1（4枚）＋初期手札に強カードを保証
+const HAND_SIZE_D = 4;
+const HAND_SIZE_L = 3;
+const HAND_SIZE = 3; // 後方互換用（廃止予定）
+const STRONG_SKILLS = ['bakudan', 'tanchi', 'hogeki'];
+
+function getHandSize(player) {
+  return player === 'D' ? HAND_SIZE_D : HAND_SIZE_L;
+}
 
 function shuffleDeck(arr) {
   const a = [...arr];
@@ -1102,16 +1113,28 @@ function shuffleDeck(arr) {
   return a;
 }
 
-// 自分の有効ハンド（最初の3枚の未使用カード）を取得
+// 初期手札に強カードを保証（黒の先手補正）
+function ensureStrongCardInHand(deck, handSize) {
+  const inHand = deck.slice(0, handSize);
+  if (inHand.some(s => STRONG_SKILLS.includes(s))) return deck;
+  // 手札以降にある強カードを探して、手札のランダム位置と入れ替え
+  const strongIdx = deck.findIndex((s, i) => i >= handSize && STRONG_SKILLS.includes(s));
+  if (strongIdx < 0) return deck;
+  const swapIdx = Math.floor(Math.random() * handSize);
+  [deck[swapIdx], deck[strongIdx]] = [deck[strongIdx], deck[swapIdx]];
+  return deck;
+}
+
+// 自分の有効ハンド（先頭の未使用カードをハンドサイズ分）を取得
 function getActiveHand(player) {
   return state.hands[player]
     .map((c, i) => ({ ...c, idx: i }))
     .filter(c => !c.used)
-    .slice(0, HAND_SIZE);
+    .slice(0, getHandSize(player));
 }
 function getDeckRemaining(player) {
   const unused = state.hands[player].filter(c => !c.used).length;
-  return Math.max(0, unused - HAND_SIZE);
+  return Math.max(0, unused - getHandSize(player));
 }
 
 // ============================================================
@@ -1125,7 +1148,8 @@ function newGame() {
     board: createBoard(),
     turn: 'D',
     hands: {
-      D: shuffleDeck(DECK_TEMPLATES.D).map(s => ({ skill: s, used: false })),
+      D: ensureStrongCardInHand(shuffleDeck(DECK_TEMPLATES.D), HAND_SIZE_D)
+           .map(s => ({ skill: s, used: false })),
       L: shuffleDeck(DECK_TEMPLATES.L).map(s => ({ skill: s, used: false }))
     },
     selectedSkill: -1,
@@ -1536,6 +1560,7 @@ function execVanish(r, c) {
   log('消滅', `${coord(r, c)}の石を消去`, 'skill');
   state.pendingAction = null;
   state.selectedSkill = -1;
+  state.passes = 0;  // 行動したので連続パスカウンタをリセット
   switchTurn();
   render();
   checkPassOrEnd();
@@ -1604,6 +1629,7 @@ async function fireGyakushuAt(r, c) {
   state.busy = false;
   state.chainCount = 0;
   state.selectedSkill = -1;
+  state.passes = 0;  // 行動したので連続パスカウンタをリセット
   updateChainUI();
   switchTurn();
   render();
