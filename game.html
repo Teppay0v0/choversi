@@ -296,6 +296,27 @@
     opacity: 1;
     transform: scale(1);
   }
+  /* 逆襲発動可能バナー */
+  .gyakushu-banner {
+    background: linear-gradient(90deg, rgba(184, 92, 63, 0.15), rgba(184, 92, 63, 0.25), rgba(184, 92, 63, 0.15));
+    color: #B85C3F;
+    padding: 8px 14px;
+    border-radius: 100px;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 10px;
+    width: 100%;
+    max-width: 560px;
+    display: none;
+    animation: gyakushuBannerPulse 2s ease-in-out infinite;
+  }
+  .gyakushu-banner.show { display: block; }
+  @keyframes gyakushuBannerPulse {
+    0%, 100% { opacity: 0.85; }
+    50%      { opacity: 1; }
+  }
   .board {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
@@ -984,7 +1005,7 @@
 <div class="game">
   <!-- Black player (top in code, but laid out left) -->
   <div class="player-panel" id="panel-D">
-    <div class="player-name">黒 <span class="en">YOU · D</span></div>
+    <div class="player-name">黒 <span class="en" id="role-D">YOU · D</span></div>
     <div class="player-score"><span id="score-D">2</span><span class="small">/64</span></div>
     <div class="hand-title">手札 ｜ HAND</div>
     <div class="hand" id="hand-D"></div>
@@ -996,6 +1017,7 @@
       <div class="status-text" id="status">黒の手番</div>
       <div class="chain-indicator" id="chain-indicator">CHAIN ×2</div>
     </div>
+    <div class="gyakushu-banner" id="gyakushu-banner">⚡ <span class="ja">逆襲が発動できます</span> — 光る石をタップ</div>
     <div class="board" id="board"></div>
     <div class="actions">
       <button class="btn" onclick="newGame()">RESET</button>
@@ -1010,7 +1032,7 @@
 
   <!-- White player (right) -->
   <div class="player-panel" id="panel-L">
-    <div class="player-name">白 <span class="en">CPU · L</span></div>
+    <div class="player-name">白 <span class="en" id="role-L">CPU · L</span></div>
     <div class="player-score"><span id="score-L">2</span><span class="small">/64</span></div>
     <div class="hand-title">手札 ｜ HAND</div>
     <div class="hand" id="hand-L"></div>
@@ -1142,11 +1164,25 @@ function getDeckRemaining(player) {
 // ============================================================
 let state;
 
+// URLパラメータ ?as=D|L からプレイヤー色を取得（既定 D）
+function getPlayerColor() {
+  try {
+    const p = new URLSearchParams(window.location.search).get('as');
+    if (p === 'L') return 'L';
+    if (p === 'D') return 'D';
+  } catch (e) {}
+  return 'D';
+}
+
 function newGame() {
   const aiOn = document.getElementById('ai-mode')?.checked ?? true;
+  const playerColor = getPlayerColor();
+  const aiColor = playerColor === 'D' ? 'L' : 'D';
   state = {
     board: createBoard(),
     turn: 'D',
+    playerColor, // ユーザーが操作する色
+    aiColor,     // AIが操作する色
     hands: {
       D: ensureStrongCardInHand(shuffleDeck(DECK_TEMPLATES.D), HAND_SIZE_D)
            .map(s => ({ skill: s, used: false })),
@@ -1163,6 +1199,11 @@ function newGame() {
     log: [],
     aiMode: aiOn,
   };
+  // ロールラベル更新
+  const roleD = document.getElementById('role-D');
+  const roleL = document.getElementById('role-L');
+  if (roleD) roleD.textContent = (playerColor === 'D' ? 'YOU' : 'CPU') + ' · D';
+  if (roleL) roleL.textContent = (playerColor === 'L' ? 'YOU' : 'CPU') + ' · L';
   hideResult();
   log('NEW GAME', aiOn ? 'vs AI' : 'vs Human');
   render();
@@ -1667,7 +1708,7 @@ function selectSkill(idx) {
 function switchTurn() { state.turn = state.turn === 'D' ? 'L' : 'D'; }
 
 function triggerAIIfNeeded() {
-  if (state && state.aiMode && state.turn === 'L' && !state.busy && !state.ended) {
+  if (state && state.aiMode && state.turn === state.aiColor && !state.busy && !state.ended) {
     setTimeout(aiThink, 1500);
   }
 }
@@ -1740,9 +1781,9 @@ const SKILL_BONUS = {
 };
 
 function aiThink() {
-  if (!state || state.busy || state.ended || state.turn !== 'L' || !state.aiMode) return;
+  if (!state || state.busy || state.ended || state.turn !== state.aiColor || !state.aiMode) return;
 
-  const me = 'L';
+  const me = state.aiColor;
   const validMoves = getValidMoves(me);
 
   // No moves → pass
@@ -1931,6 +1972,18 @@ function renderBoard() {
   const showAll = document.getElementById('show-all').checked;
   const targetMode = state.pendingAction !== null;
 
+  // 逆襲発動可能バナー：自分の逆襲石が3方囲まれている時に表示
+  const banner = document.getElementById('gyakushu-banner');
+  if (banner) {
+    const hasReadyGyakushu = !state.busy && !state.ended && (() => {
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        if (isGyakushuEligible(r, c, state.turn)) return true;
+      }
+      return false;
+    })();
+    banner.classList.toggle('show', hasReadyGyakushu);
+  }
+
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
       const cell = state.board[r][c];
@@ -1961,7 +2014,7 @@ function renderBoard() {
           && !(cell.skill === 'hanten' && cell.hantenUsed);
         // 自分のものは中身まで表示、相手のものはマーカーのみ（DEBUG時は全表示）
         const showFullIcon = isActiveSkill
-          && (showAll || (state.aiMode ? cell.owner === 'D' : cell.owner === state.turn));
+          && (showAll || (state.aiMode ? cell.owner === state.playerColor : cell.owner === state.turn));
         if (showFullIcon) {
           const icon = document.createElement('img');
           const folder = cell.color === 'D' ? 'icons-black' : 'icons';
@@ -1991,7 +2044,7 @@ function renderHands() {
     const hand = document.getElementById(`hand-${player}`);
     hand.innerHTML = '';
     const isMyTurn = state.turn === player && !state.busy && !state.ended;
-    const hideContent = state.aiMode && player === 'L' && !showAll;
+    const hideContent = state.aiMode && player === state.aiColor && !showAll;
 
     const activeHand = getActiveHand(player);
 

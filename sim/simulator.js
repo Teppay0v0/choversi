@@ -121,9 +121,12 @@ function newGame(rand, opts = {}) {
       L: whiteDeck.map(s => ({ skill: s, used: false })),
     },
     handSize,
+    cascadeBonus: opts.cascadeBonus !== false, // default ON
+    rand,
     selectedSkill: -1,
     pendingAction: null,
     chainCount: 0,
+    peakChainThisMove: 0,
     triggeredThisChain: new Set(),
     nullifiedCells: new Set(),
     ended: false,
@@ -201,6 +204,44 @@ function processFlipQueue(state, initial, byColor) {
     const newFlips = flipOne(state, r, c, byColor);
     queue.push(...newFlips);
   }
+}
+
+// カムバック型カスケード：負けている時のみ発動
+function applyCascadeBonus(state, byColor, peak) {
+  if (!state.cascadeBonus) return 0;
+  // 自分の石数が相手より多ければボーナスなし（勝ってる時は不要）
+  const scores = countScores(state);
+  const myScore = byColor === 'D' ? scores.D : scores.L;
+  const oppScore = byColor === 'D' ? scores.L : scores.D;
+  if (myScore > oppScore) return 0;
+  let count = 0;
+  if (peak >= 5) count = 4;
+  else if (peak >= 4) count = 2;
+  else if (peak >= 3) count = 1;
+  if (count === 0) return 0;
+
+  const opp = byColor === 'D' ? 'L' : 'D';
+  const targets = [];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (state.board[r][c].color === opp) targets.push([r, c]);
+  }
+  if (targets.length === 0) return 0;
+
+  // RNG-based shuffle (deterministic via state.rand)
+  const shuffled = [...targets];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(state.rand() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const toConvert = shuffled.slice(0, Math.min(count, shuffled.length));
+  for (const [r, c] of toConvert) {
+    state.board[r][c].color = byColor;
+    state.board[r][c].owner = byColor;
+  }
+  state.stats.cascadeBonuses = (state.stats.cascadeBonuses || 0) + 1;
+  state.stats.cascadeStones = (state.stats.cascadeStones || 0) + toConvert.length;
+  state.stats.events.push({ type: 'cascade_bonus', peak, converted: toConvert.length, byColor });
+  return toConvert.length;
 }
 
 function flipOne(state, r, c, byColor) {
@@ -356,6 +397,11 @@ function makeMove(state, r, c, selectedSkillIdx = -1) {
 
   processFlipQueue(state, [...flips, ...extraFlips], turn);
 
+  // カスケードボーナス
+  if (state.stats.currentMoveChain >= 3) {
+    applyCascadeBonus(state, turn, state.stats.currentMoveChain);
+  }
+
   // Record chain stats
   if (state.stats.currentMoveChain > 0) {
     state.stats.chains.push(state.stats.currentMoveChain);
@@ -383,7 +429,7 @@ function execVanish(state, r, c) {
   state.stats.skillUses['shoshitsu'] = (state.stats.skillUses['shoshitsu'] || 0) + 1;
   state.stats.vanishUses[turn]++;
   state.stats.events.push({ type: 'vanish', r, c, color: turn });
-  // NOTE: game.html does NOT reset state.passes here. Faithful port.
+  state.passes = 0;  // bug fix: 行動したのでリセット
   state.stats.moves[turn]++;
   switchTurn(state);
   return { ok: true };
@@ -422,13 +468,18 @@ function fireGyakushuAt(state, r, c) {
   processFlipQueue(state, flips, turn);
   state.stats.gyakushuFires[turn]++;
 
+  // カスケードボーナス
+  if (state.stats.currentMoveChain >= 3) {
+    applyCascadeBonus(state, turn, state.stats.currentMoveChain);
+  }
+
   if (state.stats.currentMoveChain > 0) {
     state.stats.chains.push(state.stats.currentMoveChain);
     if (state.stats.currentMoveChain > state.stats.maxChain) {
       state.stats.maxChain = state.stats.currentMoveChain;
     }
   }
-  // NOTE: game.html does NOT reset state.passes here. Faithful port.
+  state.passes = 0;  // bug fix: 行動したのでリセット
   state.stats.moves[turn]++;
   switchTurn(state);
   return { ok: true };
@@ -634,6 +685,8 @@ function playGame(seed, opts = {}) {
     kyozoTriggered: state.stats.kyozoTriggered,
     handD: state.hands.D.map(h => ({ s: h.skill, used: h.used })),
     handL: state.hands.L.map(h => ({ s: h.skill, used: h.used })),
+    cascadeBonuses: state.stats.cascadeBonuses || 0,
+    cascadeStones: state.stats.cascadeStones || 0,
     errors,
   };
 }

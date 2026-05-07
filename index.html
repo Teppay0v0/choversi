@@ -88,6 +88,54 @@
     gap: 16px;
     align-items: center;
   }
+
+  /* 先手選択 */
+  .color-picker {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .color-picker .label {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    color: var(--muted);
+    margin-right: 4px;
+  }
+  .color-option {
+    cursor: pointer;
+    padding: 8px 18px;
+    border-radius: 100px;
+    background: transparent;
+    border: 1.5px solid var(--cream-deep);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    letter-spacing: 0.15em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .color-option:hover { background: var(--cream-deep); }
+  .color-option.active {
+    background: var(--dark);
+    color: var(--cream);
+    border-color: var(--dark);
+  }
+  .color-option .stone-mark {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .color-option .stone-mark.dark { background: var(--dark); }
+  .color-option .stone-mark.light { background: var(--light); border: 1px solid rgba(0,0,0,0.15); }
+  .color-option.active .stone-mark.light { border-color: rgba(255,255,255,0.4); }
   .btn {
     font-family: 'Noto Sans JP', sans-serif;
     display: inline-block;
@@ -205,10 +253,57 @@
   </div>
 
   <div class="start-buttons">
-    <a href="game.html" class="btn">はじめる</a>
+    <div class="color-picker" id="color-picker">
+      <span class="label">先手</span>
+      <div class="color-option active" data-color="D">
+        <span class="stone-mark dark"></span>
+        <span>黒</span>
+      </div>
+      <div class="color-option" data-color="L">
+        <span class="stone-mark light"></span>
+        <span>白</span>
+      </div>
+      <div class="color-option" data-color="random">
+        <span>⚄</span>
+        <span>ランダム</span>
+      </div>
+    </div>
+    <a href="#" id="start-btn" class="btn">はじめる</a>
     <a href="rules.html" class="btn secondary">ルール</a>
   </div>
 </div>
+
+<script>
+(function() {
+  const picker = document.getElementById('color-picker');
+  const startBtn = document.getElementById('start-btn');
+  let selected = 'D';
+  // localStorage で前回選択を復元
+  try {
+    const saved = localStorage.getItem('choversi.player');
+    if (saved) selected = saved;
+  } catch (e) {}
+  function updateUI() {
+    picker.querySelectorAll('.color-option').forEach(el => {
+      el.classList.toggle('active', el.dataset.color === selected);
+    });
+  }
+  picker.addEventListener('click', (e) => {
+    const opt = e.target.closest('.color-option');
+    if (!opt) return;
+    selected = opt.dataset.color;
+    try { localStorage.setItem('choversi.player', selected); } catch(e) {}
+    updateUI();
+  });
+  startBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    let actual = selected;
+    if (actual === 'random') actual = Math.random() < 0.5 ? 'D' : 'L';
+    window.location.href = `game.html?as=${actual}`;
+  });
+  updateUI();
+})();
+</script>
 
 <div class="start-footer">CHOVERSI v0.1 · PROTOTYPE</div>
 
