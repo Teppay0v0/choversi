@@ -773,17 +773,13 @@
       min-height: 0;
     }
 
-    /* Reorder: opponent → board → me */
-    /* デフォルト：プレイヤー黒 → 白(相手)が上、黒(自分)が下 */
-    #panel-L { order: 1; }
+    /* 役割ベース：AIが上、プレイヤーが下（色問わず） */
+    .panel-ai { order: 1; }
     .board-area { order: 2; }
-    #panel-D { order: 3; }
-    /* プレイヤーが白の時は順序を入れ替えて自分を下に */
-    body[data-player="L"] #panel-D { order: 1; }
-    body[data-player="L"] #panel-L { order: 3; }
+    .panel-player { order: 3; }
 
     /* ===== OPPONENT (top, single-row compact) ===== */
-    #panel-L {
+    .panel-ai {
       padding: 6px 12px;
       border-radius: 0;
       display: grid;
@@ -793,7 +789,7 @@
       flex-shrink: 0;
       min-height: 50px;
     }
-    #panel-L .player-name {
+    .panel-ai .player-name {
       grid-column: 1;
       grid-row: 1;
       margin: 0;
@@ -802,12 +798,12 @@
       align-items: baseline;
       gap: 8px;
     }
-    #panel-L .player-name .en {
+    .panel-ai .player-name .en {
       font-size: 9px;
       letter-spacing: 0.2em;
       margin-left: 0;
     }
-    #panel-L .player-score {
+    .panel-ai .player-score {
       grid-column: 1;
       grid-row: 1;
       justify-self: end;
@@ -816,9 +812,9 @@
       line-height: 1;
       align-self: center;
     }
-    #panel-L .player-score .small { font-size: 10px; }
-    #panel-L .hand-title { display: none; }
-    #panel-L .hand {
+    .panel-ai .player-score .small { font-size: 10px; }
+    .panel-ai .hand-title { display: none; }
+    .panel-ai .hand {
       grid-column: 2;
       grid-row: 1;
       flex-direction: row;
@@ -826,20 +822,20 @@
       justify-content: center;
       align-items: center;
     }
-    #panel-L .skill-card {
+    .panel-ai .skill-card {
       padding: 3px;
       flex: 0 0 auto;
       width: 32px;
       height: 32px;
       border-radius: 6px;
     }
-    #panel-L .skill-card .skill-text { display: none; }
-    #panel-L .skill-card .skill-icon {
+    .panel-ai .skill-card .skill-text { display: none; }
+    .panel-ai .skill-card .skill-icon {
       width: 100%;
       height: 100%;
     }
-    #panel-L .skill-card .tooltip { display: none; }
-    #panel-L .deck-counter {
+    .panel-ai .skill-card .tooltip { display: none; }
+    .panel-ai .deck-counter {
       grid-column: 3;
       grid-row: 1;
       margin: 0;
@@ -848,8 +844,8 @@
       align-items: center;
       justify-content: center;
     }
-    #panel-L .deck-counter .deck-label { font-size: 9px; }
-    #panel-L .deck-counter .deck-count { font-size: 13px; }
+    .panel-ai .deck-counter .deck-label { font-size: 9px; }
+    .panel-ai .deck-counter .deck-count { font-size: 13px; }
 
     /* ===== BOARD（盤面常時表示・自動サイズ） ===== */
     .board-area {
@@ -897,8 +893,8 @@
     .log { display: none; }
 
     /* アクティブパネル：ID指定優先順位を上書きして手番が見えるように */
-    #panel-D.active,
-    #panel-L.active {
+    .panel-player.active,
+    .panel-ai.active {
       background: var(--sage);
     }
     /* 「○の手番」を目立たせる */
@@ -923,7 +919,7 @@
     }
 
     /* ===== PLAYER (bottom, compact) ===== */
-    #panel-D {
+    .panel-player {
       padding: 10px 12px;
       border-radius: 0;
       background: var(--beige);
@@ -936,7 +932,7 @@
         "hand hand";
       gap: 8px;
     }
-    #panel-D .player-name {
+    .panel-player .player-name {
       grid-area: info;
       display: flex;
       align-items: baseline;
@@ -944,11 +940,11 @@
       margin-bottom: 0;
       font-size: 12px;
     }
-    #panel-D .player-name .en {
+    .panel-player .player-name .en {
       margin-left: 0;
       font-size: 9px;
     }
-    #panel-D .player-score {
+    .panel-player .player-score {
       grid-area: info;
       justify-self: end;
       font-size: 18px;
@@ -956,14 +952,16 @@
       line-height: 1;
       align-self: center;
     }
-    #panel-D .hand-title { display: none; }
-    #panel-D .hand {
+    .panel-player .hand-title { display: none; }
+    .panel-player .hand {
       grid-area: hand;
       display: grid;
-      grid-template-columns: repeat(4, 1fr); /* 黒は手札4枚 */
       gap: 5px;
     }
-    #panel-D .skill-card {
+    /* プレイヤーが黒なら4列（手札4枚）、白なら3列 */
+    body[data-player="D"] .panel-player .hand { grid-template-columns: repeat(4, 1fr); }
+    body[data-player="L"] .panel-player .hand { grid-template-columns: repeat(3, 1fr); }
+    .panel-player .skill-card {
       min-width: 0;
       flex-direction: column;
       align-items: center;
@@ -971,25 +969,25 @@
       text-align: center;
       gap: 4px;
     }
-    #panel-D .skill-card .skill-icon {
+    .panel-player .skill-card .skill-icon {
       width: 32px;
       height: 32px;
     }
-    #panel-D .skill-card .skill-text {
+    .panel-player .skill-card .skill-text {
       font-size: 10px;
     }
-    #panel-D .skill-card .skill-text {
+    .panel-player .skill-card .skill-text {
       flex-direction: column;
       align-items: center;
       gap: 1px;
       font-size: 11px;
       width: 100%;
     }
-    #panel-D .skill-card .skill-text .pt {
+    .panel-player .skill-card .skill-text .pt {
       font-size: 10px;
     }
     /* デッキカウンター：右上に小さく */
-    #panel-D .deck-counter {
+    .panel-player .deck-counter {
       grid-area: deck;
       grid-column: auto;
       margin: 0;
@@ -997,8 +995,8 @@
       gap: 6px;
       align-self: center;
     }
-    #panel-D .deck-counter .deck-label { font-size: 9px; }
-    #panel-D .deck-counter .deck-count { font-size: 13px; }
+    .panel-player .deck-counter .deck-label { font-size: 9px; }
+    .panel-player .deck-counter .deck-count { font-size: 13px; }
 
     /* ===== Tooltip on mobile: ビューポート端で切れない ===== */
     .skill-card .tooltip {
@@ -1008,27 +1006,27 @@
     }
     .skill-card .tooltip .tt-name { font-size: 16px; }
     /* 端のカードはツールチップを左/右に寄せる */
-    #panel-D .hand .skill-card:first-child .tooltip {
+    .panel-player .hand .skill-card:first-child .tooltip {
       left: 0;
       transform: translateX(0);
     }
-    #panel-D .hand .skill-card:first-child .tooltip::after {
+    .panel-player .hand .skill-card:first-child .tooltip::after {
       left: 32px;
       transform: translateX(0);
     }
-    #panel-D .hand .skill-card:last-child .tooltip {
+    .panel-player .hand .skill-card:last-child .tooltip {
       left: auto;
       right: 0;
       transform: translateX(0);
     }
-    #panel-D .hand .skill-card:last-child .tooltip::after {
+    .panel-player .hand .skill-card:last-child .tooltip::after {
       left: auto;
       right: 32px;
       transform: translateX(0);
     }
     /* hover で位置調整したのと同じ平行移動 */
-    #panel-D .hand .skill-card:first-child:hover .tooltip,
-    #panel-D .hand .skill-card:last-child:hover .tooltip {
+    .panel-player .hand .skill-card:first-child:hover .tooltip,
+    .panel-player .hand .skill-card:last-child:hover .tooltip {
       transform: translateY(-2px);
     }
 
@@ -1073,12 +1071,12 @@
      EXTRA SMALL (≤ 380px) — iPhone SE / mini など
      ========================================================== */
   @media (max-width: 380px) {
-    #panel-D .skill-card .skill-icon {
+    .panel-player .skill-card .skill-icon {
       width: 36px;
       height: 36px;
     }
-    #panel-D .skill-card .skill-text { font-size: 10px; }
-    #panel-D .player-score { font-size: 24px; }
+    .panel-player .skill-card .skill-text { font-size: 10px; }
+    .panel-player .player-score { font-size: 24px; }
     .status-text { font-size: 13px; }
   }
 </style>
@@ -1324,8 +1322,17 @@ function newGame() {
   const roleL = document.getElementById('role-L');
   if (roleD) roleD.textContent = (playerColor === 'D' ? 'YOU' : 'CPU') + ' · D';
   if (roleL) roleL.textContent = (playerColor === 'L' ? 'YOU' : 'CPU') + ' · L';
-  // パネル順序：プレイヤーを画面下に配置（モバイルCSSで参照）
+  // パネル順序＆スタイル：プレイヤーは下（パネル内のスタイルもクラスで切替）
   document.body.dataset.player = playerColor;
+  const dPanel = document.getElementById('panel-D');
+  const lPanel = document.getElementById('panel-L');
+  if (playerColor === 'D') {
+    dPanel.classList.add('panel-player');    dPanel.classList.remove('panel-ai');
+    lPanel.classList.add('panel-ai');        lPanel.classList.remove('panel-player');
+  } else {
+    dPanel.classList.add('panel-ai');        dPanel.classList.remove('panel-player');
+    lPanel.classList.add('panel-player');    lPanel.classList.remove('panel-ai');
+  }
   hideResult();
   log('NEW GAME', aiOn ? 'vs AI' : 'vs Human');
   render();
