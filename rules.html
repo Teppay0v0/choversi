@@ -142,6 +142,16 @@
     line-height: 1.7;
     color: var(--text);
   }
+  .rule-block .rule-note {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: rgba(212, 179, 106, 0.12);
+    border-left: 3px solid var(--sage);
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.7;
+    color: var(--muted);
+  }
 
   /* 異能石カード */
   .ability-grid {
@@ -278,7 +288,13 @@
     <div class="rule-title ja">手札システム</div>
     <div class="rule-desc ja">
       各プレイヤーは異能石9種を1枚ずつ持つ山札からスタート。<br>
-      手札は常時3枚。1枚使うと山札から1枚補充される。
+      <strong>黒（先手）は手札4枚／白（後手）は手札3枚</strong>。<br>
+      1枚使うと山札から1枚補充される。
+    </div>
+    <div class="rule-note ja">
+      ※ 先手の黒は連鎖が起きにくく不利になりがちなため、<br>
+      手札を1枚多く持つことで選択肢の幅を補正しています。<br>
+      （シミュレータで黒の勝率が大きく下がる傾向を確認済み）
     </div>
   </div>
 
