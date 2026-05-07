@@ -150,6 +150,35 @@
     opacity: 0.35;
     cursor: not-allowed;
   }
+  /* 発動タイミングタグ（右上の小バッジ） */
+  .skill-trigger-tag {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(58, 53, 48, 0.1);
+    color: var(--text);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .skill-trigger-tag[data-trigger="placed"]  { background: rgba(199, 123, 63, 0.22); color: #B36F35; }
+  .skill-trigger-tag[data-trigger="flipped"] { background: rgba(184, 92, 63, 0.22);  color: #A04E32; }
+  .skill-trigger-tag[data-trigger="manual"]  { background: rgba(123, 139, 149, 0.25); color: #5C6E78; }
+  .skill-trigger-tag[data-trigger="special"] { background: rgba(139, 107, 149, 0.22); color: #6E5478; }
+  /* 選択中はタグも反転 */
+  .skill-card.selected .skill-trigger-tag {
+    background: rgba(245, 232, 208, 0.25);
+    color: var(--cream);
+  }
   .skill-card.disabled {
     cursor: not-allowed;
   }
@@ -2065,8 +2094,10 @@ function renderHands() {
         `;
       } else {
         const iconSrc = `icons/${card.skill}.png`;
+        const tagText = { placed: '置', flipped: '裏', manual: '任', special: '特' }[ab.trigger] || '';
         // NOTE: pt表示はハンドシステム化で不要になったため非表示。デッキ構築復活時に戻す
         div.innerHTML = `
+          <div class="skill-trigger-tag" data-trigger="${ab.trigger}">${tagText}</div>
           <div class="skill-icon"><img src="${iconSrc}" alt=""></div>
           <div class="skill-text">
             <span>${ab.name}</span>
