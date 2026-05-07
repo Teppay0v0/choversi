@@ -636,6 +636,12 @@
     padding: 12px 18px;
   }
   .btn:hover { opacity: 0.85; }
+  .btn-disabled,
+  .btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
 
   /* ===== Result Modal ===== */
   .modal {
@@ -1066,7 +1072,7 @@
     <div class="board" id="board"></div>
     <div class="actions">
       <button class="btn" onclick="newGame()">RESET</button>
-      <button class="btn secondary" onclick="passTurn()">PASS</button>
+      <button class="btn secondary" id="pass-btn" onclick="passTurn()">PASS</button>
     </div>
     <div class="toolbar">
       <label><input type="checkbox" id="ai-mode" checked onchange="toggleAI()"> AI対戦（白＝CPU）</label>
@@ -1798,6 +1804,11 @@ function triggerAIIfNeeded() {
 
 function passTurn() {
   if (state.busy || state.ended) return;
+  // 配置可能な手がある時はパス不可
+  if (getValidMoves(state.turn).length > 0) {
+    log('パス不可', '配置可能な手があります');
+    return;
+  }
   state.passes++;
   log(`${labelOf(state.turn)} pass`);
   if (state.passes >= 2) { endGame(); return; }
@@ -2045,6 +2056,17 @@ function render() {
   renderStatus();
   renderScores();
   renderActivePanel();
+  renderPassButton();
+}
+
+function renderPassButton() {
+  const btn = document.getElementById('pass-btn');
+  if (!btn) return;
+  const canPass = !state.busy && !state.ended &&
+                  getValidMoves(state.turn).length === 0;
+  btn.disabled = !canPass;
+  btn.classList.toggle('btn-disabled', !canPass);
+  btn.title = canPass ? '' : '配置可能な手があるときはパスできません';
 }
 
 function renderBoard() {
