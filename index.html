@@ -89,70 +89,118 @@
     align-items: center;
   }
 
-  /* 先手選択 */
+  /* 先手選択（タイル型・大きめタッチターゲット） */
   .color-picker {
     display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
+    flex-direction: column;
     align-items: center;
-    flex-wrap: wrap;
-    justify-content: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    width: 100%;
+    max-width: 360px;
   }
+  .color-picker-label {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.3em;
+  }
+  .color-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: 100%;
+  }
+  .color-option {
+    cursor: pointer;
+    padding: 14px 6px 12px;
+    border-radius: 14px;
+    background: rgba(58, 53, 48, 0.05);
+    border: 2px solid transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+  @media (hover: hover) {
+    .color-option:hover {
+      background: rgba(58, 53, 48, 0.09);
+      transform: translateY(-1px);
+    }
+  }
+  .color-option.active {
+    background: rgba(212, 179, 106, 0.25);
+    border-color: var(--sage);
+  }
+  .color-option.active::after {
+    content: '✓';
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    font-size: 12px;
+    color: var(--sage-dark);
+    font-weight: 700;
+  }
+  .color-option .stone-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+  .color-option .stone-mark.dark  { background: var(--dark); }
+  .color-option .stone-mark.light {
+    background: var(--light);
+    border: 1.5px solid rgba(58, 53, 48, 0.2);
+  }
+  .color-option .stone-mark.random {
+    background: linear-gradient(135deg, var(--dark) 50%, var(--light) 50%);
+    border: 1.5px solid rgba(58, 53, 48, 0.2);
+  }
+  .color-option .name {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1;
+  }
+  .color-option .sub {
+    font-family: 'Manrope', sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    line-height: 1;
+  }
+
   /* 初心者モード */
   .beginner-toggle {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin: 0 0 18px;
+    gap: 8px;
+    margin: 4px 0 18px;
+    padding: 10px 14px;
     font-family: 'Noto Sans JP', sans-serif;
     font-size: 12px;
     color: var(--text);
     cursor: pointer;
     user-select: none;
+    background: rgba(58, 53, 48, 0.04);
+    border-radius: 100px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .beginner-toggle:has(input:checked) {
+    background: rgba(212, 179, 106, 0.22);
   }
   .beginner-toggle input[type="checkbox"] {
     width: 16px;
     height: 16px;
-    accent-color: var(--dark);
+    accent-color: var(--sage-dark);
   }
-  .color-picker .label {
-    font-family: 'Noto Sans JP', sans-serif;
-    font-size: 11px;
-    letter-spacing: 0.25em;
-    color: var(--muted);
-    margin-right: 4px;
-  }
-  .color-option {
-    cursor: pointer;
-    padding: 8px 18px;
-    border-radius: 100px;
-    background: transparent;
-    border: 1.5px solid var(--cream-deep);
-    font-family: 'Noto Sans JP', sans-serif;
-    font-size: 12px;
-    color: var(--text);
-    letter-spacing: 0.15em;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.15s;
-    user-select: none;
-  }
-  .color-option:hover { background: var(--cream-deep); }
-  .color-option.active {
-    background: var(--dark);
-    color: var(--cream);
-    border-color: var(--dark);
-  }
-  .color-option .stone-mark {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .color-option .stone-mark.dark { background: var(--dark); }
-  .color-option .stone-mark.light { background: var(--light); border: 1px solid rgba(0,0,0,0.15); }
-  .color-option.active .stone-mark.light { border-color: rgba(255,255,255,0.4); }
   .btn {
     font-family: 'Noto Sans JP', sans-serif;
     display: inline-block;
@@ -271,18 +319,23 @@
 
   <div class="start-buttons">
     <div class="color-picker" id="color-picker">
-      <span class="label">先手</span>
-      <div class="color-option active" data-color="D">
-        <span class="stone-mark dark"></span>
-        <span>黒</span>
-      </div>
-      <div class="color-option" data-color="L">
-        <span class="stone-mark light"></span>
-        <span>白</span>
-      </div>
-      <div class="color-option" data-color="random">
-        <span>⚄</span>
-        <span>ランダム</span>
+      <div class="color-picker-label">あなたの色を選ぶ</div>
+      <div class="color-options">
+        <div class="color-option active" data-color="D">
+          <div class="stone-mark dark"></div>
+          <div class="name">黒</div>
+          <div class="sub">先手</div>
+        </div>
+        <div class="color-option" data-color="L">
+          <div class="stone-mark light"></div>
+          <div class="name">白</div>
+          <div class="sub">後手</div>
+        </div>
+        <div class="color-option" data-color="random">
+          <div class="stone-mark random"></div>
+          <div class="name">おまかせ</div>
+          <div class="sub">RANDOM</div>
+        </div>
       </div>
     </div>
     <label class="beginner-toggle">
