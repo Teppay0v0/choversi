@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>ChoVersi｜超バーシ</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+<meta name="description" content="ChoVersi（超バーシ）— 連鎖の快感を、しずかに。リバーシに異能を加えた戦略ボードゲーム。">
+<meta property="og:title" content="ChoVersi｜超バーシ">
+<meta property="og:description" content="連鎖の快感を、しずかに。リバーシに異能を加えた戦略ゲーム。">
+<meta property="og:image" content="logo.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ChoVersi">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F2EBE0;
+    --cream-deep: #E8DCC4;
+    --beige: #E8DCC4;
+    --sage: #D4B36A;
+    --sage-dark: #B49858;
+    --dark: #3A3530;
+    --light: #F5E8D0;
+    --text: #4A443D;
+    --muted: #9A9085;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    height: 100dvh;
+  }
+  body {
+    font-family: 'Manrope', 'Noto Sans JP', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    font-weight: 300;
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+  }
+
+  .start {
+    min-height: 100%;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    gap: 60px;
+  }
+
+  /* ロゴ */
+  .start-logo {
+    text-align: center;
+  }
+  .start-logo img {
+    width: 320px;
+    max-width: 80vw;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+  }
+  .start-tagline {
+    margin-top: 32px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 15px;
+    color: var(--text);
+    letter-spacing: 0.3em;
+    font-weight: 400;
+  }
+  .start-tagline-en {
+    margin-top: 6px;
+    font-family: 'Manrope', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* ボタン */
+  .start-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+  }
+  .btn {
+    font-family: 'Noto Sans JP', sans-serif;
+    display: inline-block;
+    background: var(--dark);
+    color: var(--cream);
+    padding: 18px 80px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-decoration: none;
+    transition: opacity 0.2s, transform 0.2s;
+    min-width: 240px;
+    text-align: center;
+  }
+  .btn.secondary {
+    background: transparent;
+    color: var(--text);
+    padding: 16px 24px;
+  }
+  @media (hover: hover) {
+    .btn:hover {
+      opacity: 0.85;
+      transform: translateY(-1px);
+    }
+  }
+  .btn:active { transform: translateY(0); opacity: 0.9; }
+
+  /* フッター */
+  .start-footer {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.3em;
+    text-align: center;
+  }
+
+  /* 背景の微細なテクスチャ（飾り）— ゴールド系のゆっくり浮遊 */
+  .bg-decoration {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 800px;
+    height: 800px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0.18;
+    z-index: 0;
+  }
+  .bg-decoration .stone {
+    position: absolute;
+    border-radius: 50%;
+    will-change: transform;
+  }
+  .bg-decoration .s1 {
+    width: 220px; height: 220px;
+    background: #E0C679;
+    top: 8%; left: 6%;
+    animation: floatA 24s ease-in-out infinite;
+  }
+  .bg-decoration .s2 {
+    width: 300px; height: 300px;
+    background: var(--sage);
+    bottom: 10%; right: 8%;
+    animation: floatB 30s ease-in-out infinite;
+  }
+  .bg-decoration .s3 {
+    width: 140px; height: 140px;
+    background: #C9A85F;
+    top: 55%; left: 65%;
+    animation: floatC 36s ease-in-out infinite;
+  }
+  @keyframes floatA {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%      { transform: translate(40px, -30px) scale(1.05); }
+    66%      { transform: translate(-25px, 20px) scale(0.95); }
+  }
+  @keyframes floatB {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    40%      { transform: translate(-35px, 25px) scale(1.08); }
+    75%      { transform: translate(20px, -30px) scale(0.97); }
+  }
+  @keyframes floatC {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50%      { transform: translate(30px, 30px) scale(1.1); }
+  }
+
+  .start > * { position: relative; z-index: 1; }
+
+  /* モバイル */
+  @media (max-width: 720px) {
+    .start { gap: 40px; padding: 20px; }
+    .start-logo img { width: 240px; }
+    .start-tagline { font-size: 13px; }
+    .btn { padding: 16px 60px; min-width: 220px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-decoration">
+  <div class="stone s1"></div>
+  <div class="stone s2"></div>
+  <div class="stone s3"></div>
+</div>
+
+<div class="start">
+  <div class="start-logo">
+    <img src="logo.png" alt="ChoVersi｜超バーシ">
+    <div class="start-tagline">連鎖の快感を、しずかに</div>
+    <div class="start-tagline-en">THE CHAIN HYPER REVERSI</div>
+  </div>
+
+  <div class="start-buttons">
+    <a href="game.html" class="btn">はじめる</a>
+    <a href="rules.html" class="btn secondary">ルール</a>
+  </div>
+</div>
+
+<div class="start-footer">CHOVERSI v0.1 · PROTOTYPE</div>
+
+</body>
+</html>

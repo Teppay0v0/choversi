@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ChoVersi｜超バーシ アイコンシステム</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F2EBE0;
+    --beige: #E8DCC4;
+    --sage: #D4B36A;
+    --dark: #3A3530;
+    --light: #F5E8D0;
+    --text: #4A443D;
+    --muted: #9A9085;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    font-weight: 300;
+    padding: 60px 20px 100px;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+
+  h1 {
+    font-size: 36px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 60px;
+  }
+  h2 {
+    font-size: 14px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    margin-bottom: 30px;
+    margin-top: 80px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--beige);
+  }
+
+  /* ===== アイコングリッド ===== */
+  .icon-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .icon-card {
+    background: var(--beige);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+  }
+  .icon-display {
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 16px;
+  }
+  .icon-display img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .icon-name {
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+  }
+  .icon-meta {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .icon-symbol-name {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+    padding: 0 8px;
+  }
+
+  /* ===== 文脈表示（盤面風） ===== */
+  .context-board {
+    background: var(--sage);
+    padding: 32px;
+    border-radius: 16px;
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 14px;
+  }
+  .context-stone {
+    aspect-ratio: 1;
+  }
+  .context-stone img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .context-caption {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 12px;
+    letter-spacing: 0.15em;
+  }
+
+  /* ===== サイズテスト ===== */
+  .size-test {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    background: var(--beige);
+    padding: 40px;
+    border-radius: 16px;
+    justify-content: center;
+  }
+  .size-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .size-stone img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .size-stone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .size-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+  }
+  .size-200 { width: 200px; height: 200px; }
+  .size-96 { width: 96px; height: 96px; }
+  .size-48 { width: 48px; height: 48px; }
+  .size-24 { width: 24px; height: 24px; }
+
+  /* ===== 設計原則 ===== */
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .principle {
+    background: var(--beige);
+    padding: 24px;
+    border-radius: 12px;
+  }
+  .principle-num {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.3em;
+    margin-bottom: 8px;
+  }
+  .principle-title {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .principle-desc {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>超バーシ アイコン デザインシステム</h1>
+<div class="subtitle">CHO VERSI ICON DESIGN SYSTEM v1.0</div>
+
+<!-- ===== 9アイコン一覧 ===== -->
+<h2>01. 異能石 9種</h2>
+<div class="icon-grid">
+
+  <div class="icon-card">
+    <div class="icon-display"><img src="icons/kyozo.png" alt="虚像"></div>
+    <div class="icon-name">虚像</div>
+    <div class="icon-meta">ILLUSION ｜ 1pt</div>
+    <div class="icon-symbol-name">外殻＋内側のフード状<br>「外見と中身が違う」</div>
+  </div>
+
+  <div class="icon-card">
+    <div class="icon-display"><img src="icons/zoshoku.png" alt="増殖"></div>
+    <div class="icon-name">増殖</div>
+    <div class="icon-meta">MULTIPLY ｜ 1pt</div>
+    <div class="icon-symbol-name">親と子の2円<br>「分かれて増える」</div>
+  </div>
+
+  <div class="icon-card">
+    <div class="icon-display"><img src="icons/hanten.png" alt="反転"></div>
+    <div class="icon-name">反転</div>
+    <div class="icon-meta">REVERSE ｜ 1pt</div>
+    <div class="icon-symbol-name">回転矢印（リフレッシュ）<br>「裏返ってまた戻る」</div>
+  </div>
+
+  <div class="icon-card">
+    <div class="icon-display"><img src="icons/gyakushu.png" alt="逆襲"></div>
+    <div class="icon-name">逆襲</div>
+    <div class="icon-meta">COUNTER ｜ 2pt</div>
+    <div class="icon-symbol-name">中心円＋4方向の三角<br>「圧されて反撃する」</div>
+  </div>
+
+  <div class="icon-card">
+    <div class="icon-display"><img src="icons/muko.png" alt="無効"></div>
+    <div class="icon-name">無効</div>
+    <div class="icon-meta">NULLIFY ｜ 2pt</div>
+    <div class="icon-symbol-name">斜めに切断された円<br>「断ち切る」</div>
+  </div>
+
+  <div class="icon-card">
+    <div class="icon-display"><img src="icons/hogeki.png" alt="砲撃"></div>
+    <div class="icon-name">砲撃</div>
+    <div class="icon-meta">BARRAGE ｜ 3pt</div>
+    <div class="icon-symbol-name">テンプル十字（くびれた4方）<br>「鋭い四方射撃」</div>
+  </div>
+
+  <div class="icon-card">
+    <div class="icon-display"><img src="icons/bakudan.png" alt="爆弾"></div>
+    <div class="icon-name">爆弾</div>
+    <div class="icon-meta">BOMB ｜ 3pt</div>
+    <div class="icon-symbol-name">8角スパイク<br>「破裂・飛散」</div>
+  </div>
+
+  <div class="icon-card">
+    <div class="icon-display"><img src="icons/shoshitsu.png" alt="消滅"></div>
+    <div class="icon-name">消滅</div>
+    <div class="icon-meta">VANISH ｜ 3pt</div>
+    <div class="icon-symbol-name">点線の輪（ドットリング）<br>「形が消えていく」</div>
+  </div>
+
+  <div class="icon-card">
+    <div class="icon-display"><img src="icons/tanchi.png" alt="探知"></div>
+    <div class="icon-name">探知</div>
+    <div class="icon-meta">SONAR ｜ 3pt</div>
+    <div class="icon-symbol-name">レーダースイープ（同心弧＋扇）<br>「電波で見破る」</div>
+  </div>
+
+</div>
+
+<!-- ===== 文脈表示 ===== -->
+<h2>02. 盤面文脈 ｜ 9種を並べた状態</h2>
+<div class="context-board">
+  <div class="context-stone"><img src="icons/kyozo.png" alt="虚像"></div>
+  <div class="context-stone"><img src="icons/zoshoku.png" alt="増殖"></div>
+  <div class="context-stone"><img src="icons/hanten.png" alt="反転"></div>
+  <div class="context-stone"><img src="icons/gyakushu.png" alt="逆襲"></div>
+  <div class="context-stone"><img src="icons/muko.png" alt="無効"></div>
+  <div class="context-stone"><img src="icons/hogeki.png" alt="砲撃"></div>
+  <div class="context-stone"><img src="icons/bakudan.png" alt="爆弾"></div>
+  <div class="context-stone"><img src="icons/shoshitsu.png" alt="消滅"></div>
+  <div class="context-stone"><img src="icons/tanchi.png" alt="探知"></div>
+</div>
+<div class="context-caption">ハニーゴールド盤上での見え方</div>
+
+<!-- ===== サイズテスト ===== -->
+<h2>03. サイズテスト ｜ 爆弾</h2>
+<div class="size-test">
+  <div class="size-item">
+    <div class="size-stone size-200"><img src="icons/bakudan.png" alt=""></div>
+    <div class="size-label">200px</div>
+  </div>
+  <div class="size-item">
+    <div class="size-stone size-96"><img src="icons/bakudan.png" alt=""></div>
+    <div class="size-label">96px ｜ 盤面サイズ</div>
+  </div>
+  <div class="size-item">
+    <div class="size-stone size-48"><img src="icons/bakudan.png" alt=""></div>
+    <div class="size-label">48px ｜ 手札</div>
+  </div>
+  <div class="size-item">
+    <div class="size-stone size-24"><img src="icons/bakudan.png" alt=""></div>
+    <div class="size-label">24px</div>
+  </div>
+</div>
+
+<!-- ===== 設計原則 ===== -->
+<h2>04. 設計原則</h2>
+<div class="principles">
+  <div class="principle">
+    <div class="principle-num">01</div>
+    <div class="principle-title">普遍的なピクトグラム</div>
+    <div class="principle-desc">文化を超えて認識できる視覚記号。説明不要のシンボル。</div>
+  </div>
+  <div class="principle">
+    <div class="principle-num">02</div>
+    <div class="principle-title">円形バウンディング</div>
+    <div class="principle-desc">全アイコンが円の中に収まり、盤面の石に乗せても崩れない。</div>
+  </div>
+  <div class="principle">
+    <div class="principle-num">03</div>
+    <div class="principle-title">アースカラー</div>
+    <div class="principle-desc">9種すべて落ち着いたトーン。場面で浮かない世界観。</div>
+  </div>
+  <div class="principle">
+    <div class="principle-num">04</div>
+    <div class="principle-title">アウトラインなし</div>
+    <div class="principle-desc">ベタ塗りのみ。線は使わず、形は色面で表現。</div>
+  </div>
+  <div class="principle">
+    <div class="principle-num">05</div>
+    <div class="principle-title">形状の多様性</div>
+    <div class="principle-desc">円・三角・楔・星・ドット・三日月・アーク。9種で重複しない形状言語。</div>
+  </div>
+  <div class="principle">
+    <div class="principle-num">06</div>
+    <div class="principle-title">小サイズ耐性</div>
+    <div class="principle-desc">24px以下でもシルエットで認識できる強い輪郭設計。</div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

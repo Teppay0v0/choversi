@@ -1,0 +1,2129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>ChoVersi｜超バーシ</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+<meta property="og:title" content="ChoVersi｜超バーシ">
+<meta property="og:description" content="連鎖の快感を、しずかに。リバーシに異能を加えた戦略ゲーム。">
+<meta property="og:image" content="logo.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F2EBE0;
+    --cream-deep: #E8DCC4;
+    --beige: #E8DCC4;
+    --sage: #D4B36A;
+    --sage-dark: #B49858;
+    --dark: #3A3530;
+    --light: #F5E8D0;
+    --text: #4A443D;
+    --muted: #9A9085;
+    --warn: #B85C3F;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', 'Noto Sans JP', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    font-weight: 300;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .ja { font-family: 'Noto Sans JP', sans-serif; }
+
+  /* ===== Header ===== */
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  header img { width: 180px; height: auto; }
+
+  /* ===== Layout ===== */
+  .game {
+    display: grid;
+    grid-template-columns: 220px 1fr 220px;
+    gap: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  /* ===== Player Panel ===== */
+  .player-panel {
+    background: var(--beige);
+    padding: 20px 18px;
+    border-radius: 12px;
+    transition: background 0.3s;
+  }
+  .player-panel.active { background: var(--sage); }
+  /* アクティブパネル内のmuted文字を読みやすく */
+  .player-panel.active .player-name .en,
+  .player-panel.active .player-score .small,
+  .player-panel.active .hand-title,
+  .player-panel.active .skill-card .pt,
+  .player-panel.active .deck-counter .deck-label {
+    color: rgba(58, 53, 48, 0.65);
+  }
+  .player-panel.active .deck-counter {
+    background: rgba(58, 53, 48, 0.1);
+  }
+  .player-panel.active .deck-counter .deck-count {
+    color: var(--text);
+  }
+  .player-name {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .player-name .en {
+    font-family: 'Manrope', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    margin-left: 8px;
+    text-transform: uppercase;
+  }
+  .player-score {
+    font-size: 44px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .player-score .small {
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+  .player-pt-budget {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    margin-bottom: 18px;
+  }
+  .hand-title {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .hand { display: flex; flex-direction: column; gap: 6px; }
+  .skill-card {
+    background: var(--cream);
+    padding: 8px 10px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+    position: relative;
+  }
+  /* hover はマウスデバイスのみ */
+  @media (hover: hover) {
+    .skill-card:not(.disabled):not(.selected):hover {
+      transform: translateY(-1px);
+      background: #fff;
+    }
+  }
+  .skill-card.selected {
+    background: var(--dark);
+    color: var(--cream);
+    box-shadow: 0 0 0 3px rgba(58, 53, 48, 0.18), 0 4px 14px rgba(0,0,0,0.18);
+    transform: translateY(-2px);
+  }
+  .skill-card.used {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .skill-card.disabled {
+    cursor: not-allowed;
+  }
+  .skill-card .skill-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .skill-card .skill-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .skill-card .skill-text {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .skill-card .pt {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 500;
+    letter-spacing: 0.1em;
+  }
+  .skill-card.selected .pt { color: var(--cream-deep); }
+
+  /* Tooltip */
+  .skill-card .tooltip {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--dark);
+    color: var(--cream);
+    padding: 14px 16px;
+    border-radius: 10px;
+    width: 220px;
+    z-index: 80;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    text-align: left;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+  }
+  .skill-card:hover .tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-2px);
+  }
+  .skill-card .tooltip .tt-name {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .skill-card .tooltip .tt-en {
+    font-family: 'Manrope', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: rgba(242, 235, 224, 0.55);
+    margin-bottom: 10px;
+  }
+  .skill-card .tooltip .tt-trigger {
+    font-size: 11px;
+    color: var(--cream-deep);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed rgba(242, 235, 224, 0.2);
+  }
+  .skill-card .tooltip .tt-desc {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--cream);
+  }
+  .skill-card .tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--dark);
+  }
+
+  .deck-counter {
+    margin-top: 14px;
+    padding: 8px 12px;
+    background: rgba(58, 53, 48, 0.06);
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Manrope', sans-serif;
+  }
+  .deck-counter .deck-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.3em;
+    font-weight: 500;
+  }
+  .deck-counter .deck-count {
+    font-size: 16px;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* ===== Board Area ===== */
+  .board-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 14px;
+    min-height: 32px;
+  }
+  .status-text {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .chain-indicator {
+    background: var(--dark);
+    color: var(--cream);
+    padding: 6px 14px;
+    border-radius: 14px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s;
+  }
+  .chain-indicator.active {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    background: var(--sage);
+    padding: 12px;
+    border-radius: 16px;
+    aspect-ratio: 1;
+    width: 100%;
+    max-width: 560px;
+    position: relative;
+  }
+  .cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+  }
+  .cell.alt { background: rgba(0,0,0,0.04); }
+  .cell.placeable::after {
+    content: "";
+    width: 18%;
+    height: 18%;
+    border-radius: 50%;
+    background: rgba(58, 53, 48, 0.18);
+    transition: all 0.2s;
+  }
+  .cell.placeable:hover::after {
+    width: 30%;
+    height: 30%;
+    background: rgba(58, 53, 48, 0.32);
+  }
+  .cell.target-mode {
+    background: rgba(184, 92, 63, 0.2);
+  }
+  /* スキル影響プレビュー */
+  .cell.preview {
+    background: rgba(199, 123, 63, 0.28) !important;
+  }
+  .cell.preview-muko {
+    background: rgba(123, 139, 149, 0.35) !important;
+  }
+  .cell.preview-tanchi {
+    background: rgba(201, 162, 63, 0.32) !important;
+  }
+  .cell.preview-zoshoku {
+    background: rgba(168, 184, 154, 0.4) !important;
+  }
+  .cell.preview-bakudan {
+    background: rgba(139, 58, 46, 0.32) !important;
+  }
+  .cell.preview-gyakushu {
+    background: rgba(184, 92, 63, 0.35) !important;
+  }
+  .stone {
+    width: 78%;
+    height: 78%;
+    border-radius: 50%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.18s;
+  }
+  .stone.dark { background: var(--dark); }
+  .stone.light { background: var(--light); }
+  /* 逆襲発動可能：パルス光 */
+  .stone.gyakushu-ready {
+    animation: gyakushuPulse 1.4s ease-in-out infinite;
+    cursor: pointer;
+  }
+  @keyframes gyakushuPulse {
+    0%, 100% {
+      box-shadow: 0 0 14px 2px rgba(184, 92, 63, 0.55);
+      transform: scale(1);
+    }
+    50% {
+      box-shadow: 0 0 28px 6px rgba(184, 92, 63, 0.95);
+      transform: scale(1.04);
+    }
+  }
+  .stone.placing {
+    animation: placeIn 0.3s ease-out;
+  }
+  @keyframes placeIn {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+  }
+  .stone.flipping {
+    animation: flip 0.3s ease-in-out;
+  }
+  @keyframes flip {
+    0% { transform: scaleX(1); }
+    50% { transform: scaleX(0.1); }
+    100% { transform: scaleX(1); }
+  }
+  .stone-icon {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    border-radius: 50%;
+  }
+  /* 異能石マーカー：相手から見て「何かある」だけ伝える */
+  .stone-mystery {
+    position: absolute;
+    width: 28%;
+    height: 28%;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .stone.dark .stone-mystery {
+    background: rgba(245, 232, 208, 0.5);
+  }
+  .stone.light .stone-mystery {
+    background: rgba(58, 53, 48, 0.35);
+  }
+  .effect-glow {
+    position: absolute;
+    width: 220%;
+    height: 220%;
+    border-radius: 50%;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 5;
+    animation: glowPulse 0.8s ease-out;
+  }
+  .effect-glow.bakudan {
+    background: radial-gradient(circle, #8B3A2E 0%, #C77B3F 30%, transparent 65%);
+  }
+  .effect-glow.tanchi {
+    background: radial-gradient(circle, #C9A23F 0%, transparent 65%);
+  }
+  .effect-glow.hogeki {
+    background: radial-gradient(circle, #C77B3F 0%, transparent 65%);
+  }
+  .effect-glow.gyakushu {
+    background: radial-gradient(circle, #B85C3F 0%, transparent 65%);
+  }
+  .effect-glow.kyozo, .effect-glow.hanten {
+    background: radial-gradient(circle, rgba(255,255,255,0.7) 0%, transparent 60%);
+  }
+  .effect-glow.zoshoku {
+    background: radial-gradient(circle, #D4B36A 0%, transparent 65%);
+  }
+  .effect-glow.muko {
+    background: radial-gradient(circle, #7B8B95 0%, transparent 65%);
+  }
+  .effect-glow.shoshitsu {
+    background: radial-gradient(circle, #8B6B95 0%, transparent 65%);
+  }
+  @keyframes glowPulse {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+    40% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+  }
+
+  /* ===== Skill Burst (大演出) ===== */
+  .skill-burst {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.6);
+    pointer-events: none;
+    z-index: 200;
+    opacity: 0;
+    text-align: center;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .skill-burst.show {
+    animation: burstIn 1.0s cubic-bezier(0.2, 0.8, 0.4, 1.0) forwards;
+  }
+  @keyframes burstIn {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.0); }
+  }
+  .skill-burst-name {
+    font-size: 96px;
+    font-weight: 700;
+    color: var(--dark);
+    letter-spacing: 0.1em;
+    text-shadow: 0 4px 24px rgba(0,0,0,0.15);
+  }
+  .skill-burst-en {
+    font-family: 'Manrope', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.5em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  /* Chain big display */
+  .chain-burst {
+    position: fixed;
+    top: 18%;
+    left: 50%;
+    transform: translateX(-50%) scale(0.6);
+    pointer-events: none;
+    z-index: 199;
+    opacity: 0;
+    background: var(--dark);
+    color: var(--cream);
+    padding: 18px 48px;
+    border-radius: 100px;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    font-family: 'Manrope', sans-serif;
+  }
+  .chain-burst.show {
+    animation: chainPop 1.0s cubic-bezier(0.34, 1.56, 0.64, 1.0) forwards;
+  }
+  @keyframes chainPop {
+    0% { opacity: 0; transform: translateX(-50%) scale(0.6); }
+    20% { opacity: 1; transform: translateX(-50%) scale(1.15); }
+    60% { opacity: 1; transform: translateX(-50%) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) scale(1); }
+  }
+
+  /* Screen shake */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(7px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(4px); }
+  }
+  .game.shake { animation: shake 0.5s; }
+
+  /* Bigger ability glow */
+  .effect-glow.big {
+    width: 400%;
+    height: 400%;
+    animation: glowPulseBig 1.0s ease-out;
+  }
+  @keyframes glowPulseBig {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+    35% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.8); }
+  }
+
+  /* ===== Bottom Actions ===== */
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+  }
+  .btn {
+    background: var(--dark);
+    color: var(--cream);
+    border: none;
+    padding: 12px 28px;
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    font-family: 'Manrope', 'Noto Sans JP', sans-serif;
+  }
+  .btn.secondary {
+    background: transparent;
+    color: var(--text);
+    padding: 12px 18px;
+  }
+  .btn:hover { opacity: 0.85; }
+
+  /* ===== Result Modal ===== */
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(58, 53, 48, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(6px);
+  }
+  .modal.hidden { display: none; }
+  .modal-content {
+    background: var(--beige);
+    padding: 60px 80px;
+    border-radius: 20px;
+    text-align: center;
+    max-width: 480px;
+  }
+  .modal-label {
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .modal-title {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 48px;
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 32px;
+  }
+  .modal-scores {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 28px;
+    margin-bottom: 32px;
+  }
+  .modal-score-item { text-align: center; }
+  .modal-score-num {
+    font-size: 44px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .modal-score-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    margin-top: 4px;
+  }
+  .modal-divider {
+    font-size: 28px;
+    color: var(--muted);
+  }
+
+  /* ===== Log ===== */
+  .log {
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--beige);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.6;
+    margin-top: 18px;
+    color: var(--muted);
+    font-family: 'Manrope', monospace;
+  }
+  .log-entry {
+    padding: 2px 0;
+    border-bottom: 1px dashed transparent;
+  }
+  .log-entry.chain { color: var(--warn); font-weight: 500; }
+  .log-entry.skill { color: var(--text); }
+
+  /* ===== Settings/Debug ===== */
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 20px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .toolbar label {
+    cursor: pointer;
+    letter-spacing: 0.1em;
+  }
+
+  /* ==========================================================
+     MOBILE LAYOUT (≤ 720px)
+     盤面常時表示＝最優先。他はコンパクト化。
+     ========================================================== */
+  @media (max-width: 720px) {
+    body {
+      padding: 0;
+      margin: 0;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+    }
+    header {
+      margin-bottom: 0;
+      padding: 6px 14px;
+      background: var(--cream-deep);
+      flex-shrink: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 40px;
+    }
+    header img { height: 28px; width: auto; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+    .game {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 0;
+      max-width: 100%;
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* Reorder: opponent → board → me */
+    #panel-L { order: 1; }
+    .board-area { order: 2; }
+    #panel-D { order: 3; }
+
+    /* ===== OPPONENT (top, single-row compact) ===== */
+    #panel-L {
+      padding: 6px 12px;
+      border-radius: 0;
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+      flex-shrink: 0;
+      min-height: 50px;
+    }
+    #panel-L .player-name {
+      grid-column: 1;
+      grid-row: 1;
+      margin: 0;
+      font-size: 12px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    #panel-L .player-name .en {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      margin-left: 0;
+    }
+    #panel-L .player-score {
+      grid-column: 1;
+      grid-row: 1;
+      justify-self: end;
+      font-size: 18px;
+      margin-bottom: 0;
+      line-height: 1;
+      align-self: center;
+    }
+    #panel-L .player-score .small { font-size: 10px; }
+    #panel-L .hand-title { display: none; }
+    #panel-L .hand {
+      grid-column: 2;
+      grid-row: 1;
+      flex-direction: row;
+      gap: 4px;
+      justify-content: center;
+      align-items: center;
+    }
+    #panel-L .skill-card {
+      padding: 3px;
+      flex: 0 0 auto;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+    }
+    #panel-L .skill-card .skill-text { display: none; }
+    #panel-L .skill-card .skill-icon {
+      width: 100%;
+      height: 100%;
+    }
+    #panel-L .skill-card .tooltip { display: none; }
+    #panel-L .deck-counter {
+      grid-column: 3;
+      grid-row: 1;
+      margin: 0;
+      gap: 6px;
+      padding: 4px 8px;
+      align-items: center;
+      justify-content: center;
+    }
+    #panel-L .deck-counter .deck-label { font-size: 9px; }
+    #panel-L .deck-counter .deck-count { font-size: 13px; }
+
+    /* ===== BOARD（盤面常時表示・自動サイズ） ===== */
+    .board-area {
+      padding: 6px 8px;
+      flex: 1;
+      min-height: 0;
+      align-items: center;
+      justify-content: flex-start;
+      overflow: hidden;
+    }
+    .status-bar {
+      margin-bottom: 4px;
+      padding: 0 4px;
+      min-height: 22px;
+      width: 100%;
+    }
+    .status-text { font-size: 13px; }
+    .chain-indicator {
+      font-size: 10px;
+      padding: 4px 10px;
+    }
+    .board {
+      max-width: min(100%, calc(100dvh - 290px));
+      max-height: calc(100dvh - 290px);
+      width: 100%;
+      padding: 6px;
+      border-radius: 8px;
+      flex-shrink: 1;
+    }
+
+    /* モバイルではアクションボタン・ログ・ツールバー非表示 */
+    .actions { display: none; }
+    .toolbar { display: none; }
+    .log { display: none; }
+
+    /* ===== PLAYER (bottom, compact) ===== */
+    #panel-D {
+      padding: 10px 12px;
+      border-radius: 0;
+      background: var(--beige);
+      flex-shrink: 0;
+      border-top: 1px solid var(--cream-deep);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        "info deck"
+        "hand hand";
+      gap: 8px;
+    }
+    #panel-D .player-name {
+      grid-area: info;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 0;
+      font-size: 12px;
+    }
+    #panel-D .player-name .en {
+      margin-left: 0;
+      font-size: 9px;
+    }
+    #panel-D .player-score {
+      grid-area: info;
+      justify-self: end;
+      font-size: 18px;
+      margin-bottom: 0;
+      line-height: 1;
+      align-self: center;
+    }
+    #panel-D .hand-title { display: none; }
+    #panel-D .hand {
+      grid-area: hand;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    #panel-D .skill-card {
+      min-width: 0;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 4px;
+      text-align: center;
+      gap: 4px;
+    }
+    #panel-D .skill-card .skill-icon {
+      width: 38px;
+      height: 38px;
+    }
+    #panel-D .skill-card .skill-text {
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      font-size: 11px;
+      width: 100%;
+    }
+    #panel-D .skill-card .skill-text .pt {
+      font-size: 10px;
+    }
+    /* デッキカウンター：右上に小さく */
+    #panel-D .deck-counter {
+      grid-area: deck;
+      grid-column: auto;
+      margin: 0;
+      padding: 4px 10px;
+      gap: 6px;
+      align-self: center;
+    }
+    #panel-D .deck-counter .deck-label { font-size: 9px; }
+    #panel-D .deck-counter .deck-count { font-size: 13px; }
+
+    /* ===== Tooltip on mobile: ビューポート端で切れない ===== */
+    .skill-card .tooltip {
+      width: min(260px, calc(100vw - 32px));
+      font-size: 11px;
+      padding: 12px 14px;
+    }
+    .skill-card .tooltip .tt-name { font-size: 16px; }
+    /* 端のカードはツールチップを左/右に寄せる */
+    #panel-D .hand .skill-card:first-child .tooltip {
+      left: 0;
+      transform: translateX(0);
+    }
+    #panel-D .hand .skill-card:first-child .tooltip::after {
+      left: 32px;
+      transform: translateX(0);
+    }
+    #panel-D .hand .skill-card:last-child .tooltip {
+      left: auto;
+      right: 0;
+      transform: translateX(0);
+    }
+    #panel-D .hand .skill-card:last-child .tooltip::after {
+      left: auto;
+      right: 32px;
+      transform: translateX(0);
+    }
+    /* hover で位置調整したのと同じ平行移動 */
+    #panel-D .hand .skill-card:first-child:hover .tooltip,
+    #panel-D .hand .skill-card:last-child:hover .tooltip {
+      transform: translateY(-2px);
+    }
+
+    /* Burst effects */
+    .skill-burst-name { font-size: 56px; }
+    .skill-burst-en { font-size: 12px; }
+    .chain-burst {
+      font-size: 22px;
+      padding: 10px 24px;
+      top: 12%;
+    }
+
+    /* Result modal */
+    .modal-content {
+      padding: 50px 28px;
+      max-width: 320px;
+      margin: 0 16px;
+    }
+    .modal-title { font-size: 40px; margin-bottom: 24px; }
+    .modal-scores { gap: 22px; margin-bottom: 32px; }
+    .modal-score-num { font-size: 36px; }
+
+    /* Disable hover lifts (no hover on touch) */
+    .skill-card:not(.disabled):hover {
+      transform: none;
+      background: var(--cream);
+    }
+    .cell.placeable:hover::after {
+      width: 18%;
+      height: 18%;
+      background: rgba(58, 53, 48, 0.18);
+    }
+
+    /* Larger placeable indicator on mobile (better visibility) */
+    .cell.placeable::after {
+      width: 22%;
+      height: 22%;
+    }
+  }
+
+  /* ==========================================================
+     EXTRA SMALL (≤ 380px) — iPhone SE / mini など
+     ========================================================== */
+  @media (max-width: 380px) {
+    #panel-D .skill-card .skill-icon {
+      width: 36px;
+      height: 36px;
+    }
+    #panel-D .skill-card .skill-text { font-size: 10px; }
+    #panel-D .player-score { font-size: 24px; }
+    .status-text { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="index.html" style="display: inline-block;">
+    <picture>
+      <source media="(max-width: 720px)" srcset="logo-mobile.png">
+      <img src="logo.png" alt="ChoVersi｜超バーシ">
+    </picture>
+  </a>
+</header>
+
+<div class="game">
+  <!-- Black player (top in code, but laid out left) -->
+  <div class="player-panel" id="panel-D">
+    <div class="player-name">黒 <span class="en">YOU · D</span></div>
+    <div class="player-score"><span id="score-D">2</span><span class="small">/64</span></div>
+    <div class="hand-title">手札 ｜ HAND</div>
+    <div class="hand" id="hand-D"></div>
+  </div>
+
+  <!-- Center: board -->
+  <div class="board-area">
+    <div class="status-bar">
+      <div class="status-text" id="status">黒の手番</div>
+      <div class="chain-indicator" id="chain-indicator">CHAIN ×2</div>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="actions">
+      <button class="btn" onclick="newGame()">RESET</button>
+      <button class="btn secondary" onclick="passTurn()">PASS</button>
+    </div>
+    <div class="toolbar">
+      <label><input type="checkbox" id="ai-mode" checked onchange="toggleAI()"> AI対戦（白＝CPU）</label>
+      <label style="display:none"><input type="checkbox" id="show-all" onchange="render()"> 全異能石を表示（DEBUG）</label>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <!-- White player (right) -->
+  <div class="player-panel" id="panel-L">
+    <div class="player-name">白 <span class="en">CPU · L</span></div>
+    <div class="player-score"><span id="score-L">2</span><span class="small">/64</span></div>
+    <div class="hand-title">手札 ｜ HAND</div>
+    <div class="hand" id="hand-L"></div>
+  </div>
+</div>
+
+<!-- 大演出オーバーレイ -->
+<div class="skill-burst" id="skill-burst">
+  <div class="skill-burst-name" id="burst-name">爆弾</div>
+  <div class="skill-burst-en" id="burst-en">BOMB</div>
+</div>
+<div class="chain-burst" id="chain-burst">CHAIN ×2</div>
+
+<!-- Result modal -->
+<div class="modal hidden" id="result-modal">
+  <div class="modal-content">
+    <div class="modal-label">RESULT</div>
+    <div class="modal-title" id="modal-winner">黒の勝利</div>
+    <div class="modal-scores">
+      <div class="modal-score-item">
+        <div class="modal-score-num" id="modal-score-D">42</div>
+        <div class="modal-score-label">黒</div>
+      </div>
+      <div class="modal-divider">—</div>
+      <div class="modal-score-item">
+        <div class="modal-score-num" id="modal-score-L">22</div>
+        <div class="modal-score-label">白</div>
+      </div>
+    </div>
+    <button class="btn" onclick="newGame()">もう一度</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ============================================================
+//  CONSTANTS
+// ============================================================
+const N = 8;
+const DIRS_8 = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const DIRS_4 = [[-1,0],[1,0],[0,-1],[0,1]];
+
+const ABILITIES = {
+  kyozo:    { name: '虚像',  en: 'ILLUSION',  cost: 1, trigger: 'flipped',
+              triggerLabel: '裏返された時',
+              desc: '効果なし。相手にプレッシャーを与える囮。' },
+  zoshoku:  { name: '増殖',  en: 'MULTIPLY',  cost: 1, trigger: 'placed',
+              triggerLabel: '置いた時',
+              desc: '隣接空マスにランダムに通常石を生成。' },
+  hanten:   { name: '反転',  en: 'REVERSE',   cost: 1, trigger: 'flipped',
+              triggerLabel: '裏返された時（1回）',
+              desc: '一瞬裏返って即元に戻る。挟みは成立。' },
+  gyakushu: { name: '逆襲',  en: 'COUNTER',   cost: 2, trigger: 'manual',
+              triggerLabel: '配置 → 3方囲まれた時に発動可',
+              desc: '盤面に置いてセット。3方が石/壁で囲まれた逆襲石をクリックで発動 → 8方向2マス先まで全反転。' },
+  muko:     { name: '無効',  en: 'NULLIFY',   cost: 2, trigger: 'placed',
+              triggerLabel: '置いた時',
+              desc: '隣接する相手の異能石を全て無効化。' },
+  hogeki:   { name: '砲撃',  en: 'BARRAGE',   cost: 3, trigger: 'placed',
+              triggerLabel: '置いた時',
+              desc: '縦横3マス先までの石を全て反転。' },
+  bakudan:  { name: '爆弾',  en: 'BOMB',      cost: 3, trigger: 'flipped',
+              triggerLabel: '裏返された時',
+              desc: '周囲8マスを全て反転、自分は消滅。' },
+  shoshitsu:{ name: '消滅',  en: 'VANISH',    cost: 3, trigger: 'special',
+              triggerLabel: '配置時（対象選択）',
+              desc: '相手の石1枚を消去。自分は置かれず即ターン終了。' },
+  tanchi:   { name: '探知',  en: 'SONAR',     cost: 3, trigger: 'placed',
+              triggerLabel: '置いた時',
+              desc: '縦横3マス先まで反転＋異能石を見破り＋強制発動。' },
+};
+
+// Deck templates（ハンドシステム：全9種を1枚ずつ・両者対称）
+const FULL_DECK = [
+  'kyozo', 'zoshoku', 'hanten',
+  'gyakushu', 'muko',
+  'hogeki', 'bakudan', 'shoshitsu', 'tanchi',
+];
+const DECK_TEMPLATES = {
+  D: [...FULL_DECK],  // 9枚（全種1枚ずつ）
+  L: [...FULL_DECK],  // 9枚（全種1枚ずつ）
+};
+const HAND_SIZE = 3;
+
+function shuffleDeck(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// 自分の有効ハンド（最初の3枚の未使用カード）を取得
+function getActiveHand(player) {
+  return state.hands[player]
+    .map((c, i) => ({ ...c, idx: i }))
+    .filter(c => !c.used)
+    .slice(0, HAND_SIZE);
+}
+function getDeckRemaining(player) {
+  const unused = state.hands[player].filter(c => !c.used).length;
+  return Math.max(0, unused - HAND_SIZE);
+}
+
+// ============================================================
+//  STATE
+// ============================================================
+let state;
+
+function newGame() {
+  const aiOn = document.getElementById('ai-mode')?.checked ?? true;
+  state = {
+    board: createBoard(),
+    turn: 'D',
+    hands: {
+      D: shuffleDeck(DECK_TEMPLATES.D).map(s => ({ skill: s, used: false })),
+      L: shuffleDeck(DECK_TEMPLATES.L).map(s => ({ skill: s, used: false }))
+    },
+    selectedSkill: -1,
+    pendingAction: null,            // 'vanish-target' | 'muko-target' | null
+    chainCount: 0,
+    triggeredThisChain: new Set(),
+    nullifiedCells: new Set(),      // "r,c" of nullified skill stones
+    busy: false,
+    ended: false,
+    passes: 0,
+    log: [],
+    aiMode: aiOn,
+  };
+  hideResult();
+  log('NEW GAME', aiOn ? 'vs AI' : 'vs Human');
+  render();
+  triggerAIIfNeeded();
+}
+
+function toggleAI() {
+  state.aiMode = document.getElementById('ai-mode').checked;
+  log('AI mode', state.aiMode ? 'ON' : 'OFF');
+  triggerAIIfNeeded();
+}
+
+function createBoard() {
+  const b = [];
+  for (let r = 0; r < N; r++) {
+    const row = [];
+    for (let c = 0; c < N; c++) row.push(emptyCell());
+    b.push(row);
+  }
+  b[3][3] = stone('L'); b[3][4] = stone('D');
+  b[4][3] = stone('D'); b[4][4] = stone('L');
+  return b;
+}
+function emptyCell() { return { color: null, skill: null, owner: null, hantenUsed: false }; }
+function stone(color, skill = null, owner = null) {
+  return { color, skill, owner: owner || color, hantenUsed: false };
+}
+
+// ============================================================
+//  REVERSI LOGIC
+// ============================================================
+function getFlipsForPlace(r, c, color) {
+  const flips = [];
+  const opp = color === 'D' ? 'L' : 'D';
+  for (const [dr, dc] of DIRS_8) {
+    const line = [];
+    let nr = r + dr, nc = c + dc;
+    while (inb(nr, nc)) {
+      const cell = state.board[nr][nc];
+      if (cell.color === opp) line.push([nr, nc]);
+      else if (cell.color === color) { flips.push(...line); break; }
+      else break;
+      nr += dr; nc += dc;
+    }
+  }
+  return flips;
+}
+
+function getValidMoves(color) {
+  const moves = [];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (state.board[r][c].color === null) {
+      if (getFlipsForPlace(r, c, color).length > 0) moves.push([r, c]);
+    }
+  }
+  return moves;
+}
+
+function inb(r, c) { return r >= 0 && r < N && c >= 0 && c < N; }
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ============================================================
+//  PREVIEW (ホバーで影響範囲を可視化)
+// ============================================================
+function getAffectedCells(r, c, skill, color) {
+  const cells = new Set();
+  const opp = color === 'D' ? 'L' : 'D';
+  switch (skill) {
+    case 'hogeki':
+    case 'tanchi': {
+      // 縦横3マス先までの石
+      for (const [dr, dc] of DIRS_4) {
+        for (let k = 1; k <= 3; k++) {
+          const nr = r + dr*k, nc = c + dc*k;
+          if (!inb(nr, nc)) break;
+          if (state.board[nr][nc].color !== null) cells.add(`${nr},${nc}`);
+        }
+      }
+      break;
+    }
+    case 'muko': {
+      // 隣接の相手異能石
+      for (const [dr, dc] of DIRS_8) {
+        const nr = r + dr, nc = c + dc;
+        if (!inb(nr, nc)) continue;
+        const cell = state.board[nr][nc];
+        if (cell.color === opp && cell.skill && !state.nullifiedCells.has(`${nr},${nc}`)) {
+          cells.add(`${nr},${nc}`);
+        }
+      }
+      break;
+    }
+    case 'zoshoku': {
+      // 隣接空マス候補（ランダムで1つ選ばれる）
+      for (const [dr, dc] of DIRS_8) {
+        const nr = r + dr, nc = c + dc;
+        if (inb(nr, nc) && state.board[nr][nc].color === null) {
+          cells.add(`${nr},${nc}`);
+        }
+      }
+      break;
+    }
+    case 'gyakushu': {
+      // 8方向 × 2マス先までの石
+      for (const [dr, dc] of DIRS_8) {
+        for (let k = 1; k <= 2; k++) {
+          const nr = r + dr*k, nc = c + dc*k;
+          if (!inb(nr, nc)) break;
+          if (state.board[nr][nc].color !== null) cells.add(`${nr},${nc}`);
+        }
+      }
+      break;
+    }
+    // 虚像・反転・爆弾は配置時に発動しないのでプレビューなし
+  }
+  return cells;
+}
+
+function showPreview(r, c) {
+  if (state.busy || state.ended) return;
+
+  // 1) 配置済みの発動可能逆襲をホバー時：影響範囲プレビュー
+  if (state.selectedSkill < 0 && isGyakushuEligible(r, c, state.turn)) {
+    const affected = getAffectedCells(r, c, 'gyakushu', state.turn);
+    document.querySelectorAll('.cell').forEach((el, i) => {
+      const row = Math.floor(i / N);
+      const col = i % N;
+      if (affected.has(`${row},${col}`)) {
+        el.classList.add('preview', 'preview-gyakushu');
+      }
+    });
+    return;
+  }
+
+  // 2) 異能石を選択中：配置時の影響範囲プレビュー
+  if (state.selectedSkill < 0) return;
+  const card = state.hands[state.turn][state.selectedSkill];
+  if (!card || card.used) return;
+  const skill = card.skill;
+  // 消滅は別フロー、逆襲は配置時には何も起きない
+  if (skill === 'shoshitsu' || skill === 'gyakushu') return;
+  // 配置可能マスのみプレビュー表示
+  if (state.board[r][c].color !== null) return;
+  if (getFlipsForPlace(r, c, state.turn).length === 0) return;
+
+  const affected = getAffectedCells(r, c, skill, state.turn);
+  if (affected.size === 0) return;
+  const previewClass = `preview-${skill}`;
+  document.querySelectorAll('.cell').forEach((el, i) => {
+    const row = Math.floor(i / N);
+    const col = i % N;
+    if (affected.has(`${row},${col}`)) {
+      el.classList.add('preview', previewClass);
+    }
+  });
+}
+
+function clearPreview() {
+  document.querySelectorAll('.cell').forEach(el => {
+    el.classList.remove('preview',
+      'preview-hogeki','preview-tanchi','preview-muko',
+      'preview-zoshoku','preview-bakudan','preview-gyakushu');
+  });
+}
+
+// ============================================================
+//  MOVE EXECUTION
+// ============================================================
+async function makeMove(r, c) {
+  if (state.busy || state.ended) return;
+
+  // Pending special action
+  if (state.pendingAction === 'vanish-target') return execVanish(r, c);
+
+  // 配置済みの逆襲石（3方囲まれ）クリック → 発動
+  if (state.selectedSkill < 0 && isGyakushuEligible(r, c, state.turn)) {
+    return fireGyakushuAt(r, c);
+  }
+
+  // Standard placement check
+  const flips = getFlipsForPlace(r, c, state.turn);
+  if (flips.length === 0) return;
+
+  state.busy = true;
+  state.chainCount = 0;
+  state.triggeredThisChain.clear();
+
+  // Place stone (with optional skill)
+  let placedSkill = null;
+  if (state.selectedSkill >= 0) {
+    placedSkill = state.hands[state.turn][state.selectedSkill].skill;
+    state.hands[state.turn][state.selectedSkill].used = true;
+    log(`${labelOf(state.turn)} placed`, `${ABILITIES[placedSkill].name} @ ${coord(r, c)}`, 'skill');
+  } else {
+    log(`${labelOf(state.turn)} placed`, `通常石 @ ${coord(r, c)}`);
+  }
+  state.board[r][c] = stone(state.turn, placedSkill, state.turn);
+  render();
+  await delay(420);
+
+  // Trigger placed-skill ability (returns extra cells to flip)
+  let extraFlips = [];
+  if (placedSkill && ABILITIES[placedSkill].trigger === 'placed') {
+    state.chainCount++;
+    updateChainUI();
+    extraFlips = await fireAbility(r, c, placedSkill, state.turn);
+  }
+
+  // Process all flips (Reversi + ability)
+  await processFlipQueue([...flips, ...extraFlips], state.turn);
+
+  // Cleanup
+  state.selectedSkill = -1;
+  state.busy = false;
+  state.passes = 0;
+  state.chainCount = 0;
+  updateChainUI();
+  switchTurn();
+  render();
+  checkPassOrEnd();
+  triggerAIIfNeeded();
+}
+
+async function processFlipQueue(initial, byColor) {
+  const queue = [...initial];
+  while (queue.length > 0) {
+    const [r, c] = queue.shift();
+    const newFlips = await flipOne(r, c, byColor);
+    queue.push(...newFlips);
+  }
+}
+
+async function flipOne(r, c, byColor) {
+  const cell = state.board[r][c];
+  if (!cell || cell.color === null) return [];
+
+  const key = `${r},${c}`;
+
+  // 反転: skip flip once, fire visual flash
+  if (cell.skill === 'hanten' && !cell.hantenUsed && !state.nullifiedCells.has(key)) {
+    cell.hantenUsed = true;
+    state.triggeredThisChain.add(key);
+    state.chainCount++;
+    updateChainUI();
+    showFlash(r, c, 'hanten');
+    log('反転 発動', `@ ${coord(r,c)}（裏返らず元のまま）`, 'skill');
+    await delay(280);
+    return [];
+  }
+
+  // Invert color
+  const before = cell.color;
+  cell.color = cell.color === 'D' ? 'L' : 'D';
+  showCellFlip(r, c);
+  await delay(280);
+
+  // Fire flipped-trigger ability
+  if (cell.skill && !state.triggeredThisChain.has(key) && !state.nullifiedCells.has(key)) {
+    const ab = ABILITIES[cell.skill];
+    if (ab && ab.trigger === 'flipped') {
+      state.triggeredThisChain.add(key);
+      state.chainCount++;
+      updateChainUI();
+      log(`${ab.name} 発動`, `@ ${coord(r,c)}`, 'chain');
+      const out = await fireAbility(r, c, cell.skill, cell.color);
+      return out;
+    }
+  }
+  return [];
+}
+
+// ============================================================
+//  ABILITIES
+// ============================================================
+async function fireAbility(r, c, skillKey, byColor) {
+  // 大演出：技名をドーンと表示
+  showSkillBurst(skillKey);
+  // 該当マスに大きめのグロー
+  showAbilityGlow(r, c, skillKey, true);
+  // 爆弾は画面シェイク
+  if (skillKey === 'bakudan') {
+    document.querySelector('.game').classList.add('shake');
+    setTimeout(() => document.querySelector('.game').classList.remove('shake'), 500);
+  }
+  await delay(700);
+
+  switch (skillKey) {
+    case 'kyozo':
+      // 1回発動後は通常石化（マーカー消える、再発動なし）
+      state.nullifiedCells.add(`${r},${c}`);
+      return [];
+
+    case 'zoshoku': {
+      const empties = [];
+      for (const [dr, dc] of DIRS_8) {
+        const nr = r + dr, nc = c + dc;
+        if (inb(nr, nc) && state.board[nr][nc].color === null) empties.push([nr, nc]);
+      }
+      if (empties.length > 0) {
+        const [tr, tc] = empties[Math.floor(Math.random() * empties.length)];
+        state.board[tr][tc] = stone(byColor, null, byColor);
+        showCellFlip(tr, tc);
+        log('増殖', `→ ${coord(tr, tc)}に石生成`, 'skill');
+      }
+      return [];
+    }
+
+    case 'hogeki': {
+      const out = [];
+      for (const [dr, dc] of DIRS_4) {
+        for (let k = 1; k <= 3; k++) {
+          const nr = r + dr*k, nc = c + dc*k;
+          if (!inb(nr, nc)) break;
+          if (state.board[nr][nc].color !== null) out.push([nr, nc]);
+        }
+      }
+      log('砲撃', `${out.length}枚を反転`, 'skill');
+      return out;
+    }
+
+    case 'tanchi': {
+      const out = [];
+      for (const [dr, dc] of DIRS_4) {
+        for (let k = 1; k <= 3; k++) {
+          const nr = r + dr*k, nc = c + dc*k;
+          if (!inb(nr, nc)) break;
+          if (state.board[nr][nc].color !== null) out.push([nr, nc]);
+        }
+      }
+      log('探知', `${out.length}枚を反転＆異能石を見破り`, 'skill');
+      return out;
+    }
+
+    case 'bakudan': {
+      const out = [];
+      for (const [dr, dc] of DIRS_8) {
+        const nr = r + dr, nc = c + dc;
+        if (inb(nr, nc) && state.board[nr][nc].color !== null) out.push([nr, nc]);
+      }
+      // self destruct
+      state.board[r][c] = emptyCell();
+      log('爆弾', `${out.length}枚を反転、自己消滅`, 'chain');
+      return out;
+    }
+
+    case 'gyakushu': {
+      const out = [];
+      for (const [dr, dc] of DIRS_8) {
+        for (let k = 1; k <= 2; k++) {
+          const nr = r + dr*k, nc = c + dc*k;
+          if (!inb(nr, nc)) break;
+          if (state.board[nr][nc].color !== null) out.push([nr, nc]);
+        }
+      }
+      log('逆襲', `${out.length}枚を反転`, 'skill');
+      return out;
+    }
+
+    case 'muko': {
+      // 隣接の相手異能石をすべて無効化
+      const opp = byColor === 'D' ? 'L' : 'D';
+      let count = 0;
+      for (const [dr, dc] of DIRS_8) {
+        const nr = r + dr, nc = c + dc;
+        if (!inb(nr, nc)) continue;
+        const tCell = state.board[nr][nc];
+        if (tCell.color === opp && tCell.skill && !state.nullifiedCells.has(`${nr},${nc}`)) {
+          state.nullifiedCells.add(`${nr},${nc}`);
+          count++;
+        }
+      }
+      log('無効', `隣接の相手異能石 ${count}枚を無効化`, 'skill');
+      return [];
+    }
+
+    default:
+      return [];
+  }
+}
+
+function execVanish(r, c) {
+  const cell = state.board[r][c];
+  const turn = state.turn;
+  if (!cell || cell.color === null || cell.color === turn) {
+    state.pendingAction = null;
+    state.selectedSkill = -1;
+    log('消滅', `→ 取消`);
+    render();
+    return;
+  }
+  // Mark used
+  const idx = state.hands[turn].findIndex(s => s.skill === 'shoshitsu' && !s.used);
+  if (idx >= 0) state.hands[turn][idx].used = true;
+  state.board[r][c] = emptyCell();
+  log('消滅', `${coord(r, c)}の石を消去`, 'skill');
+  state.pendingAction = null;
+  state.selectedSkill = -1;
+  switchTurn();
+  render();
+  checkPassOrEnd();
+  triggerAIIfNeeded();
+}
+
+function execMuko(r, c) {
+  const cell = state.board[r][c];
+  const turn = state.turn;
+  if (!cell || cell.color === null || cell.color === turn || !cell.skill) {
+    state.pendingAction = null;
+    state.selectedSkill = -1;
+    log('無効', `→ 取消（対象不正）`);
+    render();
+    return;
+  }
+  const idx = state.hands[turn].findIndex(s => s.skill === 'muko' && !s.used);
+  if (idx >= 0) state.hands[turn][idx].used = true;
+  state.nullifiedCells.add(`${r},${c}`);
+  log('無効', `${coord(r, c)}の${ABILITIES[cell.skill].name}を無効化`, 'skill');
+  cell.skill = null;
+  state.pendingAction = null;
+  state.selectedSkill = -1;
+  render();
+  // Note: muko doesn't end turn; player must still place a stone
+  // If AI used muko, continue AI thinking for placement
+  triggerAIIfNeeded();
+}
+
+// ============================================================
+//  逆襲 (placed → click eligible stone to fire)
+// ============================================================
+function isGyakushuEligible(r, c, color) {
+  const cell = state.board[r][c];
+  if (!cell || cell.skill !== 'gyakushu' || cell.owner !== color) return false;
+  if (state.nullifiedCells.has(`${r},${c}`)) return false;
+  let blocked = 0;
+  for (const [dr, dc] of DIRS_4) {
+    const nr = r + dr, nc = c + dc;
+    if (!inb(nr, nc) || state.board[nr][nc].color !== null) blocked++;
+  }
+  return blocked >= 3;
+}
+
+function findEligibleGyakushu(color) {
+  const list = [];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (isGyakushuEligible(r, c, color)) list.push([r, c]);
+  }
+  return list;
+}
+
+async function fireGyakushuAt(r, c) {
+  if (state.busy || state.ended) return;
+  if (!isGyakushuEligible(r, c, state.turn)) return;
+
+  state.busy = true;
+  state.chainCount = 1;
+  state.triggeredThisChain.clear();
+  updateChainUI();
+
+  const flips = await fireAbility(r, c, 'gyakushu', state.turn);
+  state.nullifiedCells.add(`${r},${c}`); // mark as used
+  await processFlipQueue(flips, state.turn);
+
+  state.busy = false;
+  state.chainCount = 0;
+  state.selectedSkill = -1;
+  updateChainUI();
+  switchTurn();
+  render();
+  checkPassOrEnd();
+  triggerAIIfNeeded();
+}
+
+// ============================================================
+//  TURN MANAGEMENT
+// ============================================================
+function selectSkill(idx) {
+  if (state.busy || state.ended) return;
+  const turn = state.turn;
+  const card = state.hands[turn][idx];
+  if (!card || card.used) return;
+
+  // Toggle selection
+  if (state.selectedSkill === idx) {
+    state.selectedSkill = -1;
+    state.pendingAction = null;
+    render();
+    return;
+  }
+
+  state.selectedSkill = idx;
+  // Setup pending action for special-target abilities
+  if (card.skill === 'shoshitsu') {
+    state.pendingAction = 'vanish-target';
+  } else {
+    state.pendingAction = null;
+  }
+  render();
+}
+
+function switchTurn() { state.turn = state.turn === 'D' ? 'L' : 'D'; }
+
+function triggerAIIfNeeded() {
+  if (state && state.aiMode && state.turn === 'L' && !state.busy && !state.ended) {
+    setTimeout(aiThink, 1500);
+  }
+}
+
+function passTurn() {
+  if (state.busy || state.ended) return;
+  state.passes++;
+  log(`${labelOf(state.turn)} pass`);
+  if (state.passes >= 2) { endGame(); return; }
+  state.selectedSkill = -1;
+  state.pendingAction = null;
+  switchTurn();
+  render();
+  checkPassOrEnd();
+  triggerAIIfNeeded();
+}
+
+function checkPassOrEnd() {
+  // Both players can no longer move
+  const moves = getValidMoves(state.turn);
+  if (moves.length === 0) {
+    setTimeout(() => {
+      if (state.ended) return;
+      state.passes++;
+      log(`${labelOf(state.turn)} auto-pass（置ける場所なし）`);
+      if (state.passes >= 2) { endGame(); return; }
+      switchTurn();
+      render();
+      checkPassOrEnd();
+      triggerAIIfNeeded();
+    }, 700);
+  }
+}
+
+function endGame() {
+  state.ended = true;
+  const s = countScores();
+  const winner = s.D > s.L ? '黒の勝利' : s.L > s.D ? '白の勝利' : '引き分け';
+  log('GAME END', `黒 ${s.D} - 白 ${s.L} ｜ ${winner}`);
+  showResult(s, winner);
+}
+
+function countScores() {
+  let D = 0, L = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (state.board[r][c].color === 'D') D++;
+    else if (state.board[r][c].color === 'L') L++;
+  }
+  return { D, L };
+}
+
+// ============================================================
+//  AI OPPONENT
+// ============================================================
+const POS_WEIGHTS = [
+  [120,-20, 20,  5,  5, 20,-20,120],
+  [-20,-40, -5, -5, -5, -5,-40,-20],
+  [ 20, -5, 15,  3,  3, 15, -5, 20],
+  [  5, -5,  3,  3,  3,  3, -5,  5],
+  [  5, -5,  3,  3,  3,  3, -5,  5],
+  [ 20, -5, 15,  3,  3, 15, -5, 20],
+  [-20,-40, -5, -5, -5, -5,-40,-20],
+  [120,-20, 20,  5,  5, 20,-20,120],
+];
+
+const SKILL_BONUS = {
+  bakudan: 12, tanchi: 14, hogeki: 11,
+  gyakushu: 10, shoshitsu: 8, muko: 6,
+  zoshoku: 3, hanten: 2, kyozo: 1,
+};
+
+function aiThink() {
+  if (!state || state.busy || state.ended || state.turn !== 'L' || !state.aiMode) return;
+
+  const me = 'L';
+  const validMoves = getValidMoves(me);
+
+  // No moves → pass
+  if (validMoves.length === 0) {
+    setTimeout(passTurn, 600);
+    return;
+  }
+
+  const activeHand = getActiveHand(me);
+
+  // 1) Consider 消滅 (vanish) — erase a high-value enemy stone
+  const shoshitsuCard = activeHand.find(c => c.skill === 'shoshitsu');
+  const shoshitsuIdx = shoshitsuCard ? shoshitsuCard.idx : -1;
+  if (shoshitsuIdx >= 0) {
+    const target = pickVanishTarget(me);
+    if (target && target.score > 30) {
+      log('AI', `消滅 → ${coord(target.r, target.c)}`);
+      state.selectedSkill = shoshitsuIdx;
+      state.pendingAction = 'vanish-target';
+      setTimeout(() => execVanish(target.r, target.c), 800);
+      return;
+    }
+  }
+
+  // 2) 盤上の逆襲石が発動可能なら、まずそれを撃つ
+  const ready = findEligibleGyakushu(me);
+  if (ready.length > 0) {
+    const [gr, gc] = ready[0];
+    log('AI', `逆襲 発動 @ ${coord(gr, gc)}`);
+    setTimeout(() => fireGyakushuAt(gr, gc), 800);
+    return;
+  }
+
+  // 4) Pick best placement (with or without skill)
+  let best = { score: -Infinity, move: null, skillIdx: -1 };
+
+  for (const [r, c] of validMoves) {
+    // Without skill
+    const baseScore = scoreMove(r, c, me);
+    if (baseScore > best.score) best = { score: baseScore, move: [r, c], skillIdx: -1 };
+
+    // With each card currently in hand
+    activeHand.forEach((card) => {
+      const skill = card.skill;
+      if (skill === 'shoshitsu') return; // 消滅は別フロー
+      const sScore = baseScore + (SKILL_BONUS[skill] || 0) + skillContextBonus(r, c, skill, me);
+      if (sScore > best.score) best = { score: sScore, move: [r, c], skillIdx: card.idx };
+    });
+  }
+
+  if (best.move) {
+    if (best.skillIdx >= 0) {
+      state.selectedSkill = best.skillIdx;
+      log('AI', `${ABILITIES[state.hands[me][best.skillIdx].skill].name} → ${coord(best.move[0], best.move[1])}`);
+    } else {
+      log('AI', `通常石 → ${coord(best.move[0], best.move[1])}`);
+    }
+    setTimeout(() => makeMove(best.move[0], best.move[1]), 800);
+  }
+}
+
+function scoreMove(r, c, color) {
+  const flips = getFlipsForPlace(r, c, color);
+  return POS_WEIGHTS[r][c] + flips.length * 2;
+}
+
+function skillContextBonus(r, c, skill, color) {
+  // Heuristic bonuses based on placement context
+  if (skill === 'bakudan') {
+    // Better when surrounded by enemies (likely to be flipped)
+    let enemies = 0;
+    for (const [dr, dc] of DIRS_8) {
+      const nr = r + dr, nc = c + dc;
+      if (inb(nr, nc) && state.board[nr][nc].color && state.board[nr][nc].color !== color) enemies++;
+    }
+    return enemies * 1.5;
+  }
+  if (skill === 'tanchi' || skill === 'hogeki') {
+    // Count how many stones in 4 directions × 3 squares (would be flipped)
+    let count = 0;
+    for (const [dr, dc] of DIRS_4) {
+      for (let k = 1; k <= 3; k++) {
+        const nr = r + dr*k, nc = c + dc*k;
+        if (!inb(nr, nc)) break;
+        if (state.board[nr][nc].color && state.board[nr][nc].color !== color) count++;
+      }
+    }
+    return count * 1.2;
+  }
+  if (skill === 'kyozo' || skill === 'hanten') {
+    // Defensive — better in less critical positions, slight bonus
+    return 0;
+  }
+  if (skill === 'zoshoku') {
+    // Better near edges/corners
+    return (r === 0 || r === 7 || c === 0 || c === 7) ? 5 : 0;
+  }
+  if (skill === 'muko') {
+    // Bonus for adjacent enemy 異能石
+    const opp = color === 'D' ? 'L' : 'D';
+    let count = 0;
+    for (const [dr, dc] of DIRS_8) {
+      const nr = r + dr, nc = c + dc;
+      if (!inb(nr, nc)) continue;
+      const cell = state.board[nr][nc];
+      if (cell.color === opp && cell.skill && !state.nullifiedCells.has(`${nr},${nc}`)) count++;
+    }
+    return count * 12;
+  }
+  if (skill === 'gyakushu') {
+    // 既に何方向か囲まれている場所＝発動条件に近い → ボーナス
+    let blocked = 0;
+    for (const [dr, dc] of DIRS_4) {
+      const nr = r + dr, nc = c + dc;
+      if (!inb(nr, nc) || state.board[nr][nc].color !== null) blocked++;
+    }
+    return blocked * 4; // 既に2方塞がっていれば+8
+  }
+  return 0;
+}
+
+function pickVanishTarget(me) {
+  // Find best enemy stone to erase
+  let best = null;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const cell = state.board[r][c];
+    if (cell.color && cell.color !== me) {
+      let score = POS_WEIGHTS[r][c];
+      // Prefer revealed enemy skill stones (DEBUG mode)
+      if (cell.skill && (document.getElementById('show-all').checked || cell.owner === me)) {
+        score += (ABILITIES[cell.skill].cost * 8);
+      }
+      if (!best || score > best.score) best = { r, c, score };
+    }
+  }
+  return best;
+}
+
+function pickMukoTarget(me) {
+  // Nullify visible enemy skill (only works if skill visible — DEBUG mode)
+  const showAll = document.getElementById('show-all').checked;
+  if (!showAll) return null; // AI can't see hidden skills
+  let best = null;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const cell = state.board[r][c];
+    if (cell.color && cell.color !== me && cell.skill && !state.nullifiedCells.has(`${r},${c}`)) {
+      const score = ABILITIES[cell.skill].cost;
+      if (score >= 2 && (!best || score > best.score)) best = { r, c, score };
+    }
+  }
+  return best;
+}
+
+function countEligibleGyakushu(me) {
+  let n = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const cell = state.board[r][c];
+    if (cell.skill === 'gyakushu' && cell.owner === me) {
+      let blocked = 0;
+      for (const [dr, dc] of DIRS_4) {
+        const nr = r + dr, nc = c + dc;
+        if (!inb(nr, nc) || state.board[nr][nc].color !== null) blocked++;
+      }
+      if (blocked >= 3) n++;
+    }
+  }
+  return n;
+}
+
+// ============================================================
+//  RENDER
+// ============================================================
+function render() {
+  renderBoard();
+  renderHands();
+  renderStatus();
+  renderScores();
+  renderActivePanel();
+}
+
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  const validMoves = (state.busy || state.pendingAction) ? new Set()
+    : new Set(getValidMoves(state.turn).map(([r,c]) => `${r},${c}`));
+  const showAll = document.getElementById('show-all').checked;
+  const targetMode = state.pendingAction !== null;
+
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const cell = state.board[r][c];
+      const div = document.createElement('div');
+      div.className = 'cell' + ((r + c) % 2 ? ' alt' : '');
+
+      if (validMoves.has(`${r},${c}`)) div.classList.add('placeable');
+
+      // For target-selection mode, highlight valid targets
+      if (targetMode && cell.color !== null) {
+        const turn = state.turn;
+        const isEnemy = cell.color !== turn;
+        if (state.pendingAction === 'vanish-target' && isEnemy) {
+          div.classList.add('target-mode');
+        }
+      }
+
+      if (cell.color) {
+        const stoneEl = document.createElement('div');
+        stoneEl.className = 'stone ' + (cell.color === 'D' ? 'dark' : 'light');
+        // 自分の逆襲が発動可能ならグロー
+        if (isGyakushuEligible(r, c, state.turn) && !state.busy) {
+          stoneEl.classList.add('gyakushu-ready');
+        }
+        // 「アクティブな異能石」=効果未消費＆無効化されていない
+        const isActiveSkill = cell.skill
+          && !state.nullifiedCells.has(`${r},${c}`)
+          && !(cell.skill === 'hanten' && cell.hantenUsed);
+        // 自分のものは中身まで表示、相手のものはマーカーのみ（DEBUG時は全表示）
+        const showFullIcon = isActiveSkill
+          && (showAll || (state.aiMode ? cell.owner === 'D' : cell.owner === state.turn));
+        if (showFullIcon) {
+          const icon = document.createElement('img');
+          const folder = cell.color === 'D' ? 'icons-black' : 'icons';
+          icon.src = `${folder}/${cell.skill}.png`;
+          icon.className = 'stone-icon';
+          stoneEl.appendChild(icon);
+        } else if (isActiveSkill) {
+          // 「何かある」だけ伝えるマーカードット
+          const marker = document.createElement('div');
+          marker.className = 'stone-mystery';
+          stoneEl.appendChild(marker);
+        }
+        div.appendChild(stoneEl);
+      }
+
+      div.onclick = () => makeMove(r, c);
+      div.onmouseenter = () => showPreview(r, c);
+      div.onmouseleave = () => clearPreview();
+      board.appendChild(div);
+    }
+  }
+}
+
+function renderHands() {
+  const showAll = document.getElementById('show-all').checked;
+  for (const player of ['D', 'L']) {
+    const hand = document.getElementById(`hand-${player}`);
+    hand.innerHTML = '';
+    const isMyTurn = state.turn === player && !state.busy && !state.ended;
+    const hideContent = state.aiMode && player === 'L' && !showAll;
+
+    const activeHand = getActiveHand(player);
+
+    activeHand.forEach((card) => {
+      const ab = ABILITIES[card.skill];
+      const div = document.createElement('div');
+      div.className = 'skill-card';
+      if (state.turn === player && state.selectedSkill === card.idx) div.classList.add('selected');
+      if (!isMyTurn || hideContent) div.classList.add('disabled');
+
+      if (hideContent) {
+        div.innerHTML = `
+          <div class="skill-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--muted);font-weight:500;">?</div>
+          <div class="skill-text">
+            <span style="color:var(--muted);">？？</span>
+            <span class="pt">?pt</span>
+          </div>
+        `;
+      } else {
+        const iconSrc = `icons/${card.skill}.png`;
+        // NOTE: pt表示はハンドシステム化で不要になったため非表示。デッキ構築復活時に戻す
+        div.innerHTML = `
+          <div class="skill-icon"><img src="${iconSrc}" alt=""></div>
+          <div class="skill-text">
+            <span>${ab.name}</span>
+          </div>
+          <div class="tooltip">
+            <div class="tt-name">${ab.name}</div>
+            <div class="tt-en">${ab.en}</div>
+            <div class="tt-trigger">${ab.triggerLabel}</div>
+            <div class="tt-desc">${ab.desc}</div>
+          </div>
+        `;
+        if (isMyTurn) {
+          div.onclick = () => selectSkill(card.idx);
+        }
+      }
+
+      hand.appendChild(div);
+    });
+
+    // 山札残数の表示
+    const deckRemaining = getDeckRemaining(player);
+    const deckEl = document.createElement('div');
+    deckEl.className = 'deck-counter';
+    deckEl.innerHTML = `<span class="deck-label">DECK</span><span class="deck-count">${deckRemaining}</span>`;
+    hand.appendChild(deckEl);
+  }
+}
+
+function renderStatus() {
+  const el = document.getElementById('status');
+  if (state.ended) { el.textContent = 'ゲーム終了'; return; }
+  if (state.pendingAction === 'vanish-target') { el.textContent = '消滅：消す相手の石を選択'; return; }
+  el.textContent = `${labelOf(state.turn)}の手番`;
+}
+
+function renderScores() {
+  const s = countScores();
+  document.getElementById('score-D').textContent = s.D;
+  document.getElementById('score-L').textContent = s.L;
+}
+
+function renderActivePanel() {
+  document.getElementById('panel-D').classList.toggle('active', state.turn === 'D');
+  document.getElementById('panel-L').classList.toggle('active', state.turn === 'L');
+}
+
+function updateChainUI() {
+  const el = document.getElementById('chain-indicator');
+  if (state.chainCount >= 2) {
+    el.textContent = `CHAIN ×${state.chainCount}`;
+    el.classList.add('active');
+    showChainBurst(state.chainCount);
+  } else {
+    el.classList.remove('active');
+  }
+}
+
+function showCellFlip(r, c) {
+  const cells = document.querySelectorAll('.cell');
+  const idx = r * N + c;
+  if (cells[idx]) {
+    const stone = cells[idx].querySelector('.stone');
+    if (stone) {
+      stone.classList.remove('flipping');
+      void stone.offsetWidth;
+      stone.classList.add('flipping');
+    }
+  }
+  setTimeout(() => render(), 30);
+}
+
+function showFlash(r, c, type) {
+  showAbilityGlow(r, c, type);
+}
+
+function showAbilityGlow(r, c, type, big = false) {
+  const cells = document.querySelectorAll('.cell');
+  const idx = r * N + c;
+  if (!cells[idx]) return;
+  const glow = document.createElement('div');
+  glow.className = 'effect-glow ' + type + (big ? ' big' : '');
+  cells[idx].appendChild(glow);
+  setTimeout(() => glow.remove(), big ? 1100 : 800);
+}
+
+function showSkillBurst(skillKey) {
+  const ab = ABILITIES[skillKey];
+  if (!ab) return;
+  const el = document.getElementById('skill-burst');
+  document.getElementById('burst-name').textContent = ab.name;
+  document.getElementById('burst-en').textContent =
+    {kyozo:'ILLUSION', zoshoku:'MULTIPLY', hanten:'REVERSE', gyakushu:'COUNTER',
+     muko:'NULLIFY', hogeki:'BARRAGE', bakudan:'BOMB', shoshitsu:'VANISH', tanchi:'SONAR'}[skillKey] || '';
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
+function showChainBurst(n) {
+  const el = document.getElementById('chain-burst');
+  el.textContent = `CHAIN ×${n}`;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
+function showResult(s, winner) {
+  document.getElementById('modal-winner').textContent = winner;
+  document.getElementById('modal-score-D').textContent = s.D;
+  document.getElementById('modal-score-L').textContent = s.L;
+  document.getElementById('result-modal').classList.remove('hidden');
+}
+
+function hideResult() {
+  document.getElementById('result-modal').classList.add('hidden');
+}
+
+// ============================================================
+//  HELPERS
+// ============================================================
+function labelOf(c) { return c === 'D' ? '黒' : '白'; }
+function coord(r, c) { return `${String.fromCharCode(97 + c)}${r + 1}`; }
+function log(label, detail = '', cls = '') {
+  state.log.push({ label, detail, cls });
+  const el = document.getElementById('log');
+  if (state.log.length > 80) state.log.shift();
+  el.innerHTML = state.log.slice(-30).map(l =>
+    `<div class="log-entry ${l.cls}"><strong>${l.label}</strong>${l.detail ? ' · ' + l.detail : ''}</div>`
+  ).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+newGame();
+</script>
+</body>
+</html>

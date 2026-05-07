@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>ルール｜ChoVersi</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+<meta property="og:title" content="ルール｜ChoVersi">
+<meta property="og:description" content="ChoVersi（超バーシ）のルール。9種の異能で連鎖を起こすリバーシ。">
+<meta property="og:image" content="logo.png">
+<meta property="og:type" content="website">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F2EBE0;
+    --cream-deep: #E8DCC4;
+    --beige: #E8DCC4;
+    --sage: #D4B36A;
+    --dark: #3A3530;
+    --light: #F5E8D0;
+    --text: #4A443D;
+    --muted: #9A9085;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', 'Noto Sans JP', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    font-weight: 300;
+    line-height: 1.7;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ja { font-family: 'Noto Sans JP', sans-serif; }
+
+  /* Header */
+  .rules-header {
+    position: sticky;
+    top: 0;
+    background: var(--cream);
+    border-bottom: 1px solid var(--cream-deep);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 50;
+  }
+  .back-btn {
+    font-family: 'Manrope', sans-serif;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-decoration: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .header-title {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+  }
+  .header-title-en {
+    font-family: 'Manrope', sans-serif;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+  .header-spacer { width: 60px; }
+
+  /* Content */
+  .rules-content {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+  }
+
+  h2 {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    margin: 36px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--cream-deep);
+  }
+  h2:first-of-type { margin-top: 16px; }
+  .h2-num {
+    color: var(--muted);
+    font-family: 'Manrope', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    margin-right: 10px;
+  }
+  h3 {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    margin: 20px 0 8px;
+    color: var(--text);
+  }
+  p { font-size: 13px; margin-bottom: 8px; }
+  p.lead {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    line-height: 1.9;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+  ul { padding-left: 20px; font-size: 13px; }
+  ul li { margin-bottom: 4px; }
+
+  /* 基本ルールブロック */
+  .rule-block {
+    background: var(--beige);
+    padding: 16px 18px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  .rule-block .rule-num {
+    font-family: 'Manrope', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+  }
+  .rule-block .rule-title {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 4px 0 8px;
+  }
+  .rule-block .rule-desc {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  /* 異能石カード */
+  .ability-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+  }
+  @media (max-width: 480px) {
+    .ability-grid { grid-template-columns: 1fr; }
+  }
+  .ability-card {
+    background: var(--beige);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .ability-icon {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+  }
+  .ability-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .ability-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .ability-name {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+  .ability-en {
+    font-family: 'Manrope', sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .ability-trigger {
+    font-size: 11px;
+    color: var(--text);
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px dashed rgba(58,53,48,0.15);
+  }
+  .ability-desc {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  /* CTA */
+  .cta-section {
+    text-align: center;
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px dashed var(--cream-deep);
+  }
+  .cta-btn {
+    font-family: 'Noto Sans JP', sans-serif;
+    display: inline-block;
+    background: var(--dark);
+    color: var(--cream);
+    padding: 18px 56px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+  @media (hover: hover) {
+    .cta-btn:hover { opacity: 0.85; }
+  }
+
+  /* タグ */
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    margin-right: 4px;
+  }
+  .tag.placed { background: rgba(199, 123, 63, 0.15); color: #C77B3F; }
+  .tag.flipped { background: rgba(184, 92, 63, 0.15); color: #B85C3F; }
+  .tag.manual { background: rgba(123, 139, 149, 0.15); color: #7B8B95; }
+  .tag.special { background: rgba(139, 107, 149, 0.15); color: #8B6B95; }
+</style>
+</head>
+<body>
+
+<header class="rules-header">
+  <a href="index.html" class="back-btn">← BACK</a>
+  <div style="text-align: center;">
+    <div class="header-title ja">ルール</div>
+    <div class="header-title-en">RULES</div>
+  </div>
+  <div class="header-spacer"></div>
+</header>
+
+<main class="rules-content">
+
+  <p class="lead ja">
+    ChoVersi（超バーシ）は、リバーシに「異能石」を加えた連鎖戦略ゲームです。
+    通常の挟みに加え、9種類の異能を読み合いながら盤面を支配します。
+  </p>
+
+  <!-- ============ 基本ルール ============ -->
+  <h2><span class="h2-num">01</span><span class="ja">基本ルール</span></h2>
+
+  <div class="rule-block">
+    <div class="rule-num">01</div>
+    <div class="rule-title ja">盤面とゴール</div>
+    <div class="rule-desc ja">
+      8×8の盤面で対戦。終局時に自分の色の石が多い方が勝ち。
+      初期配置・挟みで裏返すルールはリバーシ準拠。
+    </div>
+  </div>
+
+  <div class="rule-block">
+    <div class="rule-num">02</div>
+    <div class="rule-title ja">手札システム</div>
+    <div class="rule-desc ja">
+      各プレイヤーは異能石9種を1枚ずつ持つ山札からスタート。<br>
+      手札は常時3枚。1枚使うと山札から1枚補充される。
+    </div>
+  </div>
+
+  <div class="rule-block">
+    <div class="rule-num">03</div>
+    <div class="rule-title ja">配置のルール</div>
+    <div class="rule-desc ja">
+      手札のカードを選んで盤面に配置（通常の挟みルール適用）。
+      または通常石として配置することもできる。
+    </div>
+  </div>
+
+  <div class="rule-block">
+    <div class="rule-num">04</div>
+    <div class="rule-title ja">連鎖（コア体験）</div>
+    <div class="rule-desc ja">
+      異能石が裏返されると次の異能を引き起こす連鎖が発生。
+      同じ石は1連鎖中に1回まで発動する。
+    </div>
+  </div>
+
+  <!-- ============ 異能石9種 ============ -->
+  <h2><span class="h2-num">02</span><span class="ja">異能石 9種</span></h2>
+
+  <div class="ability-grid">
+
+    <div class="ability-card">
+      <div class="ability-icon"><img src="icons/kyozo.png" alt="虚像"></div>
+      <div class="ability-info">
+        <div class="ability-name ja">虚像</div>
+        <div class="ability-en">ILLUSION</div>
+        <div class="ability-trigger"><span class="tag flipped">裏返された時</span></div>
+        <div class="ability-desc ja">効果なし。相手にプレッシャーを与える囮。</div>
+      </div>
+    </div>
+
+    <div class="ability-card">
+      <div class="ability-icon"><img src="icons/zoshoku.png" alt="増殖"></div>
+      <div class="ability-info">
+        <div class="ability-name ja">増殖</div>
+        <div class="ability-en">MULTIPLY</div>
+        <div class="ability-trigger"><span class="tag placed">置いた時</span></div>
+        <div class="ability-desc ja">隣接空マスにランダムに通常石を生成。</div>
+      </div>
+    </div>
+
+    <div class="ability-card">
+      <div class="ability-icon"><img src="icons/hanten.png" alt="反転"></div>
+      <div class="ability-info">
+        <div class="ability-name ja">反転</div>
+        <div class="ability-en">REVERSE</div>
+        <div class="ability-trigger"><span class="tag flipped">裏返された時（1回）</span></div>
+        <div class="ability-desc ja">一瞬裏返って即元に戻る。挟みは成立。</div>
+      </div>
+    </div>
+
+    <div class="ability-card">
+      <div class="ability-icon"><img src="icons/gyakushu.png" alt="逆襲"></div>
+      <div class="ability-info">
+        <div class="ability-name ja">逆襲</div>
+        <div class="ability-en">COUNTER</div>
+        <div class="ability-trigger"><span class="tag manual">配置→3方囲まれ時</span></div>
+        <div class="ability-desc ja">3方が囲まれた逆襲石をクリックで発動。8方向2マス先まで全反転。</div>
+      </div>
+    </div>
+
+    <div class="ability-card">
+      <div class="ability-icon"><img src="icons/muko.png" alt="無効"></div>
+      <div class="ability-info">
+        <div class="ability-name ja">無効</div>
+        <div class="ability-en">NULLIFY</div>
+        <div class="ability-trigger"><span class="tag placed">置いた時</span></div>
+        <div class="ability-desc ja">隣接する相手の異能石を全て無効化。</div>
+      </div>
+    </div>
+
+    <div class="ability-card">
+      <div class="ability-icon"><img src="icons/hogeki.png" alt="砲撃"></div>
+      <div class="ability-info">
+        <div class="ability-name ja">砲撃</div>
+        <div class="ability-en">BARRAGE</div>
+        <div class="ability-trigger"><span class="tag placed">置いた時</span></div>
+        <div class="ability-desc ja">縦横3マス先までの石を全て反転。</div>
+      </div>
+    </div>
+
+    <div class="ability-card">
+      <div class="ability-icon"><img src="icons/bakudan.png" alt="爆弾"></div>
+      <div class="ability-info">
+        <div class="ability-name ja">爆弾</div>
+        <div class="ability-en">BOMB</div>
+        <div class="ability-trigger"><span class="tag flipped">裏返された時</span></div>
+        <div class="ability-desc ja">周囲8マスを全て反転、自分は消滅。連鎖の主役。</div>
+      </div>
+    </div>
+
+    <div class="ability-card">
+      <div class="ability-icon"><img src="icons/shoshitsu.png" alt="消滅"></div>
+      <div class="ability-info">
+        <div class="ability-name ja">消滅</div>
+        <div class="ability-en">VANISH</div>
+        <div class="ability-trigger"><span class="tag special">配置時（対象選択）</span></div>
+        <div class="ability-desc ja">相手の石1枚を消去。自分は置かれず即ターン終了。</div>
+      </div>
+    </div>
+
+    <div class="ability-card">
+      <div class="ability-icon"><img src="icons/tanchi.png" alt="探知"></div>
+      <div class="ability-info">
+        <div class="ability-name ja">探知</div>
+        <div class="ability-en">SONAR</div>
+        <div class="ability-trigger"><span class="tag placed">置いた時</span></div>
+        <div class="ability-desc ja">縦横3マス先まで反転＋異能石を見破り＋強制発動。</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ 連鎖の例 ============ -->
+  <h2><span class="h2-num">03</span><span class="ja">連鎖の例</span></h2>
+
+  <p class="ja">
+    「探知」を盤上に置く →<br>
+    縦横ライン上の相手の「爆弾」を見破り強制発動 →<br>
+    爆弾が周囲8マスを反転 →<br>
+    その中の別の異能石が発動… <strong>これが連鎖です。</strong>
+  </p>
+
+  <p class="ja" style="margin-top: 12px;">
+    一手で盤面が大きく傾く瞬間が、ChoVersi の核となる体験です。
+  </p>
+
+  <!-- ============ CTA ============ -->
+  <div class="cta-section">
+    <a href="game.html" class="cta-btn">対戦をはじめる</a>
+  </div>
+
+</main>
+
+</body>
+</html>

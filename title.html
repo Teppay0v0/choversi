@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ChoVersi｜超バーシ - ロゴシステム</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F2EBE0;
+    --cream-deep: #E8DCC4;
+    --beige: #E8DCC4;
+    --sage: #D4B36A;
+    --sage-dark: #B49858;
+    --dark: #3A3530;
+    --light: #F5E8D0;
+    --text: #4A443D;
+    --muted: #9A9085;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', 'Noto Sans JP', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    font-weight: 300;
+    padding: 60px 20px 100px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  h1 {
+    font-size: 32px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 60px;
+  }
+  h2 {
+    font-size: 14px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    margin: 80px 0 24px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--cream-deep);
+  }
+
+  /* メインロゴ */
+  .hero {
+    background: var(--cream);
+    padding: 120px 40px;
+    border-radius: 16px;
+    text-align: center;
+    border: 1px dashed var(--cream-deep);
+  }
+  .hero img {
+    width: 480px;
+    max-width: 80%;
+    height: auto;
+  }
+
+  /* サイズバリエーション */
+  .size-grid {
+    display: flex;
+    align-items: end;
+    justify-content: center;
+    gap: 60px;
+    background: var(--beige);
+    padding: 60px;
+    border-radius: 16px;
+  }
+  .size-item {
+    text-align: center;
+  }
+  .size-item img { display: block; height: auto; }
+  .size-item .label {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+  }
+
+  /* 背景バリエーション */
+  .bg-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .bg-tile {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .bg-tile img { width: 60%; height: auto; }
+  .bg-tile .label {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 0.2em;
+  }
+  .bg-tile.cream { background: var(--cream); }
+  .bg-tile.beige { background: var(--beige); }
+  .bg-tile.sage { background: var(--sage); }
+  .bg-tile.dark { background: var(--dark); }
+  .bg-tile.dark .label { color: rgba(245, 232, 208, 0.6); }
+
+  /* タイポグラフィ仕様 */
+  .typo {
+    background: var(--beige);
+    padding: 32px;
+    border-radius: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
+  .typo-block .label {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .typo-block .name {
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: var(--dark);
+  }
+  .typo-block .sample {
+    font-size: 32px;
+    margin-bottom: 16px;
+    color: var(--dark);
+  }
+  .typo-block .desc {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .typo-block.alpha .sample {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+  .typo-block.ja .sample {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-weight: 500;
+  }
+
+  /* カラー仕様 */
+  .colors {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .color-card {
+    background: var(--beige);
+    padding: 16px;
+    border-radius: 12px;
+  }
+  .color-swatch {
+    height: 80px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .color-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--dark);
+    margin-bottom: 4px;
+  }
+  .color-hex {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-family: 'Manrope', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>ChoVersi｜超バーシ ロゴシステム</h1>
+<div class="subtitle">LOGO SYSTEM v1.0</div>
+
+<!-- ===== ブランド解釈 ===== -->
+<h2>00. ブランド解釈 ｜ The Meaning of "Ch"</h2>
+<div class="typo" style="grid-template-columns: 1fr;">
+  <div class="typo-block">
+    <div class="label">BRAND READING</div>
+    <div class="name" style="font-size:28px; margin-top:8px;">Ch-Versi</div>
+    <div class="desc" style="margin-top:16px; line-height:1.9;">
+      ロゴ "ChoVersi" の <strong>最初の黒石は "Reversi" の O</strong> として読み替えられます。
+      この読み替えにより、ブランド名は <strong>Ch + Reversi</strong>、つまり「Ch を冠したReversi」として機能します。<br><br>
+
+      <strong>Ch の意味</strong>：<strong>Chain Hyper</strong>（超連鎖）<br>
+      ── ChainがReversiを Hyper（超）化する、というコンセプトの英訳。
+      日本語名「超バーシ」（連鎖が超を生む）と完璧に対応しています。<br><br>
+
+      <strong>表記の使い分け</strong>：<br>
+      ・製品ロゴ表記 ⇒ <strong>ChoVersi</strong>（既存ロゴそのまま）<br>
+      ・別表記・URL等 ⇒ <strong>Ch-Versi</strong>（CHの種明かし的に）<br>
+      ・日本語名 ⇒ <strong>超バーシ</strong><br>
+      ・英語タグライン ⇒ <strong>"The Chain Hyper Reversi."</strong>
+    </div>
+  </div>
+</div>
+
+<!-- ===== メインロゴ ===== -->
+<h2>01. メインロゴ ｜ Primary</h2>
+<div class="hero">
+  <img src="logo.png" alt="ChoVersi｜超バーシ">
+</div>
+<p style="margin-top:16px; font-size:12px; color:var(--muted); letter-spacing:0.1em;">
+  力強さ・存在感のあるダーク版。タイトル画面・印刷物・広告に。
+</p>
+
+<!-- ===== ソフト版 ===== -->
+<h2>02. ソフト版 ｜ Secondary</h2>
+<div class="hero" style="background: var(--sage);">
+  <img src="logo-soft.png" alt="ChoVersi｜超バーシ (Soft)">
+</div>
+<p style="margin-top:16px; font-size:12px; color:var(--muted); letter-spacing:0.1em;">
+  静謐・上品な薄色版。プレイ中の盤面ウォーターマーク・サブブランディングに。<br>
+  特にハニーゴールド背景（#D4B36A）に適合。
+</p>
+
+<!-- ===== 使い分けガイドライン ===== -->
+<h2>03. 使い分けガイドライン</h2>
+<div class="typo">
+  <div class="typo-block">
+    <div class="label">PRIMARY ｜ logo.png</div>
+    <div class="name" style="margin-top:8px;">ダーク版</div>
+    <div class="desc" style="margin-top:12px;">
+      ・タイトル画面のメインビジュアル<br>
+      ・ヘッダー・フッター<br>
+      ・名刺・印刷物・グッズ<br>
+      ・SNSアイコン<br>
+      ・ファビコン（要書き出し）<br>
+      <br>
+      <strong>背景</strong>：cream / beige のみ
+    </div>
+  </div>
+  <div class="typo-block">
+    <div class="label">SECONDARY ｜ logo-soft.png</div>
+    <div class="name" style="margin-top:8px;">ソフト版</div>
+    <div class="desc" style="margin-top:12px;">
+      ・対戦中の盤面ウォーターマーク<br>
+      ・トップ画面の控えめな装飾<br>
+      ・スプラッシュ画面の背景演出<br>
+      ・サブブランディング・派生グラフィック<br>
+      <br>
+      <strong>背景</strong>：sage / beige
+    </div>
+  </div>
+</div>
+
+<!-- ===== サイズバリエーション ===== -->
+<h2>04. サイズバリエーション</h2>
+<div class="size-grid">
+  <div class="size-item">
+    <img src="logo.png" alt="" style="width: 360px;">
+    <div class="label">360px ｜ メイン</div>
+  </div>
+  <div class="size-item">
+    <img src="logo.png" alt="" style="width: 200px;">
+    <div class="label">200px ｜ ヘッダー</div>
+  </div>
+  <div class="size-item">
+    <img src="logo.png" alt="" style="width: 96px;">
+    <div class="label">96px ｜ 名刺</div>
+  </div>
+  <div class="size-item">
+    <img src="logo.png" alt="" style="width: 48px;">
+    <div class="label">48px ｜ ファビコン</div>
+  </div>
+</div>
+
+<!-- ===== 背景バリエーション ===== -->
+<h2>05. 背景色テスト</h2>
+<div class="bg-grid" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="bg-tile cream"><img src="logo.png" alt=""></div>
+  <div class="bg-tile beige"><img src="logo.png" alt=""></div>
+  <div class="bg-tile sage"><img src="logo-soft.png" alt=""></div>
+  <div class="bg-tile dark"><img src="logo-soft.png" alt=""></div>
+</div>
+<p style="margin-top:16px; font-size:12px; color:var(--muted); letter-spacing:0.1em;">
+  cream / beige 上 = Primary、sage / dark 上 = Secondary（ソフト版）
+</p>
+
+<!-- ===== タイポグラフィ ===== -->
+<h2>04. タイポグラフィ仕様</h2>
+<div class="typo">
+  <div class="typo-block alpha">
+    <div class="label">ALPHABET</div>
+    <div class="name">Manrope</div>
+    <div class="sample">ChoVersi</div>
+    <div class="desc">
+      ロゴ・見出し・英文に使用。Google Fonts無料配布。<br>
+      Light(300) / Medium(500) / SemiBold(600) を主に使用
+    </div>
+  </div>
+  <div class="typo-block ja">
+    <div class="label">JAPANESE</div>
+    <div class="name">Noto Sans JP</div>
+    <div class="sample">超バーシ</div>
+    <div class="desc">
+      日本語見出し・本文に使用。Google Fonts無料配布。<br>
+      Light(300) / Regular(400) / Medium(500) を主に使用
+    </div>
+  </div>
+</div>
+
+<!-- ===== カラー仕様 ===== -->
+<h2>05. ロゴカラー</h2>
+<div class="colors">
+  <div class="color-card">
+    <div class="color-swatch" style="background: #3A3530;"></div>
+    <div class="color-name">Dark Stone</div>
+    <div class="color-hex">#3A3530</div>
+  </div>
+  <div class="color-card">
+    <div class="color-swatch" style="background: #F2EBE0; border: 1px dashed var(--muted);"></div>
+    <div class="color-name">Light Stone</div>
+    <div class="color-hex">#F2EBE0</div>
+  </div>
+  <div class="color-card">
+    <div class="color-swatch" style="background: #E8DCC4;"></div>
+    <div class="color-name">Cream Deep</div>
+    <div class="color-hex">#E8DCC4</div>
+  </div>
+  <div class="color-card">
+    <div class="color-swatch" style="background: #D4B36A;"></div>
+    <div class="color-name">Sage Board</div>
+    <div class="color-hex">#D4B36A</div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>
