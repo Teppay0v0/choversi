@@ -98,6 +98,23 @@
     flex-wrap: wrap;
     justify-content: center;
   }
+  /* 初心者モード */
+  .beginner-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 18px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+  }
+  .beginner-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--dark);
+  }
   .color-picker .label {
     font-family: 'Noto Sans JP', sans-serif;
     font-size: 11px;
@@ -268,6 +285,10 @@
         <span>ランダム</span>
       </div>
     </div>
+    <label class="beginner-toggle">
+      <input type="checkbox" id="beginner-mode">
+      <span>初心者向け（連鎖が起きやすいデッキ）</span>
+    </label>
     <a href="#" id="start-btn" class="btn">はじめる</a>
     <a href="rules.html" class="btn secondary">ルール</a>
   </div>
@@ -295,11 +316,21 @@
     try { localStorage.setItem('choversi.player', selected); } catch(e) {}
     updateUI();
   });
+  // 初心者モード復元
+  const begCheck = document.getElementById('beginner-mode');
+  try {
+    const begSaved = localStorage.getItem('choversi.beginner');
+    if (begSaved === '1') begCheck.checked = true;
+  } catch(e) {}
+  begCheck.addEventListener('change', () => {
+    try { localStorage.setItem('choversi.beginner', begCheck.checked ? '1' : '0'); } catch(e) {}
+  });
   startBtn.addEventListener('click', (e) => {
     e.preventDefault();
     let actual = selected;
     if (actual === 'random') actual = Math.random() < 0.5 ? 'D' : 'L';
-    window.location.href = `game.html?as=${actual}`;
+    const beg = begCheck.checked ? '&beg=1' : '';
+    window.location.href = `game.html?as=${actual}${beg}`;
   });
   updateUI();
 })();

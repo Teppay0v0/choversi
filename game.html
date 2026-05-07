@@ -382,6 +382,22 @@
   .cell.target-mode {
     background: rgba(184, 92, 63, 0.2);
   }
+  /* タッチ端末: 1タップ目（確定待ち）を表示 */
+  .cell.confirm-pending::before {
+    content: '';
+    position: absolute;
+    inset: 12%;
+    border-radius: 50%;
+    border: 3px dashed var(--text);
+    background: rgba(58, 53, 48, 0.12);
+    z-index: 6;
+    pointer-events: none;
+    animation: confirmPulse 1s ease-in-out infinite;
+  }
+  @keyframes confirmPulse {
+    0%, 100% { opacity: 0.85; transform: scale(1); }
+    50%      { opacity: 1;    transform: scale(1.05); }
+  }
   /* スキル影響プレビュー */
   .cell.preview {
     background: rgba(199, 123, 63, 0.28) !important;
@@ -1202,6 +1218,13 @@ function getPlayerColor() {
   } catch (e) {}
   return 'D';
 }
+// URLパラメータ ?beg=1 から初心者モードを判定
+function isBeginnerMode() {
+  try {
+    return new URLSearchParams(window.location.search).get('beg') === '1';
+  } catch (e) {}
+  return false;
+}
 
 function newGame() {
   const aiOn = document.getElementById('ai-mode')?.checked ?? true;
@@ -1215,7 +1238,11 @@ function newGame() {
     hands: {
       D: ensureStrongCardInHand(shuffleDeck(DECK_TEMPLATES.D), HAND_SIZE_D)
            .map(s => ({ skill: s, used: false })),
-      L: shuffleDeck(DECK_TEMPLATES.L).map(s => ({ skill: s, used: false }))
+      // 初心者モード時は白も強カード保証して連鎖が起きやすく
+      L: (isBeginnerMode()
+           ? ensureStrongCardInHand(shuffleDeck(DECK_TEMPLATES.L), HAND_SIZE_L)
+           : shuffleDeck(DECK_TEMPLATES.L)
+         ).map(s => ({ skill: s, used: false }))
     },
     selectedSkill: -1,
     pendingAction: null,            // 'vanish-target' | 'muko-target' | null
@@ -1346,7 +1373,17 @@ function getAffectedCells(r, c, skill, color) {
       }
       break;
     }
-    // 虚像・反転・爆弾は配置時に発動しないのでプレビューなし
+    case 'bakudan': {
+      // 周囲8マス（裏返されると爆発する範囲）
+      for (const [dr, dc] of DIRS_8) {
+        const nr = r + dr, nc = c + dc;
+        if (inb(nr, nc) && state.board[nr][nc].color !== null) {
+          cells.add(`${nr},${nc}`);
+        }
+      }
+      break;
+    }
+    // 虚像・反転は影響範囲なし
   }
   return cells;
 }
@@ -1415,6 +1452,21 @@ async function makeMove(r, c) {
   // Standard placement check
   const flips = getFlipsForPlace(r, c, state.turn);
   if (flips.length === 0) return;
+
+  // モバイル(touch端末)：異能石選択中は2タップ確定
+  // 1タップ目=プレビュー表示、同マス2タップ目=確定
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (isTouch && state.selectedSkill >= 0) {
+    const cm = state.confirmCell;
+    if (!cm || cm.r !== r || cm.c !== c) {
+      state.confirmCell = { r, c };
+      clearPreview();
+      showPreview(r, c);
+      renderBoard();
+      return;
+    }
+    state.confirmCell = null; // 同マス2タップ目→確定
+  }
 
   state.busy = true;
   state.chainCount = 0;
@@ -1720,11 +1772,13 @@ function selectSkill(idx) {
   if (state.selectedSkill === idx) {
     state.selectedSkill = -1;
     state.pendingAction = null;
+    state.confirmCell = null;
     render();
     return;
   }
 
   state.selectedSkill = idx;
+  state.confirmCell = null; // スキル切替で確定待ち解除
   // Setup pending action for special-target abilities
   if (card.skill === 'shoshitsu') {
     state.pendingAction = 'vanish-target';
@@ -2020,6 +2074,9 @@ function renderBoard() {
       div.className = 'cell' + ((r + c) % 2 ? ' alt' : '');
 
       if (validMoves.has(`${r},${c}`)) div.classList.add('placeable');
+      if (state.confirmCell && state.confirmCell.r === r && state.confirmCell.c === c) {
+        div.classList.add('confirm-pending');
+      }
 
       // For target-selection mode, highlight valid targets
       if (targetMode && cell.color !== null) {
