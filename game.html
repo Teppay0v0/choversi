@@ -304,6 +304,7 @@
     justify-content: center;
     align-items: center;
     width: 100%;
+    max-width: 560px; /* 盤面と同じ幅 */
     margin-bottom: 14px;
     min-height: 32px;
   }
@@ -2205,14 +2206,23 @@ function userPassTurn() {
 }
 
 function checkPassOrEnd() {
-  // 配置不可なら自動パス
   if (state.busy || state.ended) return;
+  // 盤面が埋まっていたら即終局（パスを挟まない）
+  let empty = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (state.board[r][c].color === null) empty++;
+  }
+  if (empty === 0) {
+    setTimeout(() => { if (!state.ended) endGame(); }, 400);
+    return;
+  }
+  // 配置不可なら自動パス
   const moves = getValidMoves(state.turn);
   if (moves.length === 0) {
     const player = state.turn;
     setTimeout(() => {
       if (state.ended || state.busy) return;
-      if (state.turn !== player) return; // 他処理で変わっていれば中止
+      if (state.turn !== player) return;
       executePass(player);
     }, 400);
   }
