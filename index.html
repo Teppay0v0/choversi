@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>ChoVersi｜超バーシ</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="logo.png">
@@ -383,7 +386,9 @@
     let actual = selected;
     if (actual === 'random') actual = Math.random() < 0.5 ? 'D' : 'L';
     const beg = begCheck.checked ? '&beg=1' : '';
-    window.location.href = `game.html?as=${actual}${beg}`;
+    // キャッシュ回避：常に新しいクエリでgame.htmlを取得
+    const v = Date.now();
+    window.location.href = `game.html?as=${actual}${beg}&v=${v}`;
   });
   updateUI();
 })();
