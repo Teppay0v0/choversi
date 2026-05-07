@@ -774,8 +774,9 @@
       padding: 0;
       margin: 0;
       height: 100vh;
-      height: 100dvh;
+      height: 100svh; /* iOS Safari: 一番小さい状態に合わせる（下が切れない） */
       overflow: hidden;
+      padding-bottom: env(safe-area-inset-bottom);
     }
     header {
       margin-bottom: 0;
@@ -903,8 +904,8 @@
       padding: 4px 10px;
     }
     .board {
-      max-width: min(100%, calc(100dvh - 290px));
-      max-height: calc(100dvh - 290px);
+      max-width: min(100%, calc(100svh - 320px));
+      max-height: calc(100svh - 320px);
       width: 100%;
       padding: 6px;
       border-radius: 8px;
