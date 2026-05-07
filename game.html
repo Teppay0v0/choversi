@@ -313,20 +313,33 @@
     font-weight: 600;
     color: var(--text);
     text-align: center;
-    padding: 6px 18px;
-    border: 1.5px solid rgba(58, 53, 48, 0.18);
+    padding: 8px 18px;
+    border: 2px solid rgba(58, 53, 48, 0.18);
     border-radius: 100px;
     background: rgba(255, 255, 255, 0.55);
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    display: inline-flex;
+    display: flex;
+    justify-content: center;
     align-items: center;
     gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.25s ease, background 0.25s ease;
+  }
+  /* 手番の色で囲み色を変える */
+  .status-text.turn-D {
+    border-color: var(--dark);
+  }
+  .status-text.turn-L {
+    border-color: var(--light);
+    background: rgba(255, 255, 255, 0.85);
   }
   .status-bar .chain-indicator {
     position: absolute;
     right: 0;
     top: 50%;
     transform: translateY(-50%);
+    z-index: 1;
   }
   .chain-indicator {
     background: var(--dark);
@@ -2313,6 +2326,9 @@ function renderHands() {
 
 function renderStatus() {
   const el = document.getElementById('status');
+  // 手番の色をクラスで保持（border 色を切替）
+  el.classList.remove('turn-D', 'turn-L');
+  if (!state.ended) el.classList.add('turn-' + state.turn);
   if (state.ended) { el.textContent = 'ゲーム終了'; return; }
   if (state.pendingAction === 'vanish-target') { el.textContent = '消滅：消す相手の石を選択'; return; }
   el.textContent = `${labelOf(state.turn)}の手番`;
