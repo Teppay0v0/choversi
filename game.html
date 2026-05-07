@@ -299,8 +299,9 @@
     align-items: center;
   }
   .status-bar {
+    position: relative;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     width: 100%;
     margin-bottom: 14px;
@@ -311,6 +312,13 @@
     font-size: 18px;
     font-weight: 500;
     color: var(--text);
+    text-align: center;
+  }
+  .status-bar .chain-indicator {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
   }
   .chain-indicator {
     background: var(--dark);
