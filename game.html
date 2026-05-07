@@ -309,10 +309,18 @@
   }
   .status-text {
     font-family: 'Noto Sans JP', sans-serif;
-    font-size: 18px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 600;
     color: var(--text);
     text-align: center;
+    padding: 6px 18px;
+    border: 1.5px solid rgba(58, 53, 48, 0.18);
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
   }
   .status-bar .chain-indicator {
     position: absolute;
@@ -873,7 +881,10 @@
       min-height: 22px;
       width: 100%;
     }
-    .status-text { font-size: 13px; }
+    .status-text {
+      font-size: 13px;
+      padding: 5px 14px;
+    }
     .chain-indicator {
       font-size: 10px;
       padding: 4px 10px;
