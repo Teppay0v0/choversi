@@ -891,7 +891,7 @@
 
     /* ===== BOARD（盤面常時表示・自動サイズ） ===== */
     .board-area {
-      padding: 14px 8px 6px; /* 上に余白を増やして手番バッジを"呼吸"させる */
+      padding: 6px 8px;
       flex: 1;
       min-height: 0;
       align-items: center;
@@ -899,7 +899,7 @@
       overflow: hidden;
     }
     .status-bar {
-      margin-bottom: 4px;
+      margin-bottom: 6px; /* 手番バッジの下にも余白 */
       padding: 0; /* 盤面と幅をぴったり合わせる */
       min-height: 22px;
       width: 100%;
@@ -914,8 +914,8 @@
       padding: 4px 10px;
     }
     .board {
-      max-width: min(100%, calc(100svh - 330px));
-      max-height: calc(100svh - 330px);
+      max-width: min(100%, calc(100svh - 322px));
+      max-height: calc(100svh - 322px);
       width: 100%;
       padding: 6px;
       border-radius: 8px;
