@@ -135,6 +135,8 @@ function newGame(rand, opts = {}) {
     revealedToL: new Set(),
     firedAbilities: { D: new Set(), L: new Set() }, // Phase 2: 発動済み異能の集合
     aiLevel: opts.aiLevel || 50,  // sim default: LV50（Phase 2 機能を試す）
+    // 色別レベル（指定があればこちらを優先）
+    aiLevels: opts.aiLevels || null,  // 例 { D: 60, L: 80 }
     ended: false,
     passes: 0,
     // sim-only stats
@@ -518,6 +520,135 @@ function passTurn(state) {
 function switchTurn(state) { state.turn = state.turn === 'D' ? 'L' : 'D'; }
 
 // ---------------- AI (parametric on color, show-all=false) ----------------
+// ---------------- AI Profile (game.htmlからポート) ----------------
+function getAIProfile(lv) {
+  const advFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 1.5 : 1;
+  if (lv < 10)  return { skillUseProb: 0,    posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 1.0, advFactor, lv };
+  if (lv < 20)  return { skillUseProb: 0.4,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, lv };
+  if (lv < 30)  return { skillUseProb: 0.7,  posWeightFactor: 0.5, threatAvoid: false, lookahead: 0, randomness: 0.4, advFactor, lv };
+  if (lv < 50)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: false, lookahead: 0, randomness: 0.0, advFactor, lv };
+  if (lv < 70)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: true,  lookahead: 0, randomness: 0.0, advFactor, lv };
+  if (lv < 85)  return { skillUseProb: 1.0,  posWeightFactor: 1.2, threatAvoid: true,  lookahead: 1, randomness: 0.0, advFactor, lv };
+  const posW = 1.3 + ((lv - 85) / 14) * 0.3;
+  return                { skillUseProb: 1.0,  posWeightFactor: posW, threatAvoid: true,  lookahead: 2, randomness: 0.0, advFactor, lv };
+}
+
+// 角に隣接する危険マス（X打ち・C打ち）— 角が空いている時のみペナルティ
+function isThreatCell(r, c, board) {
+  const corners = [[0,0],[0,7],[7,0],[7,7]];
+  for (const [cr, cc] of corners) {
+    if (board[cr][cc].color !== null) continue;
+    const dr = cr === 0 ? 1 : -1, dc = cc === 0 ? 1 : -1;
+    if ((r === cr+dr && c === cc) || (r === cr && c === cc+dc) || (r === cr+dr && c === cc+dc)) return true;
+  }
+  return false;
+}
+
+// 1色から見たフラットな盤面評価値（LV95+ で角支配ボーナス）
+function evaluateBoardFlat(board, color, profile) {
+  let score = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (board[r][c].color === color)            score += POS_WEIGHTS[r][c] * profile.posWeightFactor;
+    else if (board[r][c].color !== null)        score -= POS_WEIGHTS[r][c] * profile.posWeightFactor;
+  }
+  if (profile.lv >= 95) {
+    const corners = [[0,0],[0,7],[7,0],[7,7]];
+    const cornerBonus = 15 + ((profile.lv - 95) / 4) * 10;
+    for (const [cr, cc] of corners) {
+      if (board[cr][cc].color === color)        score += cornerBonus;
+      else if (board[cr][cc].color !== null)    score -= cornerBonus;
+    }
+  }
+  return score;
+}
+
+// 1手打った後の盤面をシミュレート（実stateを変えずに、通常の挟みフリップのみ）
+function simulatePlaceFlat(board, r, c, color) {
+  const next = board.map(row => row.map(cell => ({ ...cell })));
+  const flips = [];
+  for (const [dr, dc] of DIRS_8) {
+    const line = [];
+    for (let k = 1; k < N; k++) {
+      const nr = r + dr*k, nc = c + dc*k;
+      if (!inb(nr, nc)) break;
+      const cell = next[nr][nc];
+      if (cell.color === null) break;
+      if (cell.color === color) { for (const p of line) flips.push(p); break; }
+      line.push([nr, nc]);
+    }
+  }
+  next[r][c] = { color, skill: null, owner: color, hantenUsed: false };
+  for (const [fr, fc] of flips) next[fr][fc].color = color;
+  return next;
+}
+
+// 相手から見た最善応手のスコア（profile.lookahead == 1 なら使用）
+function opponentBestScoreSim(board, oppColor, profile) {
+  let oppMoves = [];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (board[r][c].color !== null) continue;
+    for (const [dr, dc] of DIRS_8) {
+      let nr = r + dr, nc = c + dc, found = false;
+      while (inb(nr, nc) && board[nr][nc].color && board[nr][nc].color !== oppColor) { nr+=dr; nc+=dc; found=true; }
+      if (found && inb(nr, nc) && board[nr][nc].color === oppColor) { oppMoves.push([r,c]); break; }
+    }
+  }
+  if (oppMoves.length === 0) return evaluateBoardFlat(board, oppColor, profile);
+  let best = -Infinity;
+  for (const [r, c] of oppMoves) {
+    const next = simulatePlaceFlat(board, r, c, oppColor);
+    const s = evaluateBoardFlat(next, oppColor, profile);
+    if (s > best) best = s;
+  }
+  return best;
+}
+
+// Phase 4 (LV85+): 相手の最善応手を異能の確率分布を加味して評価
+function opponentBestScoreWithProbabilitySim(board, oppColor, profile, state, me) {
+  const oppPool = getOpponentRemainingPool(state, me);
+  let oppMoves = [];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (board[r][c].color !== null) continue;
+    for (const [dr, dc] of DIRS_8) {
+      let nr = r + dr, nc = c + dc, found = false;
+      while (inb(nr, nc) && board[nr][nc].color && board[nr][nc].color !== oppColor) { nr+=dr; nc+=dc; found=true; }
+      if (found && inb(nr, nc) && board[nr][nc].color === oppColor) { oppMoves.push([r,c]); break; }
+    }
+  }
+  if (oppMoves.length === 0) return evaluateBoardFlat(board, oppColor, profile);
+  const oppPoolSize = Math.max(1, oppPool.length);
+  const probBomb   = oppPool.includes('bakudan') ? 1 / oppPoolSize : 0;
+  const probHogeki = oppPool.includes('hogeki')  ? 1 / oppPoolSize : 0;
+  let best = -Infinity;
+  for (const [r, c] of oppMoves) {
+    const next = simulatePlaceFlat(board, r, c, oppColor);
+    let s = evaluateBoardFlat(next, oppColor, profile);
+    let abilityBonus = 0;
+    if (probBomb > 0) {
+      let blast = 0;
+      for (const [dr, dc] of DIRS_8) {
+        const nr = r + dr, nc = c + dc;
+        if (inb(nr, nc) && board[nr][nc].color === me) blast++;
+      }
+      abilityBonus = Math.max(abilityBonus, probBomb * blast * 6 * profile.advFactor);
+    }
+    if (probHogeki > 0) {
+      let cross = 0;
+      for (const [dr, dc] of DIRS_4) {
+        for (let k = 1; k <= 3; k++) {
+          const nr = r + dr*k, nc = c + dc*k;
+          if (!inb(nr, nc)) break;
+          if (board[nr][nc].color === me) cross++;
+        }
+      }
+      abilityBonus = Math.max(abilityBonus, probHogeki * cross * 3 * profile.advFactor);
+    }
+    s += abilityBonus;
+    if (s > best) best = s;
+  }
+  return best;
+}
+
 function scoreMove(state, r, c, color) {
   const flips = getFlipsForPlace(state, r, c, color);
   return POS_WEIGHTS[r][c] + flips.length * 2;
@@ -556,12 +687,28 @@ function skillContextBonus(state, r, c, skill, color) {
       }
     }
     let perInfoBonus = 2;
-    const lv = state.aiLevel || 50;
+    const lv = getAILevel(state, color);
     if (lv >= 50) {
       const pool = getOpponentRemainingPool(state, color);
       const strongLeft = pool.filter(s => ABILITIES[s].cost >= 3).length;
       perInfoBonus = 2 + strongLeft * 1.5;
       if (lv >= 70 && pool.includes('bakudan')) perInfoBonus += 4;
+      if (lv >= 90) {
+        let empty = 0;
+        for (let r2 = 0; r2 < N; r2++) for (let c2 = 0; c2 < N; c2++) {
+          if (state.board[r2][c2].color === null) empty++;
+        }
+        if (empty >= 40) {
+          const opp = color === 'D' ? 'L' : 'D';
+          const known = color === 'D' ? state.revealedToD : state.revealedToL;
+          let totalUnrevealed = 0;
+          for (let r2 = 0; r2 < N; r2++) for (let c2 = 0; c2 < N; c2++) {
+            const cell = state.board[r2][c2];
+            if (cell.color === opp && cell.skill && !known.has(`${r2},${c2}`)) totalUnrevealed++;
+          }
+          perInfoBonus += Math.min(8, totalUnrevealed * 2);
+        }
+      }
     }
     return infoCount * perInfoBonus;
   }
@@ -591,6 +738,12 @@ function skillContextBonus(state, r, c, skill, color) {
   return 0;
 }
 
+// 色別 AI レベル取得（state.aiLevels が無ければ state.aiLevel フォールバック）
+function getAILevel(state, color) {
+  if (state.aiLevels && state.aiLevels[color] != null) return state.aiLevels[color];
+  return state.aiLevel || 50;
+}
+
 // Phase 3: フリップ・リスク評価（LV70+）— LV85+ ほど慎重
 function computeFlipRisk(state, me, r, c) {
   const flips = getFlipsForPlace(state, r, c, me);
@@ -601,7 +754,9 @@ function computeFlipRisk(state, me, r, c) {
   const bombInPool = pool.includes('bakudan') ? 1 : 0;
   const probBomb = bombInPool / pool.length;
   const probMuko = pool.includes('muko') ? 1 / pool.length : 0;
-  const intensity = (state.aiLevel || 50) >= 85 ? 16 : 10;
+  const lv = getAILevel(state, me);
+  let intensity = 10;
+  if (lv >= 85) intensity = 16 + ((lv - 85) / 14) * 8;
   let risk = 0;
   for (const [fr, fc] of flips) {
     const cell = state.board[fr][fc];
@@ -629,7 +784,7 @@ function getOpponentRemainingPool(state, me) {
 
 function pickVanishTarget(state, me) {
   const aiRevealed = me === 'D' ? state.revealedToD : state.revealedToL;
-  const useDeckTracking = (state.aiLevel || 50) >= 50;
+  const useDeckTracking = getAILevel(state, me) >= 50;
   let avgUnknownCost = 2;
   if (useDeckTracking) {
     const pool = getOpponentRemainingPool(state, me);
@@ -659,38 +814,75 @@ function aiPickAction(state, me) {
   const validMoves = getValidMoves(state, me);
   if (validMoves.length === 0) return { type: 'pass' };
 
+  const lv = getAILevel(state, me);
+  const profile = getAIProfile(lv);
+  const opp = me === 'D' ? 'L' : 'D';
+
+  // === LV1〜9 完全ランダム（異能ゼロ） ===
+  if (profile.skillUseProb === 0) {
+    const [r, c] = validMoves[Math.floor(state.rand() * validMoves.length)];
+    return { type: 'place', r, c, skillIdx: -1 };
+  }
+
   const activeHand = getActiveHand(state, me);
 
-  // 1) 消滅
-  const shoshitsuCard = activeHand.find(c => c.skill === 'shoshitsu');
-  if (shoshitsuCard) {
-    const target = pickVanishTarget(state, me);
-    if (target && target.score > 30) {
-      return { type: 'vanish', r: target.r, c: target.c };
+  // === LV30+ 消滅 ===
+  if (lv >= 30) {
+    const shoshitsuCard = activeHand.find(c => c.skill === 'shoshitsu');
+    if (shoshitsuCard) {
+      const target = pickVanishTarget(state, me);
+      if (target && target.score > 30) {
+        return { type: 'vanish', r: target.r, c: target.c };
+      }
     }
   }
 
-  // 2) 配置済み逆襲発動
-  const ready = findEligibleGyakushu(state, me);
-  if (ready.length > 0) {
-    const [gr, gc] = ready[0];
-    return { type: 'gyakushu', r: gr, c: gc };
+  // === LV20+ 配置済み逆襲発動 ===
+  if (lv >= 20) {
+    const ready = findEligibleGyakushu(state, me);
+    if (ready.length > 0) {
+      const [gr, gc] = ready[0];
+      return { type: 'gyakushu', r: gr, c: gc };
+    }
   }
 
-  // 3) Best placement
-  const useFlipRisk = (state.aiLevel || 50) >= 70;
-  let best = { score: -Infinity, move: null, skillIdx: -1 };
+  // === 候補手評価（profile + lookahead + flip-risk） ===
+  const useFlipRisk = lv >= 70;
+  const useProbabilistic = lv >= 85;
+  const candidates = [];
   for (const [r, c] of validMoves) {
-    let baseScore = scoreMove(state, r, c, me);
+    const flips = getFlipsForPlace(state, r, c, me);
+    let baseScore = profile.posWeightFactor * POS_WEIGHTS[r][c] + flips.length * 2;
+    if (profile.threatAvoid && isThreatCell(r, c, state.board)) baseScore -= 30;
     if (useFlipRisk) baseScore -= computeFlipRisk(state, me, r, c);
-    if (baseScore > best.score) best = { score: baseScore, move: [r, c], skillIdx: -1 };
-    for (const card of activeHand) {
-      const skill = card.skill;
-      if (skill === 'shoshitsu') continue;
-      const sScore = baseScore + (SKILL_BONUS[skill] || 0) + skillContextBonus(state, r, c, skill, me);
-      if (sScore > best.score) best = { score: sScore, move: [r, c], skillIdx: card.idx };
+    if (profile.lookahead >= 1) {
+      const next = simulatePlaceFlat(state.board, r, c, me);
+      const myEval = evaluateBoardFlat(next, me, profile);
+      const oppBest = useProbabilistic
+        ? opponentBestScoreWithProbabilitySim(next, opp, profile, state, me)
+        : opponentBestScoreSim(next, opp, profile);
+      const oppWeight = useProbabilistic ? 0.7 : 0.6;
+      baseScore = baseScore * 0.3 + myEval - oppBest * oppWeight;
+    }
+    candidates.push({ score: baseScore, move: [r, c], skillIdx: -1 });
+
+    if (state.rand() < profile.skillUseProb) {
+      for (const card of activeHand) {
+        const skill = card.skill;
+        if (skill === 'shoshitsu') continue;
+        const sScore = baseScore + (SKILL_BONUS[skill] || 0) + skillContextBonus(state, r, c, skill, me);
+        candidates.push({ score: sScore, move: [r, c], skillIdx: card.idx });
+      }
     }
   }
+  if (candidates.length === 0) return { type: 'pass' };
+  candidates.sort((a, b) => b.score - a.score);
+  let pickIdx = 0;
+  if (profile.randomness > 0) {
+    const poolSize = Math.max(1, Math.floor(candidates.length * profile.randomness));
+    pickIdx = Math.floor(state.rand() * poolSize);
+  }
+  const best = candidates[pickIdx];
   return { type: 'place', r: best.move[0], c: best.move[1], skillIdx: best.skillIdx };
 }
 
