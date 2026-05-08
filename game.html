@@ -1591,6 +1591,8 @@ function newGame() {
     // 視界制限：各プレイヤー（人間/AI）が見える "相手の" 異能石の座標
     revealedToD: new Set(),         // Dから見える相手(L)の異能石
     revealedToL: new Set(),         // Lから見える相手(D)の異能石
+    // Phase 2: 各色が発動済みの異能（誰でも見えた発動の集合）
+    firedAbilities: { D: new Set(), L: new Set() },
     busy: false,
     ended: false,
     passes: 0,
@@ -1934,6 +1936,10 @@ async function fireAbility(r, c, skillKey, byColor) {
   // 統計：自分の異能発動回数を記録
   if (state.gameStats && byColor === state.playerColor) {
     state.gameStats.skillsFired[skillKey] = (state.gameStats.skillsFired[skillKey] || 0) + 1;
+  }
+  // Phase 2: 発動した異能をその色の firedAbilities に追加（誰でも見える情報）
+  if (state.firedAbilities && state.firedAbilities[byColor]) {
+    state.firedAbilities[byColor].add(skillKey);
   }
   // 大演出：技名をドーンと表示
   showSkillBurst(skillKey);
@@ -2573,9 +2579,7 @@ function skillContextBonus(r, c, skill, color) {
     return count * 1.2;
   }
   if (skill === 'tanchi') {
-    // 探知は情報カード：範囲内の相手異能石が多いほど価値が高い
-    // ただし AI が知っている "相手の異能石位置" だけが対象
-    // フェーズ1ではAI視界制限後に評価する
+    // 探知は情報カード：範囲内の未露出の相手異能石が多いほど価値が高い
     let infoCount = 0;
     const opp = color === 'D' ? 'L' : 'D';
     const known = color === 'D' ? state.revealedToD : state.revealedToL;
@@ -2584,11 +2588,17 @@ function skillContextBonus(r, c, skill, color) {
         const nr = r + dr*k, nc = c + dc*k;
         if (!inb(nr, nc)) break;
         const cell = state.board[nr][nc];
-        // AI視点：未露出かつ相手の異能位置（位置だけは見える）
         if (cell.color === opp && cell.skill && !known.has(`${nr},${nc}`)) infoCount++;
       }
     }
-    return infoCount * 2;
+    // Phase 2: LV50+ は残デッキに強カード（コスト3）が多いほど探知の価値↑
+    let perInfoBonus = 2;
+    if ((state.aiLevel || 30) >= 50) {
+      const pool = getOpponentRemainingPool(color);
+      const strongLeft = pool.filter(s => ABILITIES[s].cost >= 3).length;
+      perInfoBonus = 2 + strongLeft * 1.5;
+    }
+    return infoCount * perInfoBonus;
   }
   if (skill === 'kyozo' || skill === 'hanten') {
     // Defensive — better in less critical positions, slight bonus
@@ -2622,10 +2632,35 @@ function skillContextBonus(r, c, skill, color) {
   return 0;
 }
 
+// Phase 2: 相手の "残っている可能性のある異能の集合" を返す
+// 全異能 - 既に発動した異能 - 露出済み盤上異能 = 推定プール（手札+伏せ盤上石）
+function getOpponentRemainingPool(me) {
+  const opp = me === 'D' ? 'L' : 'D';
+  const fired = state.firedAbilities ? state.firedAbilities[opp] : new Set();
+  const revealedTo = me === 'D' ? state.revealedToD : state.revealedToL;
+  const knownOnBoard = new Set();
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const cell = state.board[r][c];
+    if (cell.color === opp && cell.skill && revealedTo && revealedTo.has(`${r},${c}`)) {
+      knownOnBoard.add(cell.skill);
+    }
+  }
+  return FULL_DECK.filter(s => !fired.has(s) && !knownOnBoard.has(s));
+}
+
 function pickVanishTarget(me) {
   // フェアAI：相手の伏せ異能の中身は見えない。
   // 露出済み（自分の探知 or 反転で発覚）の異能だけを高評価できる。
   const aiRevealed = me === 'D' ? state.revealedToD : state.revealedToL;
+  // Phase 2: LV50+ なら残デッキの平均コストで「不明な異能」の期待値を計算
+  const useDeckTracking = (state.aiLevel || 30) >= 50;
+  let avgUnknownCost = 2;
+  if (useDeckTracking) {
+    const pool = getOpponentRemainingPool(me);
+    if (pool.length > 0) {
+      avgUnknownCost = pool.reduce((s, sk) => s + ABILITIES[sk].cost, 0) / pool.length;
+    }
+  }
   let best = null;
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     const cell = state.board[r][c];
@@ -2633,11 +2668,11 @@ function pickVanishTarget(me) {
       let score = POS_WEIGHTS[r][c];
       const skillKnown = cell.skill && aiRevealed.has(`${r},${c}`);
       if (skillKnown) {
-        // 中身が分かっている異能 → コストに応じた価値
         score += (ABILITIES[cell.skill].cost * 8);
       } else if (cell.skill) {
-        // 異能であることは分かるが中身は不明 → 軽めのボーナス（リスク回避）
-        score += 6;
+        // 不明異能：LV50+ は残デッキの平均コスト × 6 で期待値評価
+        // それ未満は固定 +6 のままで「警戒だけ」
+        score += useDeckTracking ? (avgUnknownCost * 6) : 6;
       }
       if (!best || score > best.score) best = { r, c, score };
     }

@@ -51,8 +51,10 @@ const POS_WEIGHTS = [
 ];
 
 const SKILL_BONUS = {
-  bakudan: 12, tanchi: 14, hogeki: 11,
-  gyakushu: 10, shoshitsu: 8, muko: 6,
+  bakudan: 12, hogeki: 11, gyakushu: 10,
+  shoshitsu: 8, muko: 6,
+  // 探知は情報カードに変更（Phase 1）
+  tanchi: 4,
   zoshoku: 3, hanten: 2, kyozo: 1,
 };
 
@@ -129,6 +131,10 @@ function newGame(rand, opts = {}) {
     peakChainThisMove: 0,
     triggeredThisChain: new Set(),
     nullifiedCells: new Set(),
+    revealedToD: new Set(),    // Phase 1: 視界（D側が見えている相手異能）
+    revealedToL: new Set(),
+    firedAbilities: { D: new Set(), L: new Set() }, // Phase 2: 発動済み異能の集合
+    aiLevel: opts.aiLevel || 50,  // sim default: LV50（Phase 2 機能を試す）
     ended: false,
     passes: 0,
     // sim-only stats
@@ -280,6 +286,10 @@ function flipOne(state, r, c, byColor) {
 function fireAbility(state, r, c, skillKey, byColor) {
   state.stats.skillUses[skillKey] = (state.stats.skillUses[skillKey] || 0) + 1;
   state.stats.events.push({ type: 'ability', skill: skillKey, r, c, color: byColor });
+  // Phase 2: 発動済み異能を追跡
+  if (state.firedAbilities && state.firedAbilities[byColor]) {
+    state.firedAbilities[byColor].add(skillKey);
+  }
 
   switch (skillKey) {
     case 'kyozo':
@@ -315,15 +325,19 @@ function fireAbility(state, r, c, skillKey, byColor) {
     }
 
     case 'tanchi': {
-      const out = [];
+      // Phase 1: 反転しない・相手の異能石を露出するだけ
+      const opp = byColor === 'D' ? 'L' : 'D';
+      const revealSet = byColor === 'D' ? state.revealedToD : state.revealedToL;
       for (const [dr, dc] of DIRS_4) {
         for (let k = 1; k <= 3; k++) {
           const nr = r + dr*k, nc = c + dc*k;
           if (!inb(nr, nc)) break;
-          if (state.board[nr][nc].color !== null) out.push([nr, nc]);
+          const cell = state.board[nr][nc];
+          if (cell.color === opp && cell.skill) revealSet.add(`${nr},${nc}`);
         }
       }
-      return out;
+      state.stats.tanchiReveals = (state.stats.tanchiReveals || 0) + 1;
+      return [];
     }
 
     case 'bakudan': {
@@ -518,7 +532,7 @@ function skillContextBonus(state, r, c, skill, color) {
     }
     return enemies * 1.5;
   }
-  if (skill === 'tanchi' || skill === 'hogeki') {
+  if (skill === 'hogeki') {
     let count = 0;
     for (const [dr, dc] of DIRS_4) {
       for (let k = 1; k <= 3; k++) {
@@ -528,6 +542,26 @@ function skillContextBonus(state, r, c, skill, color) {
       }
     }
     return count * 1.2;
+  }
+  if (skill === 'tanchi') {
+    const opp = color === 'D' ? 'L' : 'D';
+    const known = color === 'D' ? state.revealedToD : state.revealedToL;
+    let infoCount = 0;
+    for (const [dr, dc] of DIRS_4) {
+      for (let k = 1; k <= 3; k++) {
+        const nr = r + dr*k, nc = c + dc*k;
+        if (!inb(nr, nc)) break;
+        const cell = state.board[nr][nc];
+        if (cell.color === opp && cell.skill && !known.has(`${nr},${nc}`)) infoCount++;
+      }
+    }
+    let perInfoBonus = 2;
+    if ((state.aiLevel || 50) >= 50) {
+      const pool = getOpponentRemainingPool(state, color);
+      const strongLeft = pool.filter(s => ABILITIES[s].cost >= 3).length;
+      perInfoBonus = 2 + strongLeft * 1.5;
+    }
+    return infoCount * perInfoBonus;
   }
   if (skill === 'kyozo' || skill === 'hanten') return 0;
   if (skill === 'zoshoku') {
@@ -555,15 +589,42 @@ function skillContextBonus(state, r, c, skill, color) {
   return 0;
 }
 
+// Phase 2: 相手の残っている可能性のある異能の集合
+function getOpponentRemainingPool(state, me) {
+  const opp = me === 'D' ? 'L' : 'D';
+  const fired = (state.firedAbilities && state.firedAbilities[opp]) || new Set();
+  const revealedTo = me === 'D' ? state.revealedToD : state.revealedToL;
+  const knownOnBoard = new Set();
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const cell = state.board[r][c];
+    if (cell.color === opp && cell.skill && revealedTo && revealedTo.has(`${r},${c}`)) {
+      knownOnBoard.add(cell.skill);
+    }
+  }
+  return FULL_DECK.filter(s => !fired.has(s) && !knownOnBoard.has(s));
+}
+
 function pickVanishTarget(state, me) {
+  const aiRevealed = me === 'D' ? state.revealedToD : state.revealedToL;
+  const useDeckTracking = (state.aiLevel || 50) >= 50;
+  let avgUnknownCost = 2;
+  if (useDeckTracking) {
+    const pool = getOpponentRemainingPool(state, me);
+    if (pool.length > 0) {
+      avgUnknownCost = pool.reduce((s, sk) => s + ABILITIES[sk].cost, 0) / pool.length;
+    }
+  }
   let best = null;
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     const cell = state.board[r][c];
     if (cell.color && cell.color !== me) {
       let score = POS_WEIGHTS[r][c];
-      // show-all is OFF in the simulator (matches default UI).
-      // However, the AI can always see its own skill stones (cell.owner === me) — but those are own.
-      // So no bonus is applied for hidden enemy skills.
+      const skillKnown = cell.skill && aiRevealed && aiRevealed.has(`${r},${c}`);
+      if (skillKnown) {
+        score += ABILITIES[cell.skill].cost * 8;
+      } else if (cell.skill) {
+        score += useDeckTracking ? (avgUnknownCost * 6) : 6;
+      }
       if (!best || score > best.score) best = { r, c, score };
     }
   }
