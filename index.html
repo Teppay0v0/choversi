@@ -200,7 +200,10 @@
     color: var(--cream);
   }
   .rank-grid .rank-tile.active .rank-tile-dots span {
-    background: var(--sage);
+    background: rgba(245, 232, 208, 0.22); /* off-dot：暗背景の上で薄く */
+  }
+  .rank-grid .rank-tile.active .rank-tile-dots span.on {
+    background: var(--sage); /* on-dot：暗背景の上で明るく */
   }
   .rank-grid .rank-tile.active::after {
     content: '✓';
