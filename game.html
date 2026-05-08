@@ -45,8 +45,31 @@
   header {
     text-align: center;
     margin-bottom: 24px;
+    position: relative;
   }
   header img { width: 180px; height: auto; }
+  .mute-btn {
+    position: absolute;
+    top: 50%;
+    right: 16px;
+    transform: translateY(-50%);
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(58, 53, 48, 0.15);
+    background: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s, border-color 0.15s;
+    z-index: 10;
+  }
+  .mute-btn:hover { background: rgba(255, 255, 255, 0.9); }
+  .mute-btn.muted { background: rgba(58, 53, 48, 0.08); border-color: rgba(58, 53, 48, 0.3); opacity: 0.7; }
 
   /* ===== Layout ===== */
   .game {
@@ -809,6 +832,224 @@
   }
   .modal-actions .btn { min-width: 180px; }
 
+  /* === Celebration: dramatic XP / LV / RANK animation ===================
+   * Inserted by feature 'XP/LV celebration' — companion to modal-extra.
+   * Visual tokens duplicated locally; consolidation is a future-task.
+   */
+  .modal-content { position: relative; }
+  .celebration-skip-btn {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    background: rgba(58, 53, 48, 0.06);
+    border: 1px solid rgba(58, 53, 48, 0.12);
+    color: var(--muted);
+    font-family: 'Manrope', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    padding: 6px 12px;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, opacity 0.2s;
+    z-index: 2;
+  }
+  .celebration-skip-btn:hover {
+    background: rgba(58, 53, 48, 0.12);
+    color: var(--text);
+  }
+  .celebration-skip-btn.hidden { opacity: 0; pointer-events: none; }
+
+  .celebration {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+  }
+  .xp-counter {
+    font-family: 'Manrope', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--sage-dark);
+    min-height: 32px;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 220ms ease;
+  }
+  .xp-counter.show { opacity: 1; }
+  .xp-counter.xp-loss { color: #B85C3F; }
+  .xp-counter .xp-counter-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.28em;
+    opacity: 0.75;
+  }
+
+  .celebration-bar-row {
+    width: 100%;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 250ms ease, transform 250ms ease;
+  }
+  .celebration-bar-row.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .celebration-lv-line {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    line-height: 1;
+  }
+  .celebration-lv-label {
+    font-family: 'Manrope', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    color: var(--muted);
+  }
+  .celebration-lv-num {
+    font-family: 'Manrope', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text);
+    display: inline-block;
+    transform-origin: center;
+    transition: transform 220ms cubic-bezier(.2,.7,.3,1.4), color 220ms ease;
+  }
+  .celebration-lv-num.pop {
+    transform: scale(1.4);
+    color: var(--sage-dark);
+  }
+  .celebration-lv-num.rankup {
+    transform: scale(1.7);
+    color: var(--sage-dark);
+  }
+  .celebration-lv-num.kishin {
+    transform: scale(2.1);
+    color: #FFFFFF;
+    text-shadow: 0 0 28px rgba(255,255,255,0.95), 0 0 16px rgba(255,215,128,0.7);
+  }
+
+  .celebration-bar {
+    position: relative;
+    width: 100%;
+    height: 12px;
+    background: rgba(58, 53, 48, 0.10);
+    border-radius: 100px;
+    overflow: visible;
+  }
+  .celebration-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--sage), var(--sage-dark));
+    border-radius: 100px;
+    box-shadow: 0 0 0 rgba(212,179,106,0);
+    transition: box-shadow 200ms ease;
+  }
+  .celebration-bar-fill.flash {
+    box-shadow: 0 0 22px 4px rgba(255,235,160,0.9);
+  }
+  .celebration-bar-fill.kishin-fill {
+    background: linear-gradient(90deg, #FFFFFF, #FFE9A8);
+  }
+  .celebration-xp-text {
+    font-family: 'Manrope', sans-serif;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    min-height: 14px;
+  }
+
+  /* LV UP / RANK UP / 鬼神 floating text */
+  .lvup-burst {
+    position: absolute;
+    left: 50%;
+    top: -38px;
+    font-family: 'Manrope', sans-serif;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.32em;
+    color: var(--sage-dark);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(0);
+  }
+  .lvup-burst.show { animation: lvupFloat 700ms ease-out forwards; }
+  .lvup-burst.rankup-text { font-size: 17px; }
+  .lvup-burst.kishin-text {
+    font-size: 22px;
+    color: #FFFFFF;
+    text-shadow: 0 0 16px rgba(255,255,255,0.95), 0 0 8px rgba(255,215,128,0.8);
+  }
+  @keyframes lvupFloat {
+    0%   { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.85); }
+    25%  { opacity: 1; transform: translateX(-50%) translateY(-2px) scale(1.08); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-32px) scale(1); }
+  }
+
+  /* Particles (CSS-only, no canvas) */
+  .particle-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .particle {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--sage);
+    transform: translate(-50%, -50%);
+    --tx: 0px; --ty: 0px;
+    opacity: 0;
+  }
+  .particle.fire {
+    animation: particleFly 720ms cubic-bezier(.15,.5,.3,1) forwards;
+  }
+  .particle.rank { background: #E0C679; width: 8px; height: 8px; }
+  .particle.kishin {
+    background: #FFFFFF; width: 10px; height: 10px;
+    box-shadow: 0 0 12px #FFEFB0;
+  }
+  @keyframes particleFly {
+    0%   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    65%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.45); }
+  }
+
+  /* Modal aura — overlaid on .modal-content during rank-up moments */
+  .modal-content.rankup-aura {
+    box-shadow: 0 0 80px 12px rgba(212,179,106,0.55), 0 0 0 1px rgba(212,179,106,0.4);
+    transition: box-shadow 700ms ease-out;
+  }
+  .modal-content.kishin-aura {
+    box-shadow: 0 0 220px 36px rgba(255,255,255,0.85), 0 0 0 2px rgba(255,235,160,0.7);
+    transition: box-shadow 1500ms ease-out;
+  }
+
+  /* Mobile (~375px) — modal padding shrinks, bar still fits */
+  @media (max-width: 480px) {
+    .celebration-skip-btn { top: 10px; right: 10px; font-size: 9px; padding: 5px 10px; }
+    .celebration { gap: 10px; margin-top: 10px; }
+    .xp-counter { font-size: 22px; }
+    .celebration-bar-row { max-width: 100%; }
+    .celebration-lv-num { font-size: 28px; }
+    .lvup-burst { font-size: 11px; top: -32px; }
+    .lvup-burst.rankup-text { font-size: 14px; }
+    .lvup-burst.kishin-text { font-size: 18px; }
+  }
+
   /* ===== Log ===== */
   .log {
     max-height: 200px;
@@ -1207,6 +1448,7 @@
       <img src="logo.png" alt="ChoVersi｜超バーシ">
     </picture>
   </a>
+  <button class="mute-btn" id="mute-btn" data-no-tap="1" aria-label="ミュート切替">🔊</button>
 </header>
 
 <div class="game">
@@ -1257,6 +1499,7 @@
 <!-- Result modal -->
 <div class="modal hidden" id="result-modal">
   <div class="modal-content">
+    <button class="celebration-skip-btn hidden" id="celebration-skip" type="button" onclick="skipCelebration()">⏭ スキップ</button>
     <div class="modal-label">RESULT</div>
     <div class="modal-title" id="modal-winner">黒の勝利</div>
     <div class="modal-scores">
@@ -1280,6 +1523,143 @@
 
 <script>
 'use strict';
+
+// ============================================================
+//  SOUND MANAGER
+// ============================================================
+const SoundManager = {
+  sounds: {},        // 効果音バッファ（クローン用テンプレート）
+  bgm: null,         // 現在再生中の BGM
+  sfxVolume: 0.7,
+  bgmVolume: 0.4,
+  muted: false,
+  unlocked: false,
+
+  SE_FILES: [
+    'place', 'flip', 'ability', 'bakudan',
+    'chain-2', 'chain-3', 'chain-4', 'tap',
+    'victory', 'defeat', 'hogeki', 'tanchi',
+    'shoshitsu', 'gyakushu', 'zoshoku', 'badge'
+  ],
+  // 異能 → SEファイル名のマッピング（無いものは ability.mp3 にフォールバック）
+  SKILL_SE: {
+    bakudan: 'bakudan', hogeki: 'hogeki', tanchi: 'tanchi',
+    shoshitsu: 'shoshitsu', gyakushu: 'gyakushu', zoshoku: 'zoshoku',
+    // muko, hanten, kyozo は汎用 ability で代用
+  },
+
+  init() {
+    try {
+      const sv = localStorage.getItem('choversi.sfxVolume');
+      const bv = localStorage.getItem('choversi.bgmVolume');
+      const mu = localStorage.getItem('choversi.muted');
+      if (sv != null) this.sfxVolume = parseFloat(sv);
+      if (bv != null) this.bgmVolume = parseFloat(bv);
+      if (mu != null) this.muted = mu === '1';
+    } catch (e) {}
+
+    // SE 事前読み込み
+    this.SE_FILES.forEach(name => {
+      const a = new Audio(`audio/se/${name}.mp3`);
+      a.preload = 'auto';
+      this.sounds[name] = a;
+    });
+
+    // iOS Safari: 最初のユーザー操作で AudioContext を unlock
+    const unlock = () => {
+      if (this.unlocked) return;
+      this.unlocked = true;
+      Object.values(this.sounds).forEach(a => {
+        const p = a.play();
+        if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+      });
+      document.removeEventListener('click', unlock);
+      document.removeEventListener('touchstart', unlock);
+    };
+    document.addEventListener('click', unlock);
+    document.addEventListener('touchstart', unlock);
+  },
+
+  // 効果音再生（重ねがけ可能）
+  playSE(name) {
+    if (this.muted) return;
+    const tmpl = this.sounds[name];
+    if (!tmpl) return;
+    try {
+      // クローンして再生（同時多重発音）
+      const clone = tmpl.cloneNode();
+      clone.volume = this.sfxVolume;
+      const p = clone.play();
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+  },
+
+  // 異能発動音（あれば固有、なければ汎用）
+  playSkill(skillKey) {
+    const name = this.SKILL_SE[skillKey] || 'ability';
+    this.playSE(name);
+  },
+
+  // 連鎖カウント音（×2 / ×3 / ×4以上）
+  playChain(n) {
+    if (n < 2) return;
+    const file = n >= 4 ? 'chain-4' : `chain-${n}`;
+    this.playSE(file);
+  },
+
+  // BGM 再生（ループ・クロスフェード簡易）
+  playBGM(name) {
+    if (this.bgm && this.bgm.dataset && this.bgm.dataset.name === name) return;
+    if (this.bgm) {
+      try { this.bgm.pause(); } catch (e) {}
+    }
+    const a = new Audio(`audio/bgm/${name}.mp3`);
+    a.dataset.name = name;
+    a.loop = true;
+    a.volume = this.muted ? 0 : this.bgmVolume;
+    a.play().catch(() => {}); // ファイル未配置でも黙って失敗
+    this.bgm = a;
+  },
+  stopBGM() {
+    if (this.bgm) { try { this.bgm.pause(); } catch (e) {} this.bgm = null; }
+  },
+
+  setSfxVolume(v) {
+    this.sfxVolume = Math.max(0, Math.min(1, v));
+    try { localStorage.setItem('choversi.sfxVolume', String(this.sfxVolume)); } catch(e) {}
+  },
+  setBgmVolume(v) {
+    this.bgmVolume = Math.max(0, Math.min(1, v));
+    if (this.bgm) this.bgm.volume = this.muted ? 0 : this.bgmVolume;
+    try { localStorage.setItem('choversi.bgmVolume', String(this.bgmVolume)); } catch(e) {}
+  },
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.bgm) this.bgm.volume = this.muted ? 0 : this.bgmVolume;
+    try { localStorage.setItem('choversi.muted', this.muted ? '1' : '0'); } catch(e) {}
+    return this.muted;
+  },
+};
+SoundManager.init();
+// すべての .btn / button タップで音を鳴らす（onclick の前に発火）
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('.btn, button');
+  if (!t || t.dataset.noTap) return;
+  SoundManager.playSE('tap');
+}, true);
+
+// ミュートボタン
+function syncMuteUI() {
+  const btn = document.getElementById('mute-btn');
+  if (!btn) return;
+  if (SoundManager.muted) { btn.textContent = '🔇'; btn.classList.add('muted'); }
+  else { btn.textContent = '🔊'; btn.classList.remove('muted'); }
+}
+window.addEventListener('DOMContentLoaded', () => {
+  syncMuteUI();
+  const btn = document.getElementById('mute-btn');
+  if (btn) btn.addEventListener('click', () => { SoundManager.toggleMute(); syncMuteUI(); });
+});
 
 // ============================================================
 //  CONSTANTS
@@ -1844,6 +2224,8 @@ async function makeMove(r, c) {
     log(`${labelOf(state.turn)} placed`, `通常石 @ ${coord(r, c)}`);
   }
   state.board[r][c] = stone(state.turn, placedSkill, state.turn);
+  // 着手音
+  SoundManager.playSE('place');
   render();
   await delay(420);
 
@@ -1911,6 +2293,8 @@ async function flipOne(r, c, byColor) {
   // Invert color
   const before = cell.color;
   cell.color = cell.color === 'D' ? 'L' : 'D';
+  // 反転音（連鎖中の連射でも、cloneNode で重なり再生される）
+  SoundManager.playSE('flip');
   showCellFlip(r, c);
   await delay(280);
 
@@ -1941,6 +2325,8 @@ async function fireAbility(r, c, skillKey, byColor) {
   if (state.firedAbilities && state.firedAbilities[byColor]) {
     state.firedAbilities[byColor].add(skillKey);
   }
+  // 異能ごとの効果音（無いものは ability.mp3 にフォールバック）
+  SoundManager.playSkill(skillKey);
   // 大演出：技名をドーンと表示
   showSkillBurst(skillKey);
   // 該当マスに大きめのグロー
@@ -2310,14 +2696,15 @@ function endGame() {
   saveStats(stt);
 
   // XP / LV更新（キャンペーン時のみ）
-  let xpDelta = 0, oldLv = null, newLv = null;
+  let xpDelta = 0, oldLv = null, newLv = null, oldXp = null, newXp = null;
   if (state.mode === 'campaign') {
-    const before = xpToLevel(loadNum(STORAGE.xp, 0));
+    oldXp = loadNum(STORAGE.xp, 0);
+    const before = xpToLevel(oldXp);
     oldLv = before.lv;
     if (win) xpDelta = margin;
     else if (draw) xpDelta = 2;
     else xpDelta = Math.floor(margin / 2); // negative, halved
-    const newXp = Math.max(0, loadNum(STORAGE.xp, 0) + xpDelta);
+    newXp = Math.max(0, oldXp + xpDelta);
     saveNum(STORAGE.xp, newXp);
     newLv = xpToLevel(newXp).lv;
   }
@@ -2334,7 +2721,7 @@ function endGame() {
   };
   const newBadges = checkBadges(ctx);
 
-  showResult(s, winner, { xpDelta, oldLv, newLv, newBadges, mode: state.mode });
+  showResult(s, winner, { xpDelta, oldLv, newLv, oldXp, newXp, newBadges, mode: state.mode });
 }
 
 function countScores() {
@@ -3112,6 +3499,7 @@ function updateChainUI() {
     el.textContent = `CHAIN ×${state.chainCount}`;
     el.classList.add('active');
     showChainBurst(state.chainCount);
+    SoundManager.playChain(state.chainCount);
   } else {
     el.classList.remove('active');
   }
@@ -3166,41 +3554,540 @@ function showChainBurst(n) {
   el.classList.add('show');
 }
 
+// ============================================================
+//  CELEBRATION (XP / LV / RANK animation)
+// ============================================================
+// NOTE: RANK_THRESHOLDS / RANK_NAMES are also defined in index.html as
+//       RANK_PRESETS. Two sources today; consolidation is a future task.
+const RANK_THRESHOLDS = [5, 15, 30, 50, 70, 85, 99];
+const RANK_NAMES = { 5: '入門', 15: '初級', 30: '中級', 50: '上級', 70: '達人', 85: '名人', 99: '鬼神' };
+const KISHIN_LV = 99;
+
+// localStorage flag — UI is intentionally not exposed yet.
+function isCelebrationMuted() {
+  try { return localStorage.getItem('choversi.muteCelebration') === '1'; } catch (e) { return false; }
+}
+
+// --- WebAudio (lazy, single context) ---------------------------------------
+let _audioCtx = null;
+function audioCtx() {
+  if (_audioCtx) return _audioCtx;
+  try {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return null;
+    _audioCtx = new Ctor();
+  } catch (e) { return null; }
+  return _audioCtx;
+}
+function playTone({ freq = 440, dur = 120, vol = 0.15, type = 'sine', sweepTo = null } = {}) {
+  if (isCelebrationMuted()) return;
+  const ctx = audioCtx();
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    if (sweepTo) {
+      osc.frequency.exponentialRampToValueAtTime(sweepTo, ctx.currentTime + dur / 1000);
+    }
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur / 1000);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + dur / 1000 + 0.05);
+  } catch (e) { /* swallow */ }
+}
+function playChord(freqs, dur, vol = 0.18, type = 'sine') {
+  for (const f of freqs) playTone({ freq: f, dur, vol, type });
+}
+function safeVibrate(ms) {
+  try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {}
+}
+
+// --- Segment generation ----------------------------------------------------
+function buildSegments(oldXp, newXp) {
+  const oldS = xpToLevel(oldXp);
+  const newS = xpToLevel(newXp);
+  const segs = [];
+  if (oldXp === newXp) {
+    return [{ lv: oldS.lv, from: oldS.intoLv, to: oldS.intoLv, needForNext: oldS.needForNext, kind: 'flat' }];
+  }
+  const ascending = newXp > oldXp;
+  if (oldS.lv === newS.lv) {
+    return [{ lv: oldS.lv, from: oldS.intoLv, to: newS.intoLv, needForNext: oldS.needForNext, kind: ascending ? 'flat' : 'lvdown-flat' }];
+  }
+  if (ascending) {
+    // First: fill remainder of oldLv
+    segs.push({
+      lv: oldS.lv, from: oldS.intoLv, to: oldS.needForNext, needForNext: oldS.needForNext,
+      kind: 'lvup',
+      intoRankLv: oldS.lv + 1,
+      isRankUp: RANK_THRESHOLDS.includes(oldS.lv + 1),
+      isKishin: (oldS.lv + 1) === KISHIN_LV,
+    });
+    // Middle: full levels
+    for (let lv = oldS.lv + 1; lv < newS.lv; lv++) {
+      const need = xpToNext(lv);
+      segs.push({
+        lv, from: 0, to: need, needForNext: need,
+        kind: 'lvup',
+        intoRankLv: lv + 1,
+        isRankUp: RANK_THRESHOLDS.includes(lv + 1),
+        isKishin: (lv + 1) === KISHIN_LV,
+      });
+    }
+    // Final segment at newLv (no LV up unless we land exactly at full = next level which xpToLevel handles)
+    segs.push({
+      lv: newS.lv, from: 0, to: newS.intoLv, needForNext: newS.needForNext, kind: 'final-up',
+    });
+  } else {
+    // LV down — bar reverses through transitions, no celebration.
+    segs.push({ lv: oldS.lv, from: oldS.intoLv, to: 0, needForNext: oldS.needForNext, kind: 'lvdown' });
+    for (let lv = oldS.lv - 1; lv > newS.lv; lv--) {
+      const need = xpToNext(lv);
+      segs.push({ lv, from: need, to: 0, needForNext: need, kind: 'lvdown' });
+    }
+    segs.push({ lv: newS.lv, from: newS.needForNext, to: newS.intoLv, needForNext: newS.needForNext, kind: 'final-down' });
+  }
+  return segs;
+}
+
+// --- Duration scheduling (auto-compress for many LV ups) -------------------
+function getDurations(segCount) {
+  if (segCount <= 2) return { barFill: 600, lvUp: 400 };
+  if (segCount <= 4) return { barFill: 450, lvUp: 350 };
+  if (segCount <= 6) return { barFill: 350, lvUp: 280 };
+  if (segCount <= 12) return { barFill: 250, lvUp: 220 };
+  // Extreme (only reachable via dev trigger / pathological inputs)
+  return { barFill: 40, lvUp: 30 };
+}
+
+// --- Cancellable celebration runner ----------------------------------------
+let activeCelebration = null;
+
+function skipCelebration() {
+  if (activeCelebration) activeCelebration.skip();
+}
+
+function nextFrame() {
+  return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+}
+
+function cancellableSleep(ms, ctx) {
+  return new Promise(resolve => {
+    if (ctx.skipRequested) return resolve();
+    const id = setTimeout(() => {
+      const idx = ctx.timers.indexOf(id);
+      if (idx >= 0) ctx.timers.splice(idx, 1);
+      resolve();
+    }, ms);
+    ctx.timers.push(id);
+    ctx._waiters.push(resolve);
+  });
+}
+
+function rafCount(ctx, durMs, onTick, onDone) {
+  const start = performance.now();
+  const tick = (now) => {
+    if (ctx.skipRequested) return;
+    const t = Math.min(1, (now - start) / durMs);
+    // ease-out cubic
+    const eased = 1 - Math.pow(1 - t, 3);
+    onTick(eased);
+    if (t < 1) {
+      const id = requestAnimationFrame(tick);
+      ctx.rafs.push(id);
+    } else if (onDone) onDone();
+  };
+  const id = requestAnimationFrame(tick);
+  ctx.rafs.push(id);
+}
+
+function spawnParticles(layer, count, kind, ctx) {
+  if (!layer) return;
+  const baseClass = 'particle ' + (kind === 'kishin' ? 'kishin' : kind === 'rank' ? 'rank' : '');
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = baseClass.trim();
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+    const dist = 50 + Math.random() * 60 + (kind === 'kishin' ? 60 : kind === 'rank' ? 30 : 0);
+    p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+    p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+    layer.appendChild(p);
+    requestAnimationFrame(() => p.classList.add('fire'));
+    const id = setTimeout(() => p.remove(), kind === 'kishin' ? 1500 : 800);
+    ctx.timers.push(id);
+  }
+}
+
+function buildCelebrationDom(parentEl, extra) {
+  parentEl.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'celebration';
+  wrap.innerHTML = `
+    <div class="xp-counter" id="cel-xp-counter">
+      <span id="cel-xp-num">0</span>
+      <span class="xp-counter-label">XP</span>
+    </div>
+    <div class="celebration-bar-row" id="cel-bar-row">
+      <div class="celebration-lv-line">
+        <span class="celebration-lv-label">LV</span>
+        <span class="celebration-lv-num" id="cel-lv-num">${extra.oldLv}</span>
+      </div>
+      <div class="celebration-bar">
+        <div class="celebration-bar-fill" id="cel-bar-fill"></div>
+        <div class="particle-layer" id="cel-particles"></div>
+        <div class="lvup-burst" id="cel-burst">LV UP!</div>
+      </div>
+      <div class="celebration-xp-text" id="cel-xp-text">0 / ${xpToLevel(extra.oldXp).needForNext} XP</div>
+    </div>
+  `;
+  parentEl.appendChild(wrap);
+}
+
+function renderBadgeUnlocks(parentEl, badges) {
+  if (!badges || badges.length === 0) return;
+  const title = document.createElement('div');
+  title.className = 'badge-unlock-title';
+  title.textContent = '🏆 新バッジ獲得！';
+  const list = document.createElement('div');
+  list.className = 'badge-unlock-list';
+  list.innerHTML = badges.map(b => `<span class="badge-unlock-chip">${b.name}</span>`).join('');
+  parentEl.appendChild(title);
+  parentEl.appendChild(list);
+}
+
+// Set bar to a given % using a CSS transition, returns Promise that resolves on transitionend (or skip)
+function animateBarTo(fillEl, fromPct, toPct, durMs, ctx) {
+  return new Promise(resolve => {
+    if (ctx.skipRequested) {
+      fillEl.style.transition = 'none';
+      fillEl.style.width = toPct + '%';
+      return resolve();
+    }
+    fillEl.style.transition = 'none';
+    fillEl.style.width = fromPct + '%';
+    // force reflow
+    void fillEl.offsetWidth;
+    fillEl.style.transition = `width ${durMs}ms cubic-bezier(.25,.8,.4,1)`;
+    fillEl.style.width = toPct + '%';
+    let done = false;
+    const onEnd = () => {
+      if (done) return; done = true;
+      fillEl.removeEventListener('transitionend', onEnd);
+      resolve();
+    };
+    fillEl.addEventListener('transitionend', onEnd);
+    // Safety timeout in case transitionend doesn't fire
+    const id = setTimeout(onEnd, durMs + 80);
+    ctx.timers.push(id);
+    ctx._waiters.push(onEnd);
+  });
+}
+
+async function playCelebration(extra) {
+  // Cancel any already-running celebration
+  if (activeCelebration) activeCelebration.skip();
+  const ctx = {
+    skipRequested: false,
+    timers: [],
+    rafs: [],
+    _waiters: [],
+    skip() {
+      this.skipRequested = true;
+      this.timers.forEach(clearTimeout);
+      this.rafs.forEach(cancelAnimationFrame);
+      this.timers.length = 0;
+      this.rafs.length = 0;
+      this._waiters.forEach(fn => { try { fn(); } catch (e) {} });
+      this._waiters.length = 0;
+    },
+  };
+  activeCelebration = ctx;
+
+  const ext = document.getElementById('modal-extra');
+  const skipBtn = document.getElementById('celebration-skip');
+  const modalContent = document.querySelector('#result-modal .modal-content');
+  if (modalContent) modalContent.classList.remove('rankup-aura', 'kishin-aura');
+
+  // Single mode → just static label
+  if (extra.mode === 'single') {
+    ext.innerHTML = `<div class="single-mode">フリー対戦（LV ${state?.aiLevel ?? '—'}）</div>`;
+    if (extra.newBadges && extra.newBadges.length) renderBadgeUnlocks(ext, extra.newBadges);
+    activeCelebration = null;
+    return;
+  }
+
+  // Campaign with no XP delta or non-numeric → fallback static
+  if (extra.xpDelta == null) { activeCelebration = null; return; }
+
+  // Build DOM
+  buildCelebrationDom(ext, extra);
+  if (skipBtn) skipBtn.classList.remove('hidden');
+
+  const counterEl = document.getElementById('cel-xp-counter');
+  const numEl = document.getElementById('cel-xp-num');
+  const barRowEl = document.getElementById('cel-bar-row');
+  const barFillEl = document.getElementById('cel-bar-fill');
+  const lvNumEl = document.getElementById('cel-lv-num');
+  const xpTextEl = document.getElementById('cel-xp-text');
+  const burstEl = document.getElementById('cel-burst');
+  const particleLayer = document.getElementById('cel-particles');
+
+  const xpDelta = extra.xpDelta;
+  const isLoss = xpDelta < 0;
+  const isFlatXp = xpDelta === 0;
+
+  // Phase 1: counter + sound
+  await cancellableSleep(400, ctx); if (ctx.skipRequested) return finalize();
+  counterEl.classList.add('show');
+  if (isLoss) counterEl.classList.add('xp-loss');
+  numEl.textContent = (xpDelta > 0 ? '+' : '') + '0';
+  if (!isLoss && !isFlatXp) playTone({ freq: 440, dur: 60, vol: 0.12, type: 'sine' });
+  // count up/down
+  await new Promise(resolve => {
+    if (ctx.skipRequested) { numEl.textContent = (xpDelta > 0 ? '+' : '') + xpDelta; return resolve(); }
+    rafCount(ctx, 800, (e) => {
+      const v = Math.round(xpDelta * e);
+      numEl.textContent = (xpDelta > 0 ? '+' : (xpDelta < 0 ? '' : '+')) + v;
+    }, () => resolve());
+  });
+  numEl.textContent = (xpDelta > 0 ? '+' : '') + xpDelta;
+  if (!isLoss && !isFlatXp) playTone({ freq: 660, dur: 80, vol: 0.15, type: 'sine' });
+  if (isLoss) playTone({ freq: 220, dur: 250, vol: 0.10, type: 'triangle' });
+
+  // Phase 2: bar slide-in
+  await cancellableSleep(180, ctx); if (ctx.skipRequested) return finalize();
+  const segments = buildSegments(extra.oldXp, extra.newXp);
+  const dur = getDurations(segments.length);
+  // Initialize bar to first segment's "from"
+  const first = segments[0];
+  lvNumEl.textContent = first.lv;
+  const initPct = first.needForNext > 0 ? (first.from / first.needForNext) * 100 : 0;
+  barFillEl.style.transition = 'none';
+  barFillEl.style.width = initPct + '%';
+  xpTextEl.textContent = `${first.from} / ${first.needForNext} XP`;
+  barRowEl.classList.add('show');
+  await cancellableSleep(260, ctx);
+
+  // Phase 3: per-segment animation
+  for (let i = 0; i < segments.length; i++) {
+    if (ctx.skipRequested) break;
+    const seg = segments[i];
+    lvNumEl.textContent = seg.lv;
+    const fromPct = seg.needForNext > 0 ? (seg.from / seg.needForNext) * 100 : 0;
+    const toPct = seg.needForNext > 0 ? (seg.to / seg.needForNext) * 100 : 0;
+    // Update XP text via parallel RAF (separate from bar transition)
+    const textStart = performance.now();
+    const animateText = () => {
+      if (ctx.skipRequested) { xpTextEl.textContent = `${seg.to} / ${seg.needForNext} XP`; return; }
+      const t = Math.min(1, (performance.now() - textStart) / dur.barFill);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const cur = Math.round(seg.from + (seg.to - seg.from) * eased);
+      xpTextEl.textContent = `${cur} / ${seg.needForNext} XP`;
+      if (t < 1) {
+        const id = requestAnimationFrame(animateText);
+        ctx.rafs.push(id);
+      }
+    };
+    const txtRaf = requestAnimationFrame(animateText);
+    ctx.rafs.push(txtRaf);
+
+    await animateBarTo(barFillEl, fromPct, toPct, dur.barFill, ctx);
+    if (ctx.skipRequested) break;
+
+    // LV UP / RANK UP / 鬼神 effect (only at end of "lvup" segments)
+    if (seg.kind === 'lvup') {
+      // Bar flash
+      barFillEl.classList.add('flash');
+      const flashOff = setTimeout(() => barFillEl.classList.remove('flash'), 320);
+      ctx.timers.push(flashOff);
+
+      // Floating burst text
+      if (seg.isKishin) {
+        burstEl.textContent = '鬼神 到達';
+        burstEl.className = 'lvup-burst kishin-text';
+      } else if (seg.isRankUp) {
+        burstEl.textContent = `RANK UP! ${RANK_NAMES[seg.intoRankLv]}`;
+        burstEl.className = 'lvup-burst rankup-text';
+      } else {
+        burstEl.textContent = 'LV UP!';
+        burstEl.className = 'lvup-burst';
+      }
+      // re-trigger animation
+      void burstEl.offsetWidth;
+      burstEl.classList.add('show');
+
+      // Number pop
+      lvNumEl.classList.remove('pop', 'rankup', 'kishin');
+      void lvNumEl.offsetWidth;
+      const popClass = seg.isKishin ? 'kishin' : seg.isRankUp ? 'rankup' : 'pop';
+      lvNumEl.classList.add(popClass);
+      // After short hold, swap to new LV number
+      await cancellableSleep(120, ctx);
+      lvNumEl.textContent = seg.lv + 1;
+
+      // Particles
+      const pcount = seg.isKishin ? 28 : seg.isRankUp ? 20 : 8;
+      const pkind = seg.isKishin ? 'kishin' : seg.isRankUp ? 'rank' : 'std';
+      spawnParticles(particleLayer, pcount, pkind, ctx);
+
+      // Modal aura for rank-up (kishin uses different class)
+      if (seg.isKishin && modalContent) {
+        modalContent.classList.add('kishin-aura');
+        const off = setTimeout(() => modalContent.classList.remove('kishin-aura'), 1500);
+        ctx.timers.push(off);
+      } else if (seg.isRankUp && modalContent) {
+        modalContent.classList.add('rankup-aura');
+        const off = setTimeout(() => modalContent.classList.remove('rankup-aura'), 800);
+        ctx.timers.push(off);
+      }
+
+      // Sounds + vibration
+      if (seg.isKishin) {
+        playChord([523.25, 659.25, 783.99, 1046.5], 1000, 0.20, 'sine');
+        safeVibrate(40);
+      } else if (seg.isRankUp) {
+        playChord([523.25, 659.25, 783.99], 400, 0.20, 'sine');
+        safeVibrate(30);
+      } else {
+        playTone({ freq: 660, dur: 200, vol: 0.18, type: 'sine', sweepTo: 880 });
+        safeVibrate(8);
+      }
+
+      // Hold for the LV-UP effect (compressed for many segs; rank-up always >= 500)
+      const holdMs = seg.isKishin ? 1100 : seg.isRankUp ? 600 : dur.lvUp;
+      await cancellableSleep(holdMs, ctx);
+      if (ctx.skipRequested) break;
+
+      // Reset visuals before next segment
+      lvNumEl.classList.remove('pop', 'rankup', 'kishin');
+      burstEl.classList.remove('show');
+    }
+
+    if (seg.kind === 'final-up' || seg.kind === 'flat' || seg.kind === 'final-down' || seg.kind === 'lvdown-flat') {
+      // Sit on the final state briefly so the user reads it
+      await cancellableSleep(220, ctx);
+    }
+  }
+
+  // Phase 4: badge reveal
+  if (!ctx.skipRequested) await cancellableSleep(180, ctx);
+  finalize();
+
+  function finalize() {
+    // Apply final state regardless of skip path
+    const finalLv = extra.newLv;
+    const finalState = xpToLevel(extra.newXp);
+    if (lvNumEl) {
+      lvNumEl.textContent = finalLv;
+      lvNumEl.classList.remove('pop', 'rankup', 'kishin');
+    }
+    if (barFillEl) {
+      barFillEl.style.transition = 'none';
+      const pct = finalState.needForNext > 0 ? (finalState.intoLv / finalState.needForNext) * 100 : 100;
+      barFillEl.style.width = pct + '%';
+      barFillEl.classList.remove('flash');
+    }
+    if (xpTextEl) xpTextEl.textContent = `${finalState.intoLv} / ${finalState.needForNext} XP`;
+    if (numEl) numEl.textContent = (xpDelta > 0 ? '+' : '') + xpDelta;
+    if (counterEl) counterEl.classList.add('show');
+    if (barRowEl) barRowEl.classList.add('show');
+    if (burstEl) burstEl.classList.remove('show');
+    if (skipBtn) skipBtn.classList.add('hidden');
+    if (extra.newBadges && extra.newBadges.length) renderBadgeUnlocks(ext, extra.newBadges);
+    if (activeCelebration === ctx) activeCelebration = null;
+  }
+}
+
+// --- Public showResult / hideResult ----------------------------------------
 function showResult(s, winner, extra) {
   document.getElementById('modal-winner').textContent = winner;
   document.getElementById('modal-score-D').textContent = s.D;
   document.getElementById('modal-score-L').textContent = s.L;
-  // XP / LV / バッジ表示
-  const ext = document.getElementById('modal-extra');
-  if (ext) {
-    ext.innerHTML = '';
-    if (extra && extra.mode === 'campaign' && extra.xpDelta != null) {
-      const sign = extra.xpDelta > 0 ? '+' : '';
-      const xpClass = extra.xpDelta > 0 ? 'xp-gain' : extra.xpDelta < 0 ? 'xp-loss' : '';
-      ext.innerHTML += `<div class="xp-line ${xpClass}">${sign}${extra.xpDelta} XP</div>`;
-      if (extra.newLv > extra.oldLv) {
-        ext.innerHTML += `<div class="lv-up">🎉 LV ${extra.oldLv} → <strong>${extra.newLv}</strong></div>`;
-      } else if (extra.newLv < extra.oldLv) {
-        ext.innerHTML += `<div class="lv-down">LV ${extra.oldLv} → ${extra.newLv}</div>`;
-      } else {
-        ext.innerHTML += `<div class="lv-stay">LV ${extra.newLv}</div>`;
-      }
-    } else if (extra && extra.mode === 'single') {
-      ext.innerHTML += `<div class="single-mode">フリー対戦（LV ${state.aiLevel}）</div>`;
+  // 勝敗音
+  if (extra && extra.mode) {
+    if (winner.includes(state.playerColor === 'D' ? '黒' : '白') && winner.includes('勝利')) {
+      SoundManager.playSE('victory');
+    } else if (!winner.includes('引き分け')) {
+      SoundManager.playSE('defeat');
     }
-    if (extra && extra.newBadges && extra.newBadges.length > 0) {
-      ext.innerHTML += `<div class="badge-unlock-title">🏆 新バッジ獲得！</div>`;
-      ext.innerHTML += `<div class="badge-unlock-list">${
-        extra.newBadges.map(b => `<span class="badge-unlock-chip">${b.name}</span>`).join('')
-      }</div>`;
+    // バッジ獲得があったら少し遅らせて演出
+    if (extra.newBadges && extra.newBadges.length > 0) {
+      setTimeout(() => SoundManager.playSE('badge'), 800);
     }
   }
+  const ext = document.getElementById('modal-extra');
+  if (ext) ext.innerHTML = '';
+  const skipBtn = document.getElementById('celebration-skip');
+  if (skipBtn) skipBtn.classList.add('hidden');
+  const modalContent = document.querySelector('#result-modal .modal-content');
+  if (modalContent) modalContent.classList.remove('rankup-aura', 'kishin-aura');
   document.getElementById('result-modal').classList.remove('hidden');
+
+  if (!extra) return;
+  if (extra.mode === 'single') {
+    ext.innerHTML = `<div class="single-mode">フリー対戦（LV ${state?.aiLevel ?? '—'}）</div>`;
+    if (extra.newBadges && extra.newBadges.length) renderBadgeUnlocks(ext, extra.newBadges);
+    return;
+  }
+  if (extra.mode === 'campaign' && extra.xpDelta != null) {
+    playCelebration(extra);
+  }
 }
 
 function hideResult() {
   document.getElementById('result-modal').classList.add('hidden');
+  if (activeCelebration) activeCelebration.skip();
 }
+
+// --- Dev trigger ------------------------------------------------------------
+// Usage from devtools console:
+//   triggerCelebration({ oldXp: 0, newXp: 30 })           — campaign animation
+//   triggerCelebration({ oldXp: 80, newXp: 50 })          — XP loss / LV down
+//   triggerCelebration({ kishin: true })                  — preset to LV99 boundary
+//   triggerCelebration({ rank: '初級' })                  — preset to specific rank-up
+//   triggerCelebration({ oldXp: 0, newXp: 100, badges: [{name:'三連勝'}] })
+window.triggerCelebration = function(opts = {}) {
+  let { oldXp, newXp, badges, kishin, rank } = opts;
+  if (kishin) {
+    // Set up to enter LV99 from LV98
+    let xp = 0;
+    for (let lv = 1; lv < 98; lv++) xp += xpToNext(lv);
+    oldXp = xp + Math.floor(xpToNext(98) / 2);
+    newXp = oldXp + xpToNext(98); // exactly enough to hit LV99
+  } else if (rank) {
+    const lv = Object.entries(RANK_NAMES).find(([_, n]) => n === rank);
+    if (lv) {
+      const targetLv = parseInt(lv[0], 10);
+      let xp = 0;
+      for (let i = 1; i < targetLv - 1; i++) xp += xpToNext(i);
+      oldXp = xp + Math.floor(xpToNext(targetLv - 1) / 2);
+      newXp = oldXp + xpToNext(targetLv - 1);
+    }
+  }
+  oldXp = oldXp ?? 0;
+  newXp = newXp ?? oldXp;
+  const winner = newXp >= oldXp ? '黒の勝利' : '白の勝利';
+  document.getElementById('modal-winner').textContent = '【DEV】演出テスト';
+  document.getElementById('modal-score-D').textContent = '—';
+  document.getElementById('modal-score-L').textContent = '—';
+  const ext = document.getElementById('modal-extra');
+  if (ext) ext.innerHTML = '';
+  document.getElementById('result-modal').classList.remove('hidden');
+  const oldLv = xpToLevel(oldXp).lv;
+  const newLv = xpToLevel(newXp).lv;
+  const extra = {
+    mode: 'campaign',
+    xpDelta: newXp - oldXp,
+    oldXp, newXp, oldLv, newLv,
+    newBadges: badges || [],
+  };
+  playCelebration(extra);
+  console.log('[triggerCelebration]', { oldXp, newXp, oldLv, newLv, segments: buildSegments(oldXp, newXp).length });
+};
 
 // ============================================================
 //  HELPERS

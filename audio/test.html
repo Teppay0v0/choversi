@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChoVersi 効果音テスト</title>
+<style>
+  :root {
+    --cream: #F2EBE0;
+    --cream-deep: #E8DCC4;
+    --sage: #D4B36A;
+    --sage-dark: #B49858;
+    --dark: #3A3530;
+    --text: #4A443D;
+    --muted: #9A9085;
+    --reject: #C25E5E;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans JP', -apple-system, sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    padding: 24px 16px 60px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    margin-bottom: 28px;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .group {
+    margin-bottom: 28px;
+  }
+  .group-title {
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 10px;
+    letter-spacing: 0.1em;
+    padding-left: 4px;
+  }
+  .se-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .se-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 14px;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1.5px solid rgba(58, 53, 48, 0.12);
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: all 0.15s;
+  }
+  .se-item.rejected {
+    background: rgba(194, 94, 94, 0.08);
+    border-color: rgba(194, 94, 94, 0.4);
+  }
+  .se-item.rejected .name { text-decoration: line-through; color: var(--muted); }
+  .play-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: var(--dark);
+    color: var(--cream);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .play-btn:active { background: var(--sage-dark); }
+  .play-btn.playing { background: var(--sage); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(212, 179, 106, 0.5); }
+    50%      { box-shadow: 0 0 0 8px rgba(212, 179, 106, 0); }
+  }
+  .info {
+    line-height: 1.4;
+  }
+  .name {
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .desc {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .reject-btn {
+    border: 1.5px solid rgba(194, 94, 94, 0.4);
+    background: transparent;
+    color: var(--reject);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    letter-spacing: 0.1em;
+  }
+  .se-item.rejected .reject-btn {
+    background: var(--reject);
+    color: var(--cream);
+  }
+  .summary {
+    margin-top: 24px;
+    padding: 16px 20px;
+    background: rgba(58, 53, 48, 0.06);
+    border-radius: 12px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .summary .count {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--sage-dark);
+  }
+  .reject-list {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--reject);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎧 ChoVersi 効果音テスト</h1>
+  <div class="subtitle">▶ で再生 ／ ✗ で要差し替えマーク</div>
+
+  <div class="group">
+    <div class="group-title">必須 SE</div>
+    <div class="se-list" id="essential"></div>
+  </div>
+
+  <div class="group">
+    <div class="group-title">異能ごとの SE（オプション）</div>
+    <div class="se-list" id="abilities"></div>
+  </div>
+
+  <div class="summary">
+    <div>差し替え希望: <span class="count" id="reject-count">0</span> 個</div>
+    <div class="reject-list" id="reject-list"></div>
+  </div>
+</div>
+
+<script>
+const ESSENTIAL = [
+  { id: 'place',    name: '石を置く', desc: 'プレイヤーが石を盤面に配置した時' },
+  { id: 'flip',     name: '石が反転', desc: '挟まれて裏返る時' },
+  { id: 'ability',  name: '異能発動（汎用）', desc: '異能石が発動した時' },
+  { id: 'bakudan',  name: '爆弾',     desc: '爆弾発動の爆発音' },
+  { id: 'chain-2',  name: '連鎖 ×2',  desc: '2連鎖達成時' },
+  { id: 'chain-3',  name: '連鎖 ×3',  desc: '3連鎖達成時' },
+  { id: 'chain-4',  name: '連鎖 ×4以上', desc: '4連鎖以上の大連鎖' },
+  { id: 'tap',      name: 'ボタンタップ', desc: 'UIボタン押下' },
+  { id: 'victory',  name: '勝利',     desc: '勝った瞬間のファンファーレ' },
+  { id: 'defeat',   name: '敗北',     desc: '負けた時' },
+];
+
+const ABILITIES = [
+  { id: 'hogeki',    name: '砲撃',  desc: '十字3マス反転' },
+  { id: 'tanchi',    name: '探知',  desc: '相手の異能を露出' },
+  { id: 'shoshitsu', name: '消滅',  desc: '相手の石1枚を消去' },
+  { id: 'gyakushu',  name: '逆襲',  desc: '3方囲まれて反撃' },
+  { id: 'zoshoku',   name: '増殖',  desc: '隣に同色生成' },
+  { id: 'badge',     name: 'バッジ獲得', desc: '新バッジアンロック時' },
+];
+
+let currentlyPlaying = null;
+
+function renderItem(item, container) {
+  const div = document.createElement('div');
+  div.className = 'se-item';
+  div.dataset.id = item.id;
+  div.innerHTML = `
+    <button class="play-btn" data-id="${item.id}">▶</button>
+    <div class="info">
+      <div class="name">${item.name}</div>
+      <div class="desc">${item.desc} · <code>${item.id}.mp3</code></div>
+    </div>
+    <button class="reject-btn">✗ 差し替え</button>
+  `;
+  container.appendChild(div);
+}
+
+ESSENTIAL.forEach(i => renderItem(i, document.getElementById('essential')));
+ABILITIES.forEach(i => renderItem(i, document.getElementById('abilities')));
+
+const audio = new Audio();
+
+document.body.addEventListener('click', (e) => {
+  const playBtn = e.target.closest('.play-btn');
+  const rejectBtn = e.target.closest('.reject-btn');
+
+  if (playBtn) {
+    const id = playBtn.dataset.id;
+    if (currentlyPlaying) currentlyPlaying.classList.remove('playing');
+    audio.src = `se/${id}.mp3?t=${Date.now()}`;
+    audio.play();
+    playBtn.classList.add('playing');
+    currentlyPlaying = playBtn;
+  }
+
+  if (rejectBtn) {
+    const item = rejectBtn.closest('.se-item');
+    item.classList.toggle('rejected');
+    updateSummary();
+  }
+});
+
+audio.addEventListener('ended', () => {
+  if (currentlyPlaying) {
+    currentlyPlaying.classList.remove('playing');
+    currentlyPlaying = null;
+  }
+});
+
+function updateSummary() {
+  const rejected = [...document.querySelectorAll('.se-item.rejected')]
+    .map(el => el.dataset.id);
+  document.getElementById('reject-count').textContent = rejected.length;
+  document.getElementById('reject-list').textContent =
+    rejected.length ? rejected.join(', ') : '';
+}
+</script>
+</body>
+</html>

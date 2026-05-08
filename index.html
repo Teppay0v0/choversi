@@ -424,6 +424,27 @@
   .btn:active { transform: translateY(0); opacity: 0.9; }
 
   /* フッター */
+  .mute-btn-fixed {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(58, 53, 48, 0.15);
+    background: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s;
+    z-index: 100;
+  }
+  .mute-btn-fixed.muted { background: rgba(58, 53, 48, 0.08); opacity: 0.7; }
+
   .start-footer {
     position: fixed;
     bottom: 8px;
@@ -505,6 +526,8 @@
 </head>
 <body>
 
+<button class="mute-btn-fixed" id="mute-btn" data-no-tap="1" aria-label="ミュート切替">🔊</button>
+
 <div class="bg-decoration">
   <div class="stone s1"></div>
   <div class="stone s2"></div>
@@ -581,6 +604,56 @@
 </div>
 
 <script>
+// === 簡易 SoundManager（タップ音とミュート同期だけ） ===
+const SoundLite = {
+  tapAudio: null,
+  muted: false,
+  init() {
+    try { this.muted = localStorage.getItem('choversi.muted') === '1'; } catch(e){}
+    this.tapAudio = new Audio('audio/se/tap.mp3');
+    this.tapAudio.preload = 'auto';
+    // iOS unlock
+    const unlock = () => {
+      const p = this.tapAudio.play();
+      if (p && p.then) p.then(() => { this.tapAudio.pause(); this.tapAudio.currentTime = 0; }).catch(() => {});
+      document.removeEventListener('click', unlock);
+      document.removeEventListener('touchstart', unlock);
+    };
+    document.addEventListener('click', unlock, { once: true });
+    document.addEventListener('touchstart', unlock, { once: true });
+  },
+  playTap() {
+    if (this.muted || !this.tapAudio) return;
+    try {
+      const c = this.tapAudio.cloneNode();
+      c.volume = 0.7;
+      const p = c.play();
+      if (p && p.catch) p.catch(()=>{});
+    } catch(e) {}
+  },
+  toggleMute() {
+    this.muted = !this.muted;
+    try { localStorage.setItem('choversi.muted', this.muted ? '1' : '0'); } catch(e){}
+    return this.muted;
+  }
+};
+SoundLite.init();
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('.btn, button');
+  if (!t || t.dataset.noTap) return;
+  SoundLite.playTap();
+}, true);
+window.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('mute-btn');
+  function syncBtn() {
+    if (!btn) return;
+    if (SoundLite.muted) { btn.textContent = '🔇'; btn.classList.add('muted'); }
+    else { btn.textContent = '🔊'; btn.classList.remove('muted'); }
+  }
+  syncBtn();
+  if (btn) btn.addEventListener('click', () => { SoundLite.toggleMute(); syncBtn(); });
+});
+
 (function() {
   // === XPカーブ（game.htmlと同じ式） ===
   const MAX_LEVEL = 99;
