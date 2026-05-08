@@ -2503,12 +2503,15 @@ function aiThink() {
   }
 
   // === 候補手の評価（LV別重み付け） ===
+  const useFlipRisk = (state.aiLevel || 30) >= 70; // Phase 3
   const candidates = []; // {score, move, skillIdx}
   for (const [r, c] of validMoves) {
     const flips = getFlipsForPlace(r, c, me);
     let baseScore = profile.posWeightFactor * POS_WEIGHTS[r][c] + flips.length * 2;
     // X/C打ち回避
     if (profile.threatAvoid && isThreatCell(r, c, state.board)) baseScore -= 30;
+    // Phase 3: 確率的フリップリスク評価（LV70+）
+    if (useFlipRisk) baseScore -= computeFlipRisk(me, r, c);
     // 1-ply / 2-ply 先読み（角や辺の取得を実際の盤面で評価）
     if (profile.lookahead >= 1) {
       const next = simulatePlace(state.board, r, c, me);
@@ -2593,10 +2596,13 @@ function skillContextBonus(r, c, skill, color) {
     }
     // Phase 2: LV50+ は残デッキに強カード（コスト3）が多いほど探知の価値↑
     let perInfoBonus = 2;
-    if ((state.aiLevel || 30) >= 50) {
+    const lv = state.aiLevel || 30;
+    if (lv >= 50) {
       const pool = getOpponentRemainingPool(color);
       const strongLeft = pool.filter(s => ABILITIES[s].cost >= 3).length;
       perInfoBonus = 2 + strongLeft * 1.5;
+      // Phase 3: LV70+ は爆弾が残っている時に大幅ブースト（情報の戦略的価値）
+      if (lv >= 70 && pool.includes('bakudan')) perInfoBonus += 4;
     }
     return infoCount * perInfoBonus;
   }
@@ -2630,6 +2636,30 @@ function skillContextBonus(r, c, skill, color) {
     return blocked * 4; // 既に2方塞がっていれば+8
   }
   return 0;
+}
+
+// Phase 3: 候補手のリスク評価（LV70+）
+// 不明な相手異能石をフリップする確率に応じてリスク値を返す
+// 主に "爆弾" の自爆フリップを警戒する。LV85+ ほど慎重に
+function computeFlipRisk(me, r, c) {
+  const flips = getFlipsForPlace(r, c, me);
+  if (flips.length === 0) return 0;
+  const aiRevealed = me === 'D' ? state.revealedToD : state.revealedToL;
+  const pool = getOpponentRemainingPool(me);
+  if (pool.length === 0) return 0;
+  const bombInPool = pool.includes('bakudan') ? 1 : 0;
+  const probBomb = bombInPool / pool.length;
+  const probMuko = pool.includes('muko') ? 1 / pool.length : 0;
+  // LV85+ は警戒が強い、LV70 は控えめ
+  const intensity = (state.aiLevel || 30) >= 85 ? 16 : 10;
+  let risk = 0;
+  for (const [fr, fc] of flips) {
+    const cell = state.board[fr][fc];
+    if (cell.color !== me && cell.skill && !aiRevealed.has(`${fr},${fc}`)) {
+      risk += probBomb * intensity + probMuko * 2;
+    }
+  }
+  return risk;
 }
 
 // Phase 2: 相手の "残っている可能性のある異能の集合" を返す

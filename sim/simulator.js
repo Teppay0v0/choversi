@@ -556,10 +556,12 @@ function skillContextBonus(state, r, c, skill, color) {
       }
     }
     let perInfoBonus = 2;
-    if ((state.aiLevel || 50) >= 50) {
+    const lv = state.aiLevel || 50;
+    if (lv >= 50) {
       const pool = getOpponentRemainingPool(state, color);
       const strongLeft = pool.filter(s => ABILITIES[s].cost >= 3).length;
       perInfoBonus = 2 + strongLeft * 1.5;
+      if (lv >= 70 && pool.includes('bakudan')) perInfoBonus += 4;
     }
     return infoCount * perInfoBonus;
   }
@@ -587,6 +589,27 @@ function skillContextBonus(state, r, c, skill, color) {
     return blocked * 4;
   }
   return 0;
+}
+
+// Phase 3: フリップ・リスク評価（LV70+）— LV85+ ほど慎重
+function computeFlipRisk(state, me, r, c) {
+  const flips = getFlipsForPlace(state, r, c, me);
+  if (flips.length === 0) return 0;
+  const aiRevealed = me === 'D' ? state.revealedToD : state.revealedToL;
+  const pool = getOpponentRemainingPool(state, me);
+  if (pool.length === 0) return 0;
+  const bombInPool = pool.includes('bakudan') ? 1 : 0;
+  const probBomb = bombInPool / pool.length;
+  const probMuko = pool.includes('muko') ? 1 / pool.length : 0;
+  const intensity = (state.aiLevel || 50) >= 85 ? 16 : 10;
+  let risk = 0;
+  for (const [fr, fc] of flips) {
+    const cell = state.board[fr][fc];
+    if (cell.color !== me && cell.skill && !(aiRevealed && aiRevealed.has(`${fr},${fc}`))) {
+      risk += probBomb * intensity + probMuko * 2;
+    }
+  }
+  return risk;
 }
 
 // Phase 2: 相手の残っている可能性のある異能の集合
@@ -655,9 +678,11 @@ function aiPickAction(state, me) {
   }
 
   // 3) Best placement
+  const useFlipRisk = (state.aiLevel || 50) >= 70;
   let best = { score: -Infinity, move: null, skillIdx: -1 };
   for (const [r, c] of validMoves) {
-    const baseScore = scoreMove(state, r, c, me);
+    let baseScore = scoreMove(state, r, c, me);
+    if (useFlipRisk) baseScore -= computeFlipRisk(state, me, r, c);
     if (baseScore > best.score) best = { score: baseScore, move: [r, c], skillIdx: -1 };
     for (const card of activeHand) {
       const skill = card.skill;
