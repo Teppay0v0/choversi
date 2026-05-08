@@ -166,32 +166,100 @@
     color: var(--muted);
     line-height: 1.5;
   }
-  .lv-slider-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  /* === ランクタイル（フリー対戦） === */
+  .rank-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
   }
-  .lv-slider-row .lv-slider-label {
-    font-family: 'Manrope', sans-serif;
-    font-size: 12px;
-    color: var(--muted);
-    letter-spacing: 0.2em;
-  }
-  .lv-slider-row #single-lv-input {
-    width: 56px;
-    padding: 6px 8px;
-    border: 1.5px solid rgba(58, 53, 48, 0.2);
-    border-radius: 8px;
+  .rank-grid .rank-tile {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1.5px solid transparent;
+    border-radius: 10px;
+    padding: 8px 4px 9px;
     text-align: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s, border-color 0.15s, transform 0.12s;
+    position: relative;
+    user-select: none;
+  }
+  @media (hover: hover) {
+    .rank-grid .rank-tile:hover {
+      background: rgba(255, 255, 255, 0.85);
+      transform: translateY(-1px);
+    }
+  }
+  .rank-grid .rank-tile.active {
+    background: var(--dark);
+    border-color: var(--sage);
+  }
+  .rank-grid .rank-tile.active .rank-tile-num,
+  .rank-grid .rank-tile.active .rank-tile-name {
+    color: var(--cream);
+  }
+  .rank-grid .rank-tile.active .rank-tile-dots span {
+    background: var(--sage);
+  }
+  .rank-grid .rank-tile.active::after {
+    content: '✓';
+    position: absolute;
+    top: 2px;
+    right: 5px;
+    font-size: 10px;
+    color: var(--sage);
+    font-weight: 700;
+  }
+  .rank-tile-num {
     font-family: 'Manrope', sans-serif;
-    font-size: 16px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .rank-tile-name {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text);
-    background: var(--cream);
+    line-height: 1.1;
+    margin-bottom: 4px;
   }
-  .lv-slider-row #single-lv-slider {
-    flex: 1;
-    accent-color: var(--sage-dark);
+  .rank-tile-dots {
+    display: flex;
+    gap: 2px;
+    justify-content: center;
+  }
+  .rank-tile-dots span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(58, 53, 48, 0.18);
+  }
+  .rank-tile-dots span.on { background: var(--sage-dark); }
+  .rank-tile.center-7 {
+    grid-column: 2 / span 2;  /* 7段目の鬼神を中央2列分に拡張 */
+  }
+
+  .rank-summary {
+    text-align: center;
+    margin-top: 4px;
+  }
+  .rank-summary-name {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--sage-dark);
+    margin-bottom: 2px;
+  }
+  .rank-summary-meta {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
   }
 
   .footer-links {
@@ -447,11 +515,11 @@
 
   <div class="start-buttons">
 
-    <!-- モード選択：キャンペーン / シングル -->
+    <!-- モード選択：ランク戦 / フリー対戦 -->
     <div class="mode-picker" id="mode-picker">
       <div class="mode-tabs">
-        <button class="mode-tab active" data-mode="campaign">キャンペーン</button>
-        <button class="mode-tab" data-mode="single">シングル</button>
+        <button class="mode-tab active" data-mode="campaign">ランク戦</button>
+        <button class="mode-tab" data-mode="single">フリー対戦</button>
       </div>
       <div class="mode-panel" id="campaign-panel">
         <div class="lv-display">
@@ -462,12 +530,13 @@
         <div class="mode-desc">勝てば強敵に、負ければ少し優しい敵に。最大 LV99。</div>
       </div>
       <div class="mode-panel hidden" id="single-panel">
-        <div class="lv-slider-row">
-          <span class="lv-slider-label">LV</span>
-          <input type="number" id="single-lv-input" min="1" max="99" value="30">
-          <input type="range" id="single-lv-slider" min="1" max="99" value="30">
+        <div class="rank-grid" id="rank-grid">
+          <!-- ランクタイルを JS で動的生成 -->
         </div>
-        <div class="mode-desc">単発1戦のみ。経験値・LVには影響なし。</div>
+        <div class="rank-summary">
+          <div class="rank-summary-name" id="rank-name">中級</div>
+          <div class="rank-summary-meta">内部 LV <span id="rank-lv">30</span> ／ 1戦のみ・経験値には影響なし</div>
+        </div>
       </div>
     </div>
 
@@ -583,20 +652,53 @@
   const fillPct = needForNext === 0 ? 100 : Math.round(intoLv / needForNext * 100);
   document.getElementById('xp-fill').style.width = fillPct + '%';
 
-  // === シングル LV ピッカー ===
-  const singleInput = document.getElementById('single-lv-input');
-  const singleSlider = document.getElementById('single-lv-slider');
+  // === フリー対戦 7段ランクピッカー ===
+  const RANK_PRESETS = [
+    { idx: 1, name: '入門', lv: 5,  dots: 1 },
+    { idx: 2, name: '初級', lv: 15, dots: 2 },
+    { idx: 3, name: '中級', lv: 30, dots: 3 },
+    { idx: 4, name: '上級', lv: 50, dots: 4 },
+    { idx: 5, name: '達人', lv: 70, dots: 5 },
+    { idx: 6, name: '名人', lv: 85, dots: 6 },
+    { idx: 7, name: '鬼神', lv: 99, dots: 7 },
+  ];
   let singleLv = Math.max(1, Math.min(99, Number(ls('choversi.singleLv', '30'))));
-  singleInput.value = singleLv;
-  singleSlider.value = singleLv;
-  function setSingleLv(v) {
-    singleLv = Math.max(1, Math.min(99, parseInt(v, 10) || 1));
-    singleInput.value = singleLv;
-    singleSlider.value = singleLv;
-    try { localStorage.setItem('choversi.singleLv', String(singleLv)); } catch (e) {}
+  // 過去の任意LVを最も近い段に丸める
+  const closest = RANK_PRESETS.reduce((a, b) =>
+    Math.abs(b.lv - singleLv) < Math.abs(a.lv - singleLv) ? b : a);
+  let selectedRank = closest;
+
+  const rankGrid = document.getElementById('rank-grid');
+  rankGrid.innerHTML = RANK_PRESETS.map(p => `
+    <button class="rank-tile${p.idx === 7 ? ' center-7' : ''}" data-rank="${p.idx}">
+      <div class="rank-tile-num">${p.idx.toString().padStart(2,'0')}</div>
+      <div class="rank-tile-name">${p.name}</div>
+      <div class="rank-tile-dots">${
+        Array.from({length: 7}, (_, i) => `<span class="${i < p.dots ? 'on' : ''}"></span>`).join('')
+      }</div>
+    </button>
+  `).join('');
+
+  function updateRankUI() {
+    rankGrid.querySelectorAll('.rank-tile').forEach(el => {
+      el.classList.toggle('active', Number(el.dataset.rank) === selectedRank.idx);
+    });
+    document.getElementById('rank-name').textContent = selectedRank.name;
+    document.getElementById('rank-lv').textContent = selectedRank.lv;
+    singleLv = selectedRank.lv;
+    try {
+      localStorage.setItem('choversi.singleLv', String(singleLv));
+      localStorage.setItem('choversi.singleRank', String(selectedRank.idx));
+    } catch (e) {}
   }
-  singleInput.addEventListener('input', () => setSingleLv(singleInput.value));
-  singleSlider.addEventListener('input', () => setSingleLv(singleSlider.value));
+  rankGrid.addEventListener('click', (e) => {
+    const tile = e.target.closest('.rank-tile');
+    if (!tile) return;
+    const idx = Number(tile.dataset.rank);
+    selectedRank = RANK_PRESETS.find(p => p.idx === idx);
+    updateRankUI();
+  });
+  updateRankUI();
 
   updateColorUI();
   updateModeUI();
