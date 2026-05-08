@@ -2379,8 +2379,9 @@ function getAIProfile(lv) {
   // advFactor: LV85-99 で連続的に強くなる係数（1.0 → 2.5）
   // lv: 評価関数で参照する元のレベル
   const advFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 1.5 : 1;
-  if (lv < 10)  return { skillUseProb: 0,    posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 1.0, advFactor, lv };
-  if (lv < 20)  return { skillUseProb: 0.4,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, lv };
+  // LV1-9 でも異能を時々使う（純オセロは ChoVersi の体験を損なう）
+  if (lv < 10)  return { skillUseProb: 0.25, posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 0.95, advFactor, lv };
+  if (lv < 20)  return { skillUseProb: 0.5,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, lv };
   if (lv < 30)  return { skillUseProb: 0.7,  posWeightFactor: 0.5, threatAvoid: false, lookahead: 0, randomness: 0.4, advFactor, lv };
   if (lv < 50)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: false, lookahead: 0, randomness: 0.0, advFactor, lv };
   if (lv < 70)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: true,  lookahead: 0, randomness: 0.0, advFactor, lv };
@@ -2528,14 +2529,6 @@ function aiThink() {
   // No moves → pass
   if (validMoves.length === 0) {
     setTimeout(passTurn, 600);
-    return;
-  }
-
-  // === LV1〜9 完全ランダム（異能ゼロ） ===
-  if (profile.skillUseProb === 0) {
-    const [r, c] = validMoves[Math.floor(Math.random() * validMoves.length)];
-    log('AI', `通常石 → ${coord(r, c)} (LV${state.aiLevel})`);
-    setTimeout(() => makeMove(r, c), 800);
     return;
   }
 

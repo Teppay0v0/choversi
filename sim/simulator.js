@@ -523,8 +523,8 @@ function switchTurn(state) { state.turn = state.turn === 'D' ? 'L' : 'D'; }
 // ---------------- AI Profile (game.htmlからポート) ----------------
 function getAIProfile(lv) {
   const advFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 1.5 : 1;
-  if (lv < 10)  return { skillUseProb: 0,    posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 1.0, advFactor, lv };
-  if (lv < 20)  return { skillUseProb: 0.4,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, lv };
+  if (lv < 10)  return { skillUseProb: 0.25, posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 0.95, advFactor, lv };
+  if (lv < 20)  return { skillUseProb: 0.5,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, lv };
   if (lv < 30)  return { skillUseProb: 0.7,  posWeightFactor: 0.5, threatAvoid: false, lookahead: 0, randomness: 0.4, advFactor, lv };
   if (lv < 50)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: false, lookahead: 0, randomness: 0.0, advFactor, lv };
   if (lv < 70)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: true,  lookahead: 0, randomness: 0.0, advFactor, lv };
@@ -817,12 +817,6 @@ function aiPickAction(state, me) {
   const lv = getAILevel(state, me);
   const profile = getAIProfile(lv);
   const opp = me === 'D' ? 'L' : 'D';
-
-  // === LV1〜9 完全ランダム（異能ゼロ） ===
-  if (profile.skillUseProb === 0) {
-    const [r, c] = validMoves[Math.floor(state.rand() * validMoves.length)];
-    return { type: 'place', r, c, skillIdx: -1 };
-  }
 
   const activeHand = getActiveHand(state, me);
 
