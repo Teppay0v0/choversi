@@ -241,7 +241,9 @@
   }
   .rank-tile-dots span.on { background: var(--sage-dark); }
   .rank-tile.center-7 {
-    grid-column: 2 / span 2;  /* 7段目の鬼神を中央2列分に拡張 */
+    /* 鬼神 (07) を 03/04 の真下に配置：行2の3〜4列目を占有 */
+    grid-column: 3 / span 2;
+    grid-row: 2;
   }
 
   .rank-summary {
