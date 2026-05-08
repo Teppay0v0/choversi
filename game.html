@@ -508,6 +508,11 @@
     pointer-events: none;
     border-radius: 50%;
   }
+  /* 使用済み異能石：効果が消費 or 無効化された状態 — 透過＋グレースケール */
+  .stone-icon-used {
+    opacity: 0.35;
+    filter: grayscale(0.7);
+  }
   /* 異能石マーカー：相手から見て「何かある」だけ伝える */
   .stone-mystery {
     position: absolute;
@@ -2746,6 +2751,8 @@ function renderBoard() {
         const isActiveSkill = cell.skill
           && !state.nullifiedCells.has(`${r},${c}`)
           && !(cell.skill === 'hanten' && cell.hantenUsed);
+        // 「使用済みの異能石」=効果消費 or 無効化されたが、アイコンは薄く残す
+        const isUsedSkill = cell.skill && !isActiveSkill;
         // 自分のものは中身まで表示、相手のものは
         // - 探知で露出済みなら表示
         // - 未露出ならマーカーのみ（DEBUG時は全表示）
@@ -2758,13 +2765,13 @@ function renderBoard() {
         const revealedToPlayer = state.aiMode
           && playerRevealedSet
           && playerRevealedSet.has(`${r},${c}`);
-        const showFullIcon = isActiveSkill
+        const visibleSkill = (isActiveSkill || isUsedSkill)
           && (showAll || ownedByPlayer || revealedToPlayer);
-        if (showFullIcon) {
+        if (visibleSkill) {
           const icon = document.createElement('img');
           const folder = cell.color === 'D' ? 'icons-black' : 'icons';
           icon.src = `${folder}/${cell.skill}.png`;
-          icon.className = 'stone-icon';
+          icon.className = 'stone-icon' + (isUsedSkill ? ' stone-icon-used' : '');
           stoneEl.appendChild(icon);
         } else if (isActiveSkill) {
           // 「何かある」だけ伝えるマーカードット
