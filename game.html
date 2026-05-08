@@ -1310,7 +1310,7 @@ const ABILITIES = {
               desc: '相手の石1枚を消去。自分は置かれず即ターン終了。' },
   tanchi:   { name: '探知',  en: 'SONAR',     cost: 3, trigger: 'placed',
               triggerLabel: '置いた時',
-              desc: '縦横3マス先まで反転＋異能石を見破り＋強制発動。' },
+              desc: '縦横3マス先までの相手の異能石を露出（中身が分かる）。反転はしない。' },
 };
 
 // Deck templates（ハンドシステム：全9種を1枚ずつ・両者対称）
@@ -1583,6 +1583,9 @@ function newGame() {
     chainCount: 0,
     triggeredThisChain: new Set(),
     nullifiedCells: new Set(),      // "r,c" of nullified skill stones
+    // 視界制限：各プレイヤー（人間/AI）が見える "相手の" 異能石の座標
+    revealedToD: new Set(),         // Dから見える相手(L)の異能石
+    revealedToL: new Set(),         // Lから見える相手(D)の異能石
     busy: false,
     ended: false,
     passes: 0,
@@ -1684,14 +1687,25 @@ function getAffectedCells(r, c, skill, color) {
   const cells = new Set();
   const opp = color === 'D' ? 'L' : 'D';
   switch (skill) {
-    case 'hogeki':
-    case 'tanchi': {
-      // 縦横3マス先までの石
+    case 'hogeki': {
+      // 縦横3マス先までの石を反転
       for (const [dr, dc] of DIRS_4) {
         for (let k = 1; k <= 3; k++) {
           const nr = r + dr*k, nc = c + dc*k;
           if (!inb(nr, nc)) break;
           if (state.board[nr][nc].color !== null) cells.add(`${nr},${nc}`);
+        }
+      }
+      break;
+    }
+    case 'tanchi': {
+      // 反転は発生しない — プレビューでは相手の異能石位置のみ示す（情報用）
+      for (const [dr, dc] of DIRS_4) {
+        for (let k = 1; k <= 3; k++) {
+          const nr = r + dr*k, nc = c + dc*k;
+          if (!inb(nr, nc)) break;
+          const cell = state.board[nr][nc];
+          if (cell.color === opp && cell.skill) cells.add(`${nr},${nc}`);
         }
       }
       break;
@@ -1962,16 +1976,25 @@ async function fireAbility(r, c, skillKey, byColor) {
     }
 
     case 'tanchi': {
-      const out = [];
+      // 反転しない・相手の異能石を露出するだけ
+      const opp = byColor === 'D' ? 'L' : 'D';
+      const revealSet = byColor === 'D' ? state.revealedToD : state.revealedToL;
+      let revealed = 0;
       for (const [dr, dc] of DIRS_4) {
         for (let k = 1; k <= 3; k++) {
           const nr = r + dr*k, nc = c + dc*k;
           if (!inb(nr, nc)) break;
-          if (state.board[nr][nc].color !== null) out.push([nr, nc]);
+          const cell = state.board[nr][nc];
+          if (cell.color === opp && cell.skill && !revealSet.has(`${nr},${nc}`)) {
+            revealSet.add(`${nr},${nc}`);
+            revealed++;
+            // 露出演出：少し光らせる
+            showAbilityGlow(nr, nc, cell.skill, false);
+          }
         }
       }
-      log('探知', `${out.length}枚を反転＆異能石を見破り`, 'skill');
-      return out;
+      log('探知', revealed > 0 ? `相手の異能石 ${revealed}枚を露出` : '露出なし（範囲内に隠し異能なし）', 'skill');
+      return [];
     }
 
     case 'bakudan': {
@@ -2327,8 +2350,11 @@ const POS_WEIGHTS = [
 ];
 
 const SKILL_BONUS = {
-  bakudan: 12, tanchi: 14, hogeki: 11,
-  gyakushu: 10, shoshitsu: 8, muko: 6,
+  bakudan: 12, hogeki: 11, gyakushu: 10,
+  shoshitsu: 8, muko: 6,
+  // 探知は情報カード — 反転しないので直接の評価は低め
+  // （フェーズ2以降のAIで情報価値が上がる予定）
+  tanchi: 4,
   zoshoku: 3, hanten: 2, kyozo: 1,
 };
 
@@ -2529,8 +2555,8 @@ function skillContextBonus(r, c, skill, color) {
     }
     return enemies * 1.5;
   }
-  if (skill === 'tanchi' || skill === 'hogeki') {
-    // Count how many stones in 4 directions × 3 squares (would be flipped)
+  if (skill === 'hogeki') {
+    // 反転対象（敵石）が多いほど高評価
     let count = 0;
     for (const [dr, dc] of DIRS_4) {
       for (let k = 1; k <= 3; k++) {
@@ -2540,6 +2566,24 @@ function skillContextBonus(r, c, skill, color) {
       }
     }
     return count * 1.2;
+  }
+  if (skill === 'tanchi') {
+    // 探知は情報カード：範囲内の相手異能石が多いほど価値が高い
+    // ただし AI が知っている "相手の異能石位置" だけが対象
+    // フェーズ1ではAI視界制限後に評価する
+    let infoCount = 0;
+    const opp = color === 'D' ? 'L' : 'D';
+    const known = color === 'D' ? state.revealedToD : state.revealedToL;
+    for (const [dr, dc] of DIRS_4) {
+      for (let k = 1; k <= 3; k++) {
+        const nr = r + dr*k, nc = c + dc*k;
+        if (!inb(nr, nc)) break;
+        const cell = state.board[nr][nc];
+        // AI視点：未露出かつ相手の異能位置（位置だけは見える）
+        if (cell.color === opp && cell.skill && !known.has(`${nr},${nc}`)) infoCount++;
+      }
+    }
+    return infoCount * 2;
   }
   if (skill === 'kyozo' || skill === 'hanten') {
     // Defensive — better in less critical positions, slight bonus
@@ -2574,15 +2618,21 @@ function skillContextBonus(r, c, skill, color) {
 }
 
 function pickVanishTarget(me) {
-  // Find best enemy stone to erase
+  // フェアAI：相手の伏せ異能の中身は見えない。
+  // 露出済み（自分の探知 or 反転で発覚）の異能だけを高評価できる。
+  const aiRevealed = me === 'D' ? state.revealedToD : state.revealedToL;
   let best = null;
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     const cell = state.board[r][c];
     if (cell.color && cell.color !== me) {
       let score = POS_WEIGHTS[r][c];
-      // Prefer revealed enemy skill stones (DEBUG mode)
-      if (cell.skill && (document.getElementById('show-all').checked || cell.owner === me)) {
+      const skillKnown = cell.skill && aiRevealed.has(`${r},${c}`);
+      if (skillKnown) {
+        // 中身が分かっている異能 → コストに応じた価値
         score += (ABILITIES[cell.skill].cost * 8);
+      } else if (cell.skill) {
+        // 異能であることは分かるが中身は不明 → 軽めのボーナス（リスク回避）
+        score += 6;
       }
       if (!best || score > best.score) best = { r, c, score };
     }
@@ -2591,13 +2641,15 @@ function pickVanishTarget(me) {
 }
 
 function pickMukoTarget(me) {
-  // Nullify visible enemy skill (only works if skill visible — DEBUG mode)
+  // フェアAI：露出済みの異能か、自分が置いた異能だけを対象にできる
+  const aiRevealed = me === 'D' ? state.revealedToD : state.revealedToL;
   const showAll = document.getElementById('show-all').checked;
-  if (!showAll) return null; // AI can't see hidden skills
   let best = null;
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     const cell = state.board[r][c];
     if (cell.color && cell.color !== me && cell.skill && !state.nullifiedCells.has(`${r},${c}`)) {
+      const known = showAll || cell.owner === me || aiRevealed.has(`${r},${c}`);
+      if (!known) continue;
       const score = ABILITIES[cell.skill].cost;
       if (score >= 2 && (!best || score > best.score)) best = { r, c, score };
     }
@@ -2694,9 +2746,20 @@ function renderBoard() {
         const isActiveSkill = cell.skill
           && !state.nullifiedCells.has(`${r},${c}`)
           && !(cell.skill === 'hanten' && cell.hantenUsed);
-        // 自分のものは中身まで表示、相手のものはマーカーのみ（DEBUG時は全表示）
+        // 自分のものは中身まで表示、相手のものは
+        // - 探知で露出済みなら表示
+        // - 未露出ならマーカーのみ（DEBUG時は全表示）
+        const playerRevealedSet = state.aiMode
+          ? (state.playerColor === 'D' ? state.revealedToD : state.revealedToL)
+          : null;
+        const ownedByPlayer = state.aiMode
+          ? cell.owner === state.playerColor
+          : cell.owner === state.turn;
+        const revealedToPlayer = state.aiMode
+          && playerRevealedSet
+          && playerRevealedSet.has(`${r},${c}`);
         const showFullIcon = isActiveSkill
-          && (showAll || (state.aiMode ? cell.owner === state.playerColor : cell.owner === state.turn));
+          && (showAll || ownedByPlayer || revealedToPlayer);
         if (showFullIcon) {
           const icon = document.createElement('img');
           const folder = cell.color === 'D' ? 'icons-black' : 'icons';
