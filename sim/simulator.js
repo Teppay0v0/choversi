@@ -522,14 +522,14 @@ function switchTurn(state) { state.turn = state.turn === 'D' ? 'L' : 'D'; }
 // ---------------- AI (parametric on color, show-all=false) ----------------
 // ---------------- AI Profile (game.htmlからポート) ----------------
 function getAIProfile(lv) {
-  const advFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 1.5 : 1;
+  const advFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 0.8 : 1;
   if (lv < 10)  return { skillUseProb: 0.25, posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 0.95, advFactor, lv };
   if (lv < 20)  return { skillUseProb: 0.5,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, lv };
   if (lv < 30)  return { skillUseProb: 0.7,  posWeightFactor: 0.5, threatAvoid: false, lookahead: 0, randomness: 0.4, advFactor, lv };
   if (lv < 50)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: false, lookahead: 0, randomness: 0.0, advFactor, lv };
   if (lv < 70)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: true,  lookahead: 0, randomness: 0.0, advFactor, lv };
   if (lv < 85)  return { skillUseProb: 1.0,  posWeightFactor: 1.2, threatAvoid: true,  lookahead: 1, randomness: 0.0, advFactor, lv };
-  const posW = 1.3 + ((lv - 85) / 14) * 0.3;
+  const posW = 1.2;
   return                { skillUseProb: 1.0,  posWeightFactor: posW, threatAvoid: true,  lookahead: 2, randomness: 0.0, advFactor, lv };
 }
 
@@ -544,13 +544,72 @@ function isThreatCell(r, c, board) {
   return false;
 }
 
-// 1色から見たフラットな盤面評価値（LV95+ で角支配ボーナス）
+// オセロ基礎ヘルパー
+function countMobility(board, color) {
+  let count = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (board[r][c].color !== null) continue;
+    for (const [dr, dc] of DIRS_8) {
+      let nr = r + dr, nc = c + dc, found = false;
+      while (inb(nr, nc) && board[nr][nc].color && board[nr][nc].color !== color) {
+        nr += dr; nc += dc; found = true;
+      }
+      if (found && inb(nr, nc) && board[nr][nc].color === color) { count++; break; }
+    }
+  }
+  return count;
+}
+function countFrontier(board, color) {
+  let count = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (board[r][c].color !== color) continue;
+    for (const [dr, dc] of DIRS_8) {
+      const nr = r + dr, nc = c + dc;
+      if (inb(nr, nc) && board[nr][nc].color === null) { count++; break; }
+    }
+  }
+  return count;
+}
+function countStableEdgeStones(board, color) {
+  const stable = new Set();
+  const corners = [[0,0],[0,7],[7,0],[7,7]];
+  for (const [cr, cc] of corners) {
+    if (board[cr][cc].color !== color) continue;
+    stable.add(`${cr},${cc}`);
+    const hdir = cc === 0 ? 1 : -1;
+    for (let c = cc + hdir; c >= 0 && c < N; c += hdir) {
+      if (board[cr][c].color !== color) break;
+      stable.add(`${cr},${c}`);
+    }
+    const vdir = cr === 0 ? 1 : -1;
+    for (let r = cr + vdir; r >= 0 && r < N; r += vdir) {
+      if (board[r][cc].color !== color) break;
+      stable.add(`${r},${cc}`);
+    }
+  }
+  return stable.size;
+}
+
+// 1色から見たフラットな盤面評価値（オセロ基礎要素統合）
 function evaluateBoardFlat(board, color, profile) {
+  const opp = color === 'D' ? 'L' : 'D';
   let score = 0;
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     if (board[r][c].color === color)            score += POS_WEIGHTS[r][c] * profile.posWeightFactor;
     else if (board[r][c].color !== null)        score -= POS_WEIGHTS[r][c] * profile.posWeightFactor;
   }
+  // Mobility
+  const myMob = countMobility(board, color);
+  const oppMob = countMobility(board, opp);
+  score += (myMob - oppMob) * 5;
+  // Frontier
+  const myFront = countFrontier(board, color);
+  const oppFront = countFrontier(board, opp);
+  score += (oppFront - myFront) * 2;
+  // Stable
+  const myStable = countStableEdgeStones(board, color);
+  const oppStable = countStableEdgeStones(board, opp);
+  score += (myStable - oppStable) * 10;
   if (profile.lv >= 95) {
     const corners = [[0,0],[0,7],[7,0],[7,7]];
     const cornerBonus = 15 + ((profile.lv - 95) / 4) * 10;
@@ -840,14 +899,23 @@ function aiPickAction(state, me) {
     }
   }
 
-  // === 候補手評価（profile + lookahead + flip-risk） ===
+  // === 候補手評価（profile + lookahead + flip-risk + frontier） ===
   const useFlipRisk = lv >= 70;
+  const useFrontierAvoid = lv >= 50;
   const useProbabilistic = lv >= 85;
   const candidates = [];
   for (const [r, c] of validMoves) {
     const flips = getFlipsForPlace(state, r, c, me);
     let baseScore = profile.posWeightFactor * POS_WEIGHTS[r][c] + flips.length * 2;
     if (profile.threatAvoid && isThreatCell(r, c, state.board)) baseScore -= 30;
+    if (useFrontierAvoid) {
+      let emptyNeighbors = 0;
+      for (const [dr, dc] of DIRS_8) {
+        const nr = r + dr, nc = c + dc;
+        if (inb(nr, nc) && state.board[nr][nc].color === null) emptyNeighbors++;
+      }
+      baseScore -= emptyNeighbors * 1.5;
+    }
     if (useFlipRisk) baseScore -= computeFlipRisk(state, me, r, c);
     if (profile.lookahead >= 1) {
       const next = simulatePlaceFlat(state.board, r, c, me);

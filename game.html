@@ -2376,9 +2376,10 @@ function getAIProfile(lv) {
   // threatAvoid: X打ち / C打ち回避（角が空いている時に隣接マスを避ける）
   // lookahead: 0/1/2 — 先読み深さ
   // randomness: 候補から完全最善ではなくランダム性を加える割合（0=最善, 1=ランダム）
-  // advFactor: LV85-99 で連続的に強くなる係数（1.0 → 2.5）
+  // advFactor: LV85-99 で連続的に強くなる係数（1.0 → 1.8）
+  //   過大だと保守的になりすぎるので控えめに
   // lv: 評価関数で参照する元のレベル
-  const advFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 1.5 : 1;
+  const advFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 0.8 : 1;
   // LV1-9 でも異能を時々使う（純オセロは ChoVersi の体験を損なう）
   if (lv < 10)  return { skillUseProb: 0.25, posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 0.95, advFactor, lv };
   if (lv < 20)  return { skillUseProb: 0.5,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, lv };
@@ -2386,8 +2387,9 @@ function getAIProfile(lv) {
   if (lv < 50)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: false, lookahead: 0, randomness: 0.0, advFactor, lv };
   if (lv < 70)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: true,  lookahead: 0, randomness: 0.0, advFactor, lv };
   if (lv < 85)  return { skillUseProb: 1.0,  posWeightFactor: 1.2, threatAvoid: true,  lookahead: 1, randomness: 0.0, advFactor, lv };
-  // LV85-99: posWeightFactor は LV に応じて 1.3 → 1.6（角・X打ち重視を加減）
-  const posW = 1.3 + ((lv - 85) / 14) * 0.3;
+  // LV85-99: posWeightFactor は LV70-84 と同等を保つ（過大な角偏重を避ける）
+  //   違いは lookahead(2手) と probabilistic-ability と advFactor で出す
+  const posW = 1.2;
   return                { skillUseProb: 1.0,  posWeightFactor: posW, threatAvoid: true,  lookahead: 2, randomness: 0.0, advFactor, lv };
 }
 
@@ -2403,18 +2405,82 @@ function isThreatCell(r, c, board) {
   return false;
 }
 
-// 1色から見たフラットな盤面評価値（LV別の重みを適用）
+// === オセロ基礎評価ヘルパー ===
+// Mobility（合法手数）— 多いほど選択肢が多く有利
+function countMobility(board, color) {
+  let count = 0;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    if (board[r][c].color !== null) continue;
+    for (const [dr, dc] of DIRS_8) {
+      let nr = r + dr, nc = c + dc, found = false;
+      while (inb(nr, nc) && board[nr][nc].color && board[nr][nc].color !== color) {
+        nr += dr; nc += dc; found = true;
+      }
+      if (found && inb(nr, nc) && board[nr][nc].color === color) { count++; break; }
+    }
+  }
+  return count;
+}
+// Frontier discs（空マスに隣接する自分の石）— 少ないほど良い
+function countFrontier(board, color) {
+  let count = 0;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    if (board[r][c].color !== color) continue;
+    for (const [dr, dc] of DIRS_8) {
+      const nr = r + dr, nc = c + dc;
+      if (inb(nr, nc) && board[nr][nc].color === null) { count++; break; }
+    }
+  }
+  return count;
+}
+// 確定石（簡易：角から繋がる辺の同色連続）
+function countStableEdgeStones(board, color) {
+  const stable = new Set();
+  const corners = [[0,0],[0,7],[7,0],[7,7]];
+  for (const [cr, cc] of corners) {
+    if (board[cr][cc].color !== color) continue;
+    stable.add(`${cr},${cc}`);
+    // 横方向の辺（角の行）に沿って同色を辿る
+    const hdir = cc === 0 ? 1 : -1;
+    for (let c = cc + hdir; c >= 0 && c < 8; c += hdir) {
+      if (board[cr][c].color !== color) break;
+      stable.add(`${cr},${c}`);
+    }
+    // 縦方向の辺（角の列）に沿って同色を辿る
+    const vdir = cr === 0 ? 1 : -1;
+    for (let r = cr + vdir; r >= 0 && r < 8; r += vdir) {
+      if (board[r][cc].color !== color) break;
+      stable.add(`${r},${cc}`);
+    }
+  }
+  return stable.size;
+}
+
+// 1色から見たフラットな盤面評価値（オセロ基礎要素を統合）
 function evaluateBoard(board, color, profile) {
+  const opp = color === 'D' ? 'L' : 'D';
   let score = 0;
+  // 位置の重み（角・X打ち・C打ちなど）
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
     if (board[r][c].color === color)            score += POS_WEIGHTS[r][c] * profile.posWeightFactor;
     else if (board[r][c].color !== null)        score -= POS_WEIGHTS[r][c] * profile.posWeightFactor;
   }
+  // Mobility（合法手の差）— 序中盤で重要
+  const myMob = countMobility(board, color);
+  const oppMob = countMobility(board, opp);
+  score += (myMob - oppMob) * 5;
+  // Frontier（前線石の差）— 少ないほど良い
+  const myFront = countFrontier(board, color);
+  const oppFront = countFrontier(board, opp);
+  score += (oppFront - myFront) * 2;
+  // 確定石（多いほど絶対的に有利）
+  const myStable = countStableEdgeStones(board, color);
+  const oppStable = countStableEdgeStones(board, opp);
+  score += (myStable - oppStable) * 10;
   // LV95+: 角の支配を少し強めに評価（終局を見据えた読み）
-  // 大きすぎると保守的になりすぎるので控えめに
   if (profile.lv >= 95) {
     const corners = [[0,0],[0,7],[7,0],[7,7]];
-    const cornerBonus = 15 + ((profile.lv - 95) / 4) * 10; // LV95: 15, LV99: 25
+    const cornerBonus = 15 + ((profile.lv - 95) / 4) * 10;
     for (const [cr, cc] of corners) {
       if (board[cr][cc].color === color)         score += cornerBonus;
       else if (board[cr][cc].color !== null)     score -= cornerBonus;
@@ -2563,12 +2629,22 @@ function aiThink() {
 
   // === 候補手の評価（LV別重み付け） ===
   const useFlipRisk = (state.aiLevel || 30) >= 70; // Phase 3
+  const useFrontierAvoid = (state.aiLevel || 30) >= 50; // オセロ基礎：自分が前線石にならない手を優先
   const candidates = []; // {score, move, skillIdx}
   for (const [r, c] of validMoves) {
     const flips = getFlipsForPlace(r, c, me);
     let baseScore = profile.posWeightFactor * POS_WEIGHTS[r][c] + flips.length * 2;
     // X/C打ち回避
     if (profile.threatAvoid && isThreatCell(r, c, state.board)) baseScore -= 30;
+    // オセロ基礎：自分の置く石が前線（空マス隣接）になる手は減点
+    if (useFrontierAvoid) {
+      let emptyNeighbors = 0;
+      for (const [dr, dc] of DIRS_8) {
+        const nr = r + dr, nc = c + dc;
+        if (inb(nr, nc) && state.board[nr][nc].color === null) emptyNeighbors++;
+      }
+      baseScore -= emptyNeighbors * 1.5;
+    }
     // Phase 3: 確率的フリップリスク評価（LV70+）
     if (useFlipRisk) baseScore -= computeFlipRisk(me, r, c);
     // 1-ply / 2-ply 先読み（角や辺の取得を実際の盤面で評価）
