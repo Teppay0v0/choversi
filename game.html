@@ -168,15 +168,15 @@
     }
   }
   .skill-card.selected {
-    background: var(--dark);
-    color: var(--cream);
-    box-shadow: 0 0 0 3px var(--sage), 0 4px 14px rgba(0,0,0,0.25);
+    /* 白アイコンと相性の良いサージュ系の明るい色 */
+    background: rgba(212, 179, 106, 0.22);
+    color: var(--text);
+    box-shadow: 0 0 0 3px var(--sage), 0 4px 14px rgba(180, 152, 88, 0.28);
     transform: translateY(-2px);
   }
-  /* 選択カード：trigger タグの色も反転 */
   .skill-card.selected .skill-trigger-tag {
-    background: var(--sage);
-    color: var(--dark);
+    background: var(--sage-dark);
+    color: var(--cream);
   }
   .skill-card.used {
     opacity: 0.35;
@@ -3468,11 +3468,7 @@ function renderHands() {
           </div>
         `;
       } else {
-        // 選択中はアイコンを暗背景版にして、選択カード内のコントラストを確保
-        const isSelected = state.turn === player && state.selectedSkill === card.idx;
-        const iconSrc = isSelected
-          ? `icons-black/${card.skill}.png`
-          : `icons/${card.skill}.png`;
+        const iconSrc = `icons/${card.skill}.png`;
         const tagText = { placed: '置', flipped: '裏', manual: '任', special: '特' }[ab.trigger] || '';
         // NOTE: pt表示はハンドシステム化で不要になったため非表示。デッキ構築復活時に戻す
         div.innerHTML = `
