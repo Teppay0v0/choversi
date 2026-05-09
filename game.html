@@ -1224,8 +1224,12 @@
       padding: 4px 10px;
     }
     .board {
-      max-width: min(100%, calc(100svh - 326px));
-      max-height: calc(100svh - 326px);
+      /* モバイル全UIの合計を予約：
+         header45 + panel-ai 50 + 逆襲バナー予約 36+10
+         + status 33+10 + actions 30+6 + panel-player 165
+         + board-area padding 12 + 安全マージン 13 = 410 */
+      max-width: min(100%, calc(100svh - 410px));
+      max-height: calc(100svh - 410px);
       width: 100%;
       padding: 6px;
       border-radius: 8px;
