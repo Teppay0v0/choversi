@@ -61,13 +61,15 @@
   .start-logo {
     text-align: center;
   }
-  .start-logo img {
+  .start-logo .logo-full {
     width: 320px;
     max-width: 80vw;
     height: auto;
     display: block;
     margin: 0 auto;
   }
+  /* デフォルト：横組みロゴは隠す */
+  .start-logo .logo-h { display: none; }
   .start-tagline {
     margin-top: 16px;
     font-family: 'Noto Sans JP', sans-serif;
@@ -513,15 +515,57 @@
 
   /* モバイル */
   @media (max-width: 720px) {
-    .start { gap: 18px; padding: 16px 20px 56px; }
-    .start-logo img { width: 200px; }
-    .start-tagline { margin-top: 10px; font-size: 12px; }
-    .start-tagline-en { font-size: 10px; }
+    .start { gap: 14px; padding: 14px 20px 50px; }
+    /* モバイルでは縦組みロゴを隠して、横組みに切替 */
+    .start-logo .logo-full,
+    .start-logo .start-tagline,
+    .start-logo .start-tagline-en { display: none; }
+    .start-logo .logo-h {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 4px 0;
+    }
+    .start-logo .logo-icon {
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+    }
+    .start-logo .logo-h-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .start-logo .logo-h-brand {
+      font-family: 'Manrope', sans-serif;
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--text);
+      line-height: 1;
+    }
+    .start-logo .logo-h-sub {
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      margin-top: 4px;
+    }
     .btn { padding: 14px 50px; min-width: 200px; font-size: 13px; }
-    .mode-panel { padding: 12px 14px; }
-    .lv-display .lv-num { font-size: 18px; }
-    .lv-display .lv-num span { font-size: 24px; }
-    .mode-desc { font-size: 10px; }
+    .mode-panel { padding: 10px 14px; }
+    .mode-tabs { margin-bottom: 10px; }
+    .lv-display .lv-num { font-size: 17px; margin-bottom: 6px; }
+    .lv-display .lv-num span { font-size: 22px; }
+    .lv-display .xp-bar { margin: 4px 0; }
+    .mode-desc { font-size: 10px; margin-top: 6px; }
+    .color-picker { gap: 8px; margin-bottom: 8px; }
+    .color-picker-label { font-size: 11px; }
+    .color-option { padding: 10px 6px 9px; }
+    .color-option .stone-mark { width: 28px; height: 28px; }
+    .color-option .name { font-size: 13px; }
+    .color-option .sub { font-size: 8px; }
+    .beginner-toggle { padding: 8px 14px; font-size: 11px; margin: 0; }
   }
 </style>
 </head>
@@ -537,7 +581,15 @@
 
 <div class="start">
   <div class="start-logo">
-    <img src="logo.png" alt="ChoVersi｜超バーシ">
+    <!-- デスクトップは縦組み（既存）、モバイルは横組み（CSS で切替） -->
+    <img class="logo-full" src="logo.png" alt="ChoVersi｜超バーシ">
+    <div class="logo-h">
+      <img class="logo-icon" src="apple-touch-icon.png" alt="">
+      <div class="logo-h-text">
+        <span class="logo-h-brand">ChoVersi</span>
+        <span class="logo-h-sub">連鎖の快感を、しずかに</span>
+      </div>
+    </div>
     <div class="start-tagline">連鎖の快感を、しずかに</div>
     <div class="start-tagline-en">THE CHAIN HYPER REVERSI</div>
   </div>
