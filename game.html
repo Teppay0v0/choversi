@@ -2318,6 +2318,8 @@ async function flipOne(r, c, byColor) {
   // 反転: skip flip once, fire visual flash
   if (cell.skill === 'hanten' && !cell.hantenUsed && !state.nullifiedCells.has(key)) {
     cell.hantenUsed = true;
+    // 効果を使い切ったら nullifiedCells にも入れて以降は通常石として扱う
+    state.nullifiedCells.add(key);
     state.triggeredThisChain.add(key);
     state.chainCount++;
     updateChainUI();
