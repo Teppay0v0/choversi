@@ -168,15 +168,15 @@
     }
   }
   .skill-card.selected {
-    /* 白アイコンと相性の良いサージュ系の明るい色 */
-    background: rgba(212, 179, 106, 0.22);
-    color: var(--text);
-    box-shadow: 0 0 0 3px var(--sage), 0 4px 14px rgba(180, 152, 88, 0.28);
+    /* 旧仕様：選択時はカード全体が濃い黒に反転 */
+    background: var(--dark);
+    color: var(--cream);
+    box-shadow: 0 0 0 3px var(--sage), 0 6px 18px rgba(0,0,0,0.3);
     transform: translateY(-2px);
   }
   .skill-card.selected .skill-trigger-tag {
-    background: var(--sage-dark);
-    color: var(--cream);
+    background: var(--sage);
+    color: var(--dark);
   }
   .skill-card.used {
     opacity: 0.35;
