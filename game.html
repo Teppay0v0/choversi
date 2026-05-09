@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F2EBE0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -169,8 +170,17 @@
   .skill-card.selected {
     background: var(--dark);
     color: var(--cream);
-    box-shadow: 0 0 0 3px rgba(58, 53, 48, 0.18), 0 4px 14px rgba(0,0,0,0.18);
+    box-shadow: 0 0 0 3px var(--sage), 0 4px 14px rgba(0,0,0,0.25);
     transform: translateY(-2px);
+  }
+  /* 選択中の異能アイコンを明るく（暗背景でもくっきり見える） */
+  .skill-card.selected .skill-icon img,
+  .skill-card.selected .stone-icon {
+    filter: brightness(1.4) saturate(0.6);
+  }
+  .skill-card.selected .skill-trigger-tag {
+    background: var(--sage);
+    color: var(--dark);
   }
   .skill-card.used {
     opacity: 0.35;
@@ -1100,7 +1110,8 @@
     header {
       margin-bottom: 0;
       padding: 6px 14px;
-      background: var(--cream-deep);
+      background: var(--cream);
+      border-bottom: 1px solid rgba(58, 53, 48, 0.08);
       flex-shrink: 0;
       display: flex;
       justify-content: center;
@@ -1134,6 +1145,8 @@
     .panel-ai {
       padding: 6px 12px;
       border-radius: 0;
+      background: var(--cream-deep); /* ヘッダー(cream)と差別化 */
+      border-bottom: 1px solid rgba(58, 53, 48, 0.08);
       display: grid;
       grid-template-columns: 1fr auto auto;
       gap: 10px;
@@ -1365,28 +1378,40 @@
       padding: 12px 14px;
     }
     .skill-card .tooltip .tt-name { font-size: 16px; }
-    /* 端のカードはツールチップを左/右に寄せる */
-    .panel-player .hand .skill-card:first-child .tooltip {
+    /* 端のカードはツールチップを左/右に寄せる
+       ※ .hand の最後の子は .deck-counter なので nth-child の位置指定を使う
+       黒手札（4枚）：position 1-2 は左寄せ、position 3-4 は右寄せ
+       白手札（3枚）：position 1 は左、position 3 は右 */
+    body[data-player="D"] .panel-player .hand > .skill-card:nth-child(1) .tooltip,
+    body[data-player="D"] .panel-player .hand > .skill-card:nth-child(2) .tooltip,
+    body[data-player="L"] .panel-player .hand > .skill-card:nth-child(1) .tooltip {
       left: 0;
+      right: auto;
       transform: translateX(0);
     }
-    .panel-player .hand .skill-card:first-child .tooltip::after {
+    body[data-player="D"] .panel-player .hand > .skill-card:nth-child(1) .tooltip::after,
+    body[data-player="D"] .panel-player .hand > .skill-card:nth-child(2) .tooltip::after,
+    body[data-player="L"] .panel-player .hand > .skill-card:nth-child(1) .tooltip::after {
       left: 32px;
+      right: auto;
       transform: translateX(0);
     }
-    .panel-player .hand .skill-card:last-child .tooltip {
+    body[data-player="D"] .panel-player .hand > .skill-card:nth-child(3) .tooltip,
+    body[data-player="D"] .panel-player .hand > .skill-card:nth-child(4) .tooltip,
+    body[data-player="L"] .panel-player .hand > .skill-card:nth-child(3) .tooltip {
       left: auto;
       right: 0;
       transform: translateX(0);
     }
-    .panel-player .hand .skill-card:last-child .tooltip::after {
+    body[data-player="D"] .panel-player .hand > .skill-card:nth-child(3) .tooltip::after,
+    body[data-player="D"] .panel-player .hand > .skill-card:nth-child(4) .tooltip::after,
+    body[data-player="L"] .panel-player .hand > .skill-card:nth-child(3) .tooltip::after {
       left: auto;
       right: 32px;
       transform: translateX(0);
     }
     /* hover で位置調整したのと同じ平行移動 */
-    .panel-player .hand .skill-card:first-child:hover .tooltip,
-    .panel-player .hand .skill-card:last-child:hover .tooltip {
+    .panel-player .hand .skill-card:hover .tooltip {
       transform: translateY(-2px);
     }
 
