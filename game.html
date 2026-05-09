@@ -1891,7 +1891,7 @@ const BADGE_DEFS = [
   { id: 'shutout',      name: '完封勝利',       hint: '相手の石を0枚にして勝利',                    check: c => c.gameResult.win && c.gameResult.oppScore === 0 },
   { id: 'big_win',      name: '大勝',           hint: '30点差以上で勝利',                            check: c => c.gameResult.win && c.gameResult.margin >= 30 },
   { id: 'huge_win',     name: '大圧勝',         hint: '50点差以上で勝利',                            check: c => c.gameResult.win && c.gameResult.margin >= 50 },
-  { id: 'narrow_win',   name: '辛勝',           hint: '2点差で勝利',                                 check: c => c.gameResult.win && c.gameResult.margin === 2 },
+  { id: 'narrow_win',   name: '辛勝',           hint: '1点差で勝利（奇跡）',                         check: c => c.gameResult.win && c.gameResult.margin === 1 },
   { id: 'comeback',     name: '逆転勝利',       hint: '一度劣勢から勝利',                            check: c => c.gameResult.win && c.gameStats.wasBehind },
   { id: 'streak_3',     name: '三連勝',         hint: '3連勝',                                       check: c => c.stats.streakWin >= 3 },
   { id: 'streak_5',     name: '五連勝',         hint: '5連勝',                                       check: c => c.stats.streakWin >= 5 },
