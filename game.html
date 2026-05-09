@@ -173,11 +173,7 @@
     box-shadow: 0 0 0 3px var(--sage), 0 4px 14px rgba(0,0,0,0.25);
     transform: translateY(-2px);
   }
-  /* 選択中の異能アイコンを明るく（暗背景でもくっきり見える） */
-  .skill-card.selected .skill-icon img,
-  .skill-card.selected .stone-icon {
-    filter: brightness(1.4) saturate(0.6);
-  }
+  /* 選択カード：trigger タグの色も反転 */
   .skill-card.selected .skill-trigger-tag {
     background: var(--sage);
     color: var(--dark);
@@ -3472,7 +3468,11 @@ function renderHands() {
           </div>
         `;
       } else {
-        const iconSrc = `icons/${card.skill}.png`;
+        // 選択中はアイコンを暗背景版にして、選択カード内のコントラストを確保
+        const isSelected = state.turn === player && state.selectedSkill === card.idx;
+        const iconSrc = isSelected
+          ? `icons-black/${card.skill}.png`
+          : `icons/${card.skill}.png`;
         const tagText = { placed: '置', flipped: '裏', manual: '任', special: '特' }[ab.trigger] || '';
         // NOTE: pt表示はハンドシステム化で不要になったため非表示。デッキ構築復活時に戻す
         div.innerHTML = `
