@@ -604,54 +604,10 @@
 </div>
 
 <script>
-// === 簡易 SoundManager（タップ音とミュート同期だけ） ===
-const SoundLite = {
-  tapAudio: null,
-  muted: false,
-  init() {
-    try { this.muted = localStorage.getItem('choversi.muted') === '1'; } catch(e){}
-    this.tapAudio = new Audio('audio/se/tap.mp3');
-    this.tapAudio.preload = 'auto';
-    // iOS unlock
-    const unlock = () => {
-      const p = this.tapAudio.play();
-      if (p && p.then) p.then(() => { this.tapAudio.pause(); this.tapAudio.currentTime = 0; }).catch(() => {});
-      document.removeEventListener('click', unlock);
-      document.removeEventListener('touchstart', unlock);
-    };
-    document.addEventListener('click', unlock, { once: true });
-    document.addEventListener('touchstart', unlock, { once: true });
-  },
-  playTap() {
-    if (this.muted || !this.tapAudio) return;
-    try {
-      const c = this.tapAudio.cloneNode();
-      c.volume = 0.7;
-      const p = c.play();
-      if (p && p.catch) p.catch(()=>{});
-    } catch(e) {}
-  },
-  toggleMute() {
-    this.muted = !this.muted;
-    try { localStorage.setItem('choversi.muted', this.muted ? '1' : '0'); } catch(e){}
-    return this.muted;
-  }
-};
-SoundLite.init();
-document.addEventListener('click', (e) => {
-  const t = e.target.closest('.btn, button');
-  if (!t || t.dataset.noTap) return;
-  SoundLite.playTap();
-}, true);
+// === 効果音は一時的に無効化中（リロード時の一斉再生問題のため） ===
 window.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('mute-btn');
-  function syncBtn() {
-    if (!btn) return;
-    if (SoundLite.muted) { btn.textContent = '🔇'; btn.classList.add('muted'); }
-    else { btn.textContent = '🔊'; btn.classList.remove('muted'); }
-  }
-  syncBtn();
-  if (btn) btn.addEventListener('click', () => { SoundLite.toggleMute(); syncBtn(); });
+  if (btn) btn.style.display = 'none';
 });
 
 (function() {

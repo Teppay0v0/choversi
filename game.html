@@ -1528,6 +1528,9 @@
 //  SOUND MANAGER
 // ============================================================
 const SoundManager = {
+  // ★ 一時的に効果音を完全停止中（リロード時に全SEが一斉再生される問題のため）
+  // 解決後、disabled を false に戻す
+  disabled: true,
   sounds: {},        // 効果音バッファ（クローン用テンプレート）
   bgm: null,         // 現在再生中の BGM
   sfxVolume: 0.7,
@@ -1557,6 +1560,8 @@ const SoundManager = {
       if (bv != null) this.bgmVolume = parseFloat(bv);
       if (mu != null) this.muted = mu === '1';
     } catch (e) {}
+    // disabled 中は SE を読み込まない／unlock しない
+    if (this.disabled) return;
 
     // SE 事前読み込み
     this.SE_FILES.forEach(name => {
@@ -1582,7 +1587,7 @@ const SoundManager = {
 
   // 効果音再生（重ねがけ可能）
   playSE(name) {
-    if (this.muted) return;
+    if (this.disabled || this.muted) return;
     const tmpl = this.sounds[name];
     if (!tmpl) return;
     try {
@@ -1596,19 +1601,21 @@ const SoundManager = {
 
   // 異能発動音（あれば固有、なければ汎用）
   playSkill(skillKey) {
+    if (this.disabled) return;
     const name = this.SKILL_SE[skillKey] || 'ability';
     this.playSE(name);
   },
 
   // 連鎖カウント音（×2 / ×3 / ×4以上）
   playChain(n) {
-    if (n < 2) return;
+    if (this.disabled || n < 2) return;
     const file = n >= 4 ? 'chain-4' : `chain-${n}`;
     this.playSE(file);
   },
 
   // BGM 再生（ループ・クロスフェード簡易）
   playBGM(name) {
+    if (this.disabled) return;
     if (this.bgm && this.bgm.dataset && this.bgm.dataset.name === name) return;
     if (this.bgm) {
       try { this.bgm.pause(); } catch (e) {}
@@ -1656,8 +1663,13 @@ function syncMuteUI() {
   else { btn.textContent = '🔊'; btn.classList.remove('muted'); }
 }
 window.addEventListener('DOMContentLoaded', () => {
-  syncMuteUI();
   const btn = document.getElementById('mute-btn');
+  if (SoundManager.disabled) {
+    // SE 無効化中は表示しない
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+  syncMuteUI();
   if (btn) btn.addEventListener('click', () => { SoundManager.toggleMute(); syncMuteUI(); });
 });
 
