@@ -2393,6 +2393,8 @@ async function fireAbility(r, c, skillKey, byColor) {
         showCellFlip(tr, tc);
         log('増殖', `→ ${coord(tr, tc)}に石生成`, 'skill');
       }
+      // 効果発動済みマーキング → アイコンを薄く表示
+      state.nullifiedCells.add(`${r},${c}`);
       return [];
     }
 
@@ -2406,6 +2408,8 @@ async function fireAbility(r, c, skillKey, byColor) {
         }
       }
       log('砲撃', `${out.length}枚を反転`, 'skill');
+      // 効果発動済みマーキング
+      state.nullifiedCells.add(`${r},${c}`);
       return out;
     }
 
@@ -2428,6 +2432,8 @@ async function fireAbility(r, c, skillKey, byColor) {
         }
       }
       log('探知', revealed > 0 ? `相手の異能石 ${revealed}枚を露出` : '露出なし（範囲内に隠し異能なし）', 'skill');
+      // 効果発動済みマーキング
+      state.nullifiedCells.add(`${r},${c}`);
       return [];
     }
 
@@ -2457,6 +2463,8 @@ async function fireAbility(r, c, skillKey, byColor) {
         }
       }
       log('逆襲', `${out.length}枚を反転`, 'skill');
+      // 効果発動済みマーキング
+      state.nullifiedCells.add(`${r},${c}`);
       return out;
     }
 
@@ -2474,6 +2482,8 @@ async function fireAbility(r, c, skillKey, byColor) {
         }
       }
       log('無効', `隣接の相手異能石 ${count}枚を無効化`, 'skill');
+      // 効果発動済みマーキング（自身も）
+      state.nullifiedCells.add(`${r},${c}`);
       return [];
     }
 
