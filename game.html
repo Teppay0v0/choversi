@@ -2264,6 +2264,9 @@ async function makeMove(r, c) {
     return fireGyakushuAt(r, c);
   }
 
+  // ★ 必須：空マスでなければ配置できない（バグ修正）
+  if (state.board[r][c].color !== null) return;
+
   // Standard placement check
   const flips = getFlipsForPlace(r, c, state.turn);
   if (flips.length === 0) return;
