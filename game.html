@@ -181,11 +181,14 @@
       background: #fff;
     }
   }
-  .skill-card.selected {
-    /* 選択時はカード全体が濃い黒に反転（位置はずらさない — レイアウトジャンプ防止） */
-    background: var(--dark);
-    color: var(--cream);
-    box-shadow: 0 0 0 3px var(--sage), 0 6px 18px rgba(0,0,0,0.3);
+  .skill-card.selected,
+  .skill-card.selected:hover,
+  .skill-card.selected:focus,
+  .skill-card.selected:active {
+    /* 選択時はあらゆる擬似クラスでも濃い黒を維持 */
+    background: var(--dark) !important;
+    color: var(--cream) !important;
+    box-shadow: 0 0 0 3px var(--sage), 0 6px 18px rgba(0,0,0,0.3) !important;
   }
   .skill-card.selected .skill-trigger-tag {
     background: var(--sage);
