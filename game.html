@@ -2629,11 +2629,19 @@ async function fireGyakushuAt(r, c) {
 // ============================================================
 //  TURN MANAGEMENT
 // ============================================================
+let _lastSkillTapAt = 0;
+let _lastSkillTapIdx = -1;
 function selectSkill(idx) {
   if (state.busy || state.ended) return;
   const turn = state.turn;
   const card = state.hands[turn][idx];
   if (!card || card.used) return;
+
+  // iOS のゴーストクリック対策：250ms 以内に同じカードへの再呼出は無視
+  const now = Date.now();
+  if (idx === _lastSkillTapIdx && now - _lastSkillTapAt < 250) return;
+  _lastSkillTapAt = now;
+  _lastSkillTapIdx = idx;
 
   // Toggle selection
   if (state.selectedSkill === idx) {
