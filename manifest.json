@@ -1,0 +1,26 @@
+{
+  "name": "ChoVersi｜超バーシ",
+  "short_name": "ChoVersi",
+  "description": "連鎖の快感を、しずかに。リバーシに異能を加えた戦略ボードゲーム。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2EBE0",
+  "theme_color": "#F2EBE0",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
