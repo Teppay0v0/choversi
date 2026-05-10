@@ -2629,32 +2629,18 @@ async function fireGyakushuAt(r, c) {
 // ============================================================
 //  TURN MANAGEMENT
 // ============================================================
-let _lastSkillTapAt = 0;
-let _lastSkillTapIdx = -1;
 function selectSkill(idx) {
   if (state.busy || state.ended) return;
   const turn = state.turn;
   const card = state.hands[turn][idx];
   if (!card || card.used) return;
 
-  // iOS のゴーストクリック対策：250ms 以内に同じカードへの再呼出は無視
-  const now = Date.now();
-  if (idx === _lastSkillTapIdx && now - _lastSkillTapAt < 250) return;
-  _lastSkillTapAt = now;
-  _lastSkillTapIdx = idx;
-
-  // Toggle selection
-  if (state.selectedSkill === idx) {
-    state.selectedSkill = -1;
-    state.pendingAction = null;
-    state.confirmCell = null;
-    render();
-    return;
-  }
+  // 既に同じカードが選ばれている場合は何もしない（iOS の二重発火対策・誤操作防止）
+  // 解除したい時は別のカードをタップ or 盤面をタップ or RESET
+  if (state.selectedSkill === idx) return;
 
   state.selectedSkill = idx;
   state.confirmCell = null; // スキル切替で確定待ち解除
-  // Setup pending action for special-target abilities
   if (card.skill === 'shoshitsu') {
     state.pendingAction = 'vanish-target';
   } else {
