@@ -266,7 +266,15 @@
     text-align: left;
     box-shadow: 0 12px 32px rgba(0,0,0,0.18);
   }
-  .skill-card:hover .tooltip {
+  /* マウスデバイスのみ：ホバーでツールチップ表示 */
+  @media (hover: hover) {
+    .skill-card:hover .tooltip {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-2px);
+    }
+  }
+  /* タッチデバイス：選択時にツールチップ表示（1タップで選択＋説明、再タップで解除） */
+  .skill-card.selected .tooltip {
     opacity: 1;
     transform: translateX(-50%) translateY(-2px);
   }
@@ -1414,8 +1422,14 @@
       right: 32px;
       transform: translateX(0);
     }
-    /* hover で位置調整したのと同じ平行移動 */
-    .panel-player .hand .skill-card:hover .tooltip {
+    /* マウスデバイスのみ：hover で位置調整 */
+    @media (hover: hover) {
+      .panel-player .hand .skill-card:hover .tooltip {
+        transform: translateY(-2px);
+      }
+    }
+    /* タッチでも選択時に同じ位置調整 */
+    .panel-player .hand .skill-card.selected .tooltip {
       transform: translateY(-2px);
     }
 
