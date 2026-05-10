@@ -262,22 +262,16 @@
     z-index: 80;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.18s ease, transform 0.18s ease;
+    transition: opacity 0.18s ease;
     text-align: left;
     box-shadow: 0 12px 32px rgba(0,0,0,0.18);
   }
   /* マウスデバイスのみ：ホバーでツールチップ表示 */
   @media (hover: hover) {
-    .skill-card:hover .tooltip {
-      opacity: 1;
-      transform: translateX(-50%) translateY(-2px);
-    }
+    .skill-card:hover .tooltip { opacity: 1; }
   }
-  /* タッチデバイス：選択時にツールチップ表示（1タップで選択＋説明、再タップで解除） */
-  .skill-card.selected .tooltip {
-    opacity: 1;
-    transform: translateX(-50%) translateY(-2px);
-  }
+  /* タッチデバイス：選択時にツールチップ表示 */
+  .skill-card.selected .tooltip { opacity: 1; }
   .skill-card .tooltip .tt-name {
     font-family: 'Noto Sans JP', sans-serif;
     font-size: 18px;
@@ -1422,16 +1416,7 @@
       right: 32px;
       transform: translateX(0);
     }
-    /* マウスデバイスのみ：hover で位置調整 */
-    @media (hover: hover) {
-      .panel-player .hand .skill-card:hover .tooltip {
-        transform: translateY(-2px);
-      }
-    }
-    /* タッチでも選択時に同じ位置調整 */
-    .panel-player .hand .skill-card.selected .tooltip {
-      transform: translateY(-2px);
-    }
+    /* tooltip の位置はカード位置で決定（X軸固定）— transform は使わない */
 
     /* Burst effects */
     .skill-burst-name { font-size: 56px; }
@@ -3631,7 +3616,22 @@ function renderHands() {
           </div>
         `;
         if (isMyTurn) {
-          div.onclick = () => selectSkill(card.idx);
+          // iOS の二重 click 発火を避けるため pointerup を使う
+          // 1回のタップで pointerup は1回しか発火しないため、ゴーストクリック耐性が高い
+          let _tapped = false;
+          div.addEventListener('pointerup', (e) => {
+            e.preventDefault();
+            if (_tapped) return;
+            _tapped = true;
+            setTimeout(() => { _tapped = false; }, 300);
+            selectSkill(card.idx);
+          });
+          // pointer 非対応環境のフォールバック（古い iOS 等）
+          div.addEventListener('click', (e) => {
+            // pointerup で既に処理されていれば click は無視
+            if (e.pointerType !== undefined) return;
+            selectSkill(card.idx);
+          });
         }
       }
 
