@@ -522,15 +522,15 @@ function switchTurn(state) { state.turn = state.turn === 'D' ? 'L' : 'D'; }
 // ---------------- AI (parametric on color, show-all=false) ----------------
 // ---------------- AI Profile (game.htmlからポート) ----------------
 function getAIProfile(lv) {
-  const advFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 0.8 : 1;
-  if (lv < 10)  return { skillUseProb: 0.25, posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 0.95, advFactor, lv };
-  if (lv < 20)  return { skillUseProb: 0.5,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, lv };
-  if (lv < 30)  return { skillUseProb: 0.7,  posWeightFactor: 0.5, threatAvoid: false, lookahead: 0, randomness: 0.4, advFactor, lv };
-  if (lv < 50)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: false, lookahead: 0, randomness: 0.0, advFactor, lv };
-  if (lv < 70)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: true,  lookahead: 0, randomness: 0.0, advFactor, lv };
-  if (lv < 85)  return { skillUseProb: 1.0,  posWeightFactor: 1.2, threatAvoid: true,  lookahead: 1, randomness: 0.0, advFactor, lv };
-  const posW = 1.2;
-  return                { skillUseProb: 1.0,  posWeightFactor: posW, threatAvoid: true,  lookahead: 2, randomness: 0.0, advFactor, lv };
+  const advFactor    = lv >= 85 ? 1 + ((lv - 85) / 14) * 0.8 : 1;
+  const weightFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 2.0 : 1;
+  if (lv < 10)  return { skillUseProb: 0.25, posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 0.95, advFactor, weightFactor, lv };
+  if (lv < 20)  return { skillUseProb: 0.5,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, weightFactor, lv };
+  if (lv < 30)  return { skillUseProb: 0.7,  posWeightFactor: 0.5, threatAvoid: false, lookahead: 0, randomness: 0.4, advFactor, weightFactor, lv };
+  if (lv < 50)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: false, lookahead: 0, randomness: 0.0, advFactor, weightFactor, lv };
+  if (lv < 70)  return { skillUseProb: 1.0,  posWeightFactor: 1.0, threatAvoid: true,  lookahead: 0, randomness: 0.0, advFactor, weightFactor, lv };
+  if (lv < 85)  return { skillUseProb: 1.0,  posWeightFactor: 1.2, threatAvoid: true,  lookahead: 1, randomness: 0.0, advFactor, weightFactor, lv };
+  return                { skillUseProb: 1.0,  posWeightFactor: 1.3, threatAvoid: true,  lookahead: 2, randomness: 0.0, advFactor, weightFactor, lv };
 }
 
 // 角に隣接する危険マス（X打ち・C打ち）— 角が空いている時のみペナルティ
@@ -590,35 +590,89 @@ function countStableEdgeStones(board, color) {
   return stable.size;
 }
 
-// 1色から見たフラットな盤面評価値（オセロ基礎要素統合）
+// 1色から見たフラットな盤面評価値（オセロ基礎要素統合 + 鬼神強化）
 function evaluateBoardFlat(board, color, profile) {
   const opp = color === 'D' ? 'L' : 'D';
+  const wf = profile.weightFactor || 1;
   let score = 0;
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     if (board[r][c].color === color)            score += POS_WEIGHTS[r][c] * profile.posWeightFactor;
     else if (board[r][c].color !== null)        score -= POS_WEIGHTS[r][c] * profile.posWeightFactor;
   }
-  // Mobility
   const myMob = countMobility(board, color);
   const oppMob = countMobility(board, opp);
-  score += (myMob - oppMob) * 5;
-  // Frontier
+  score += (myMob - oppMob) * 5 * wf;
   const myFront = countFrontier(board, color);
   const oppFront = countFrontier(board, opp);
-  score += (oppFront - myFront) * 2;
-  // Stable
+  score += (oppFront - myFront) * 2 * wf;
   const myStable = countStableEdgeStones(board, color);
   const oppStable = countStableEdgeStones(board, opp);
-  score += (myStable - oppStable) * 10;
+  score += (myStable - oppStable) * 10 * wf;
   if (profile.lv >= 95) {
     const corners = [[0,0],[0,7],[7,0],[7,7]];
-    const cornerBonus = 15 + ((profile.lv - 95) / 4) * 10;
+    const cornerBonus = (15 + ((profile.lv - 95) / 4) * 10) * wf;
     for (const [cr, cc] of corners) {
       if (board[cr][cc].color === color)        score += cornerBonus;
       else if (board[cr][cc].color !== null)    score -= cornerBonus;
     }
   }
   return score;
+}
+
+function getValidMovesForBoardSim(board, color) {
+  const moves = [];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (board[r][c].color !== null) continue;
+    for (const [dr, dc] of DIRS_8) {
+      let nr = r + dr, nc = c + dc, found = false;
+      while (inb(nr, nc) && board[nr][nc].color && board[nr][nc].color !== color) {
+        nr += dr; nc += dc; found = true;
+      }
+      if (found && inb(nr, nc) && board[nr][nc].color === color) { moves.push([r, c]); break; }
+    }
+  }
+  return moves;
+}
+function minimaxSim(board, depth, alpha, beta, currentColor, me, profile) {
+  if (depth === 0) return evaluateBoardFlat(board, me, profile);
+  const opp = me === 'D' ? 'L' : 'D';
+  const otherColor = currentColor === 'D' ? 'L' : 'D';
+  const moves = getValidMovesForBoardSim(board, currentColor);
+  if (moves.length === 0) {
+    const oppMoves = getValidMovesForBoardSim(board, otherColor);
+    if (oppMoves.length === 0) return evaluateBoardFlat(board, me, profile);
+    return minimaxSim(board, depth, alpha, beta, otherColor, me, profile);
+  }
+  if (currentColor === me) {
+    let best = -Infinity;
+    for (const [r, c] of moves) {
+      const next = simulatePlaceFlat(board, r, c, currentColor);
+      const v = minimaxSim(next, depth - 1, alpha, beta, opp, me, profile);
+      if (v > best) best = v;
+      if (v > alpha) alpha = v;
+      if (alpha >= beta) break;
+    }
+    return best;
+  } else {
+    let best = Infinity;
+    for (const [r, c] of moves) {
+      const next = simulatePlaceFlat(board, r, c, currentColor);
+      const v = minimaxSim(next, depth - 1, alpha, beta, me, me, profile);
+      if (v < best) best = v;
+      if (v < beta) beta = v;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+}
+function getSearchDepthSim(lv, emptyCount) {
+  if (lv < 85) return 1;
+  if (lv < 90) return 2;
+  if (lv < 95) return 3;
+  if (emptyCount <= 8) return 6;
+  if (emptyCount <= 12) return 5;
+  if (lv >= 99) return 4;
+  return 3;
 }
 
 // 1手打った後の盤面をシミュレート（実stateを変えずに、通常の挟みフリップのみ）
@@ -919,12 +973,21 @@ function aiPickAction(state, me) {
     if (useFlipRisk) baseScore -= computeFlipRisk(state, me, r, c);
     if (profile.lookahead >= 1) {
       const next = simulatePlaceFlat(state.board, r, c, me);
-      const myEval = evaluateBoardFlat(next, me, profile);
-      const oppBest = useProbabilistic
-        ? opponentBestScoreWithProbabilitySim(next, opp, profile, state, me)
-        : opponentBestScoreSim(next, opp, profile);
-      const oppWeight = useProbabilistic ? 0.7 : 0.6;
-      baseScore = baseScore * 0.3 + myEval - oppBest * oppWeight;
+      if (lv >= 85) {
+        // 鬼神級 minimax 探索
+        let emptyCount = 0;
+        for (let rr = 0; rr < N; rr++) for (let cc = 0; cc < N; cc++) {
+          if (next[rr][cc].color === null) emptyCount++;
+        }
+        const depth = getSearchDepthSim(lv, emptyCount);
+        const score = minimaxSim(next, depth, -Infinity, Infinity, opp, me, profile);
+        baseScore = baseScore * 0.15 + score;
+      } else {
+        // LV70-84: 軽量 1-ply
+        const myEval = evaluateBoardFlat(next, me, profile);
+        const oppBest = opponentBestScoreSim(next, opp, profile);
+        baseScore = baseScore * 0.3 + myEval - oppBest * 0.6;
+      }
     }
     candidates.push({ score: baseScore, move: [r, c], skillIdx: -1 });
 
