@@ -7,6 +7,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#F2EBE0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<!-- Google Analytics 4 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-DMYYMHQ0KG"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-DMYYMHQ0KG', { anonymize_ip: true });
+</script>
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>ChoVersi｜超バーシ</title>
@@ -1872,6 +1880,12 @@ function getBadges() {
 }
 function saveBadges(set) { saveJSON(STORAGE.badges, [...set]); }
 
+// Google Analytics: イベント送信ヘルパー（gtag が無くても黙って失敗する）
+function track(event, params) {
+  try { if (typeof gtag === 'function') gtag('event', event, params || {}); }
+  catch (e) {}
+}
+
 // バッジ定義（id, label, hint, predicate）
 // predicate(ctx) で true を返したらアンロック
 // ctx: { stats, lv, gameResult, gameStats }
@@ -2045,6 +2059,13 @@ function newGame() {
   }
   hideResult();
   log('NEW GAME', aiOn ? 'vs AI' : 'vs Human');
+  // GA4: ゲーム開始イベント
+  track('game_start', {
+    mode: state.mode,
+    ai_level: state.aiLevel,
+    player_color: playerColor,
+    beginner_mode: isBeginnerMode(),
+  });
   render();
   triggerAIIfNeeded();
 }
@@ -2769,6 +2790,27 @@ function endGame() {
     gameStats: { ...state.gameStats, cornersOwned, prevLossStreak: stt.maxStreakLoss }
   };
   const newBadges = checkBadges(ctx);
+
+  // GA4: ゲーム終了イベント
+  track('game_end', {
+    mode: state.mode,
+    ai_level: state.aiLevel,
+    result: win ? 'win' : (draw ? 'draw' : 'lose'),
+    margin: margin,
+    my_score: myScore,
+    opp_score: oppScore,
+    max_chain: state.gameStats.maxChain || 0,
+    turns: state.gameStats.turns || 0,
+    player_color: state.playerColor,
+  });
+  // GA4: LV up（キャンペーン時のみ）
+  if (state.mode === 'campaign' && newLv != null && oldLv != null && newLv > oldLv) {
+    track('lv_up', { from: oldLv, to: newLv });
+  }
+  // GA4: 新規バッジ獲得
+  if (newBadges && newBadges.length > 0) {
+    newBadges.forEach(b => track('badge_unlock', { badge_id: b.id, badge_name: b.name }));
+  }
 
   showResult(s, winner, { xpDelta, oldLv, newLv, oldXp, newXp, newBadges, mode: state.mode });
 }
