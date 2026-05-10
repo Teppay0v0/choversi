@@ -176,11 +176,10 @@
     }
   }
   .skill-card.selected {
-    /* 旧仕様：選択時はカード全体が濃い黒に反転 */
+    /* 選択時はカード全体が濃い黒に反転（位置はずらさない — レイアウトジャンプ防止） */
     background: var(--dark);
     color: var(--cream);
     box-shadow: 0 0 0 3px var(--sage), 0 6px 18px rgba(0,0,0,0.3);
-    transform: translateY(-2px);
   }
   .skill-card.selected .skill-trigger-tag {
     background: var(--sage);
@@ -2277,10 +2276,17 @@ async function makeMove(r, c) {
   // Place stone (with optional skill)
   let placedSkill = null;
   if (state.selectedSkill >= 0) {
-    placedSkill = state.hands[state.turn][state.selectedSkill].skill;
-    state.hands[state.turn][state.selectedSkill].used = true;
-    log(`${labelOf(state.turn)} placed`, `${ABILITIES[placedSkill].name} @ ${coord(r, c)}`, 'skill');
-  } else {
+    const card = state.hands[state.turn][state.selectedSkill];
+    // 安全策：選択したカードが既に使用済み or 存在しないなら通常石として扱う
+    if (!card || card.used) {
+      state.selectedSkill = -1;
+    } else {
+      placedSkill = card.skill;
+      card.used = true;
+      log(`${labelOf(state.turn)} placed`, `${ABILITIES[placedSkill].name} @ ${coord(r, c)}`, 'skill');
+    }
+  }
+  if (!placedSkill) {
     log(`${labelOf(state.turn)} placed`, `通常石 @ ${coord(r, c)}`);
   }
   state.board[r][c] = stone(state.turn, placedSkill, state.turn);
@@ -3616,22 +3622,22 @@ function renderHands() {
           </div>
         `;
         if (isMyTurn) {
-          // iOS の二重 click 発火を避けるため pointerup を使う
-          // 1回のタップで pointerup は1回しか発火しないため、ゴーストクリック耐性が高い
-          let _tapped = false;
-          div.addEventListener('pointerup', (e) => {
-            e.preventDefault();
-            if (_tapped) return;
-            _tapped = true;
-            setTimeout(() => { _tapped = false; }, 300);
-            selectSkill(card.idx);
-          });
-          // pointer 非対応環境のフォールバック（古い iOS 等）
-          div.addEventListener('click', (e) => {
-            // pointerup で既に処理されていれば click は無視
-            if (e.pointerType !== undefined) return;
-            selectSkill(card.idx);
-          });
+          // iOS のゴーストクリック対策：pointerdown だけで処理し
+          // setPointerCapture で同一カードに固定（指がドラッグしても暴発しない）
+          // それ以降の click / mouseup などは捨てる
+          (function(idx) {
+            div.addEventListener('pointerdown', (e) => {
+              try { div.setPointerCapture(e.pointerId); } catch (err) {}
+              e.preventDefault();
+              e.stopPropagation();
+              selectSkill(idx);
+            });
+            // 二重発火防止：click は完全に無視
+            div.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            });
+          })(card.idx);
         }
       }
 
