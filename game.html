@@ -167,8 +167,11 @@
     gap: 10px;
     font-size: 13px;
     cursor: pointer;
-    transition: all 0.2s;
+    /* transition は外す — 状態変化を即時反映してフラッシュ防止 */
     user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
     position: relative;
   }
   /* hover はマウスデバイスのみ */
@@ -3625,22 +3628,8 @@ function renderHands() {
           </div>
         `;
         if (isMyTurn) {
-          // iOS のゴーストクリック対策：pointerdown だけで処理し
-          // setPointerCapture で同一カードに固定（指がドラッグしても暴発しない）
-          // それ以降の click / mouseup などは捨てる
-          (function(idx) {
-            div.addEventListener('pointerdown', (e) => {
-              try { div.setPointerCapture(e.pointerId); } catch (err) {}
-              e.preventDefault();
-              e.stopPropagation();
-              selectSkill(idx);
-            });
-            // 二重発火防止：click は完全に無視
-            div.addEventListener('click', (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            });
-          })(card.idx);
+          // 当初のシンプルな onclick に戻す
+          div.onclick = () => selectSkill(card.idx);
         }
       }
 
