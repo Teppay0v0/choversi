@@ -2816,7 +2816,7 @@ function getAIProfile(lv) {
   // weightFactor: mobility/frontier/stable の評価重み倍率（1.0 → 3.0）— 鬼神を強化
   // lv: 評価関数で参照する元のレベル
   const advFactor    = lv >= 85 ? 1 + ((lv - 85) / 14) * 0.8 : 1;
-  const weightFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 2.0 : 1;
+  const weightFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 3.5 : 1;  // LV99 で 4.5 倍
   // LV1-9 でも異能を時々使う
   if (lv < 10)  return { skillUseProb: 0.25, posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 0.95, advFactor, weightFactor, lv };
   if (lv < 20)  return { skillUseProb: 0.5,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, weightFactor, lv };
@@ -2966,23 +2966,26 @@ function getValidMovesForBoard(board, color) {
   return moves;
 }
 
-// Minimax with alpha-beta pruning（LV85+ で使う）
-// 返値は me 視点のスコア
+// Move ordering：alpha-beta の枝刈り効率を上げるため、有望な手から試す
+// POS_WEIGHTS が高い順にソート（角→辺→中央→X打ち）
+function orderMoves(moves) {
+  return moves.slice().sort((a, b) => POS_WEIGHTS[b[0]][b[1]] - POS_WEIGHTS[a[0]][a[1]]);
+}
+
+// Minimax with alpha-beta pruning + move ordering
 function minimax(board, depth, alpha, beta, currentColor, me, profile) {
   if (depth === 0) {
     return evaluateBoard(board, me, profile);
   }
   const opp = me === 'D' ? 'L' : 'D';
   const otherColor = currentColor === 'D' ? 'L' : 'D';
-  const moves = getValidMovesForBoard(board, currentColor);
+  const moves = orderMoves(getValidMovesForBoard(board, currentColor));
   if (moves.length === 0) {
-    // パス：相手にも手がなければ終局
     const oppMoves = getValidMovesForBoard(board, otherColor);
     if (oppMoves.length === 0) return evaluateBoard(board, me, profile);
     return minimax(board, depth, alpha, beta, otherColor, me, profile);
   }
   if (currentColor === me) {
-    // Maximizing
     let best = -Infinity;
     for (const [r, c] of moves) {
       const next = simulatePlace(board, r, c, currentColor);
@@ -2993,7 +2996,6 @@ function minimax(board, depth, alpha, beta, currentColor, me, profile) {
     }
     return best;
   } else {
-    // Minimizing
     let best = Infinity;
     for (const [r, c] of moves) {
       const next = simulatePlace(board, r, c, currentColor);
@@ -3009,13 +3011,13 @@ function minimax(board, depth, alpha, beta, currentColor, me, profile) {
 // LV と空マス数から探索深度を決定（鬼神は終盤でさらに深く）
 function getSearchDepth(lv, emptyCount) {
   if (lv < 85) return 1;
-  if (lv < 90) return 2;
-  if (lv < 95) return 3;
+  if (lv < 90) return 3;     // 旧 2 → 3
+  if (lv < 95) return 4;     // 旧 3 → 4
   // LV95-99: 終盤拡張
-  if (emptyCount <= 8) return 6;
-  if (emptyCount <= 12) return 5;
-  if (lv >= 99) return 4;
-  return 3;
+  if (emptyCount <= 10) return 8;  // 終盤ほぼ完全読み（旧 6 → 8）
+  if (emptyCount <= 14) return 6;  // 旧 5 → 6
+  if (lv >= 99) return 5;          // LV99 中盤は 5（旧 4）
+  return 4;
 }
 
 function opponentBestScore(board, oppColor, profile) {

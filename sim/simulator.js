@@ -523,7 +523,7 @@ function switchTurn(state) { state.turn = state.turn === 'D' ? 'L' : 'D'; }
 // ---------------- AI Profile (game.htmlからポート) ----------------
 function getAIProfile(lv) {
   const advFactor    = lv >= 85 ? 1 + ((lv - 85) / 14) * 0.8 : 1;
-  const weightFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 2.0 : 1;
+  const weightFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 3.5 : 1;
   if (lv < 10)  return { skillUseProb: 0.25, posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 0.95, advFactor, weightFactor, lv };
   if (lv < 20)  return { skillUseProb: 0.5,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, weightFactor, lv };
   if (lv < 30)  return { skillUseProb: 0.7,  posWeightFactor: 0.5, threatAvoid: false, lookahead: 0, randomness: 0.4, advFactor, weightFactor, lv };
@@ -633,11 +633,14 @@ function getValidMovesForBoardSim(board, color) {
   }
   return moves;
 }
+function orderMovesSim(moves) {
+  return moves.slice().sort((a, b) => POS_WEIGHTS[b[0]][b[1]] - POS_WEIGHTS[a[0]][a[1]]);
+}
 function minimaxSim(board, depth, alpha, beta, currentColor, me, profile) {
   if (depth === 0) return evaluateBoardFlat(board, me, profile);
   const opp = me === 'D' ? 'L' : 'D';
   const otherColor = currentColor === 'D' ? 'L' : 'D';
-  const moves = getValidMovesForBoardSim(board, currentColor);
+  const moves = orderMovesSim(getValidMovesForBoardSim(board, currentColor));
   if (moves.length === 0) {
     const oppMoves = getValidMovesForBoardSim(board, otherColor);
     if (oppMoves.length === 0) return evaluateBoardFlat(board, me, profile);
@@ -667,12 +670,12 @@ function minimaxSim(board, depth, alpha, beta, currentColor, me, profile) {
 }
 function getSearchDepthSim(lv, emptyCount) {
   if (lv < 85) return 1;
-  if (lv < 90) return 2;
-  if (lv < 95) return 3;
-  if (emptyCount <= 8) return 6;
-  if (emptyCount <= 12) return 5;
-  if (lv >= 99) return 4;
-  return 3;
+  if (lv < 90) return 3;
+  if (lv < 95) return 4;
+  if (emptyCount <= 10) return 8;
+  if (emptyCount <= 14) return 6;
+  if (lv >= 99) return 5;
+  return 4;
 }
 
 // 1手打った後の盤面をシミュレート（実stateを変えずに、通常の挟みフリップのみ）
