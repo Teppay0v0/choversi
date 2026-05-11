@@ -51,11 +51,11 @@ const POS_WEIGHTS = [
 ];
 
 const SKILL_BONUS = {
-  bakudan: 12, hogeki: 11, gyakushu: 10,
-  shoshitsu: 8, muko: 6,
+  bakudan: 18, hogeki: 15, gyakushu: 14,
+  shoshitsu: 12, muko: 8,
   // 探知は情報カードに変更（Phase 1）
-  tanchi: 4,
-  zoshoku: 3, hanten: 2, kyozo: 1,
+  tanchi: 5,
+  zoshoku: 4, hanten: 3, kyozo: 1,
 };
 
 // ---------------- Helpers ----------------
@@ -522,8 +522,8 @@ function switchTurn(state) { state.turn = state.turn === 'D' ? 'L' : 'D'; }
 // ---------------- AI (parametric on color, show-all=false) ----------------
 // ---------------- AI Profile (game.htmlからポート) ----------------
 function getAIProfile(lv) {
-  const advFactor    = lv >= 85 ? 1 + ((lv - 85) / 14) * 0.8 : 1;
-  const weightFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 3.5 : 1;
+  const advFactor    = lv >= 85 ? 1 + ((lv - 85) / 14) * 1.2 : 1;
+  const weightFactor = lv >= 85 ? 1 + ((lv - 85) / 14) * 5.0 : 1;
   if (lv < 10)  return { skillUseProb: 0.25, posWeightFactor: 0,   threatAvoid: false, lookahead: 0, randomness: 0.95, advFactor, weightFactor, lv };
   if (lv < 20)  return { skillUseProb: 0.5,  posWeightFactor: 0.2, threatAvoid: false, lookahead: 0, randomness: 0.7, advFactor, weightFactor, lv };
   if (lv < 30)  return { skillUseProb: 0.7,  posWeightFactor: 0.5, threatAvoid: false, lookahead: 0, randomness: 0.4, advFactor, weightFactor, lv };
@@ -595,6 +595,16 @@ function evaluateBoardFlat(board, color, profile) {
   const opp = color === 'D' ? 'L' : 'D';
   const wf = profile.weightFactor || 1;
   let score = 0;
+  // 終盤判定：石数を直接最大化
+  let emptyCount = 0, myCount = 0, oppCount = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (board[r][c].color === null) emptyCount++;
+    else if (board[r][c].color === color) myCount++;
+    else oppCount++;
+  }
+  if (profile.lv >= 85 && emptyCount <= 12) {
+    score += (myCount - oppCount) * 100 * wf;
+  }
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     if (board[r][c].color === color)            score += POS_WEIGHTS[r][c] * profile.posWeightFactor;
     else if (board[r][c].color !== null)        score -= POS_WEIGHTS[r][c] * profile.posWeightFactor;
@@ -672,10 +682,11 @@ function getSearchDepthSim(lv, emptyCount) {
   if (lv < 85) return 1;
   if (lv < 90) return 3;
   if (lv < 95) return 4;
-  if (emptyCount <= 10) return 8;
-  if (emptyCount <= 14) return 6;
-  if (lv >= 99) return 5;
-  return 4;
+  if (emptyCount <= 8)  return 10;
+  if (emptyCount <= 12) return 8;
+  if (emptyCount <= 16) return 7;
+  if (lv >= 99) return 6;
+  return 5;
 }
 
 // 1手打った後の盤面をシミュレート（実stateを変えずに、通常の挟みフリップのみ）
@@ -695,6 +706,39 @@ function simulatePlaceFlat(board, r, c, color) {
   }
   next[r][c] = { color, skill: null, owner: color, hantenUsed: false };
   for (const [fr, fc] of flips) next[fr][fc].color = color;
+  return next;
+}
+
+// 異能効果込みの盤面シミュレーション（鬼神級の AI 先読み用）
+function simulatePlaceWithSkillFlat(board, r, c, color, skill) {
+  let next = simulatePlaceFlat(board, r, c, color);
+  if (!skill) return next;
+  if (skill === 'bakudan') {
+    next[r][c] = { color: null, skill: null, owner: null, hantenUsed: false };
+    for (const [dr, dc] of DIRS_8) {
+      const nr = r + dr, nc = c + dc;
+      if (inb(nr, nc) && next[nr][nc].color) next[nr][nc].color = color;
+    }
+  } else if (skill === 'hogeki') {
+    for (const [dr, dc] of DIRS_4) {
+      for (let k = 1; k <= 3; k++) {
+        const nr = r + dr*k, nc = c + dc*k;
+        if (!inb(nr, nc)) break;
+        if (next[nr][nc].color) next[nr][nc].color = color;
+      }
+    }
+  } else if (skill === 'zoshoku') {
+    for (const [dr, dc] of DIRS_8) {
+      const nr = r + dr, nc = c + dc;
+      if (inb(nr, nc) && next[nr][nc].color === null) {
+        next[nr][nc] = { color, skill: null, owner: color, hantenUsed: false };
+        break;
+      }
+    }
+  }
+  if (skill !== 'bakudan' && skill !== 'shoshitsu') {
+    next[r][c] = { color, skill, owner: color, hantenUsed: false };
+  }
   return next;
 }
 
@@ -992,15 +1036,39 @@ function aiPickAction(state, me) {
         baseScore = baseScore * 0.3 + myEval - oppBest * 0.6;
       }
     }
-    candidates.push({ score: baseScore, move: [r, c], skillIdx: -1 });
+    candidates.push({ score: baseScore, move: [r, c], skillIdx: -1, _baseRaw: baseScore });
 
     if (state.rand() < profile.skillUseProb) {
       for (const card of activeHand) {
         const skill = card.skill;
         if (skill === 'shoshitsu') continue;
         const sScore = baseScore + (SKILL_BONUS[skill] || 0) + skillContextBonus(state, r, c, skill, me);
-        candidates.push({ score: sScore, move: [r, c], skillIdx: card.idx });
+        candidates.push({ score: sScore, move: [r, c], skillIdx: card.idx, _skill: skill, _baseRaw: baseScore });
       }
+    }
+  }
+
+  // LV85+ 鬼神級：上位候補に対して異能効果込みのミニマックス先読みを実施
+  if (lv >= 85 && profile.lookahead >= 1) {
+    candidates.sort((a, b) => b.score - a.score);
+    const topN = Math.min(8, candidates.length);
+    for (let i = 0; i < topN; i++) {
+      const cand = candidates[i];
+      if (cand.skillIdx < 0) continue;
+      const skill = cand._skill;
+      if (skill === 'tanchi' || skill === 'kyozo' || skill === 'hanten' || skill === 'gyakushu' || skill === 'muko') continue;
+      try {
+        const [r, c] = cand.move;
+        const nextSk = simulatePlaceWithSkillFlat(state.board, r, c, me, skill);
+        let emptyCount = 0;
+        for (let rr = 0; rr < N; rr++) for (let cc = 0; cc < N; cc++) {
+          if (nextSk[rr][cc].color === null) emptyCount++;
+        }
+        const depth = getSearchDepthSim(lv, emptyCount);
+        const lookScore = minimaxSim(nextSk, depth, -Infinity, Infinity, opp, me, profile);
+        const heuristic = (SKILL_BONUS[skill] || 0) + skillContextBonus(state, r, c, skill, me);
+        cand.score = cand._baseRaw * 0.15 + lookScore + heuristic * 0.5;
+      } catch (e) { /* fallback to heuristic */ }
     }
   }
   if (candidates.length === 0) return { type: 'pass' };
