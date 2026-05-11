@@ -816,23 +816,46 @@ function scoreMove(state, r, c, color) {
 
 function skillContextBonus(state, r, c, skill, color) {
   if (skill === 'bakudan') {
-    let enemies = 0;
+    let enemies = 0, friends = 0, value = 0;
     for (const [dr, dc] of DIRS_8) {
       const nr = r + dr, nc = c + dc;
-      if (inb(nr, nc) && state.board[nr][nc].color && state.board[nr][nc].color !== color) enemies++;
+      if (!inb(nr, nc)) continue;
+      const c2 = state.board[nr][nc].color;
+      if (c2 && c2 !== color) { enemies++; value += Math.max(0, POS_WEIGHTS[nr][nc]) * 0.3; }
+      else if (c2 === color) friends++;
     }
-    return enemies * 1.5;
+    let empty = 0, myStones = 0;
+    for (let rr = 0; rr < N; rr++) for (let cc = 0; cc < N; cc++) {
+      if (state.board[rr][cc].color === null) empty++;
+      else if (state.board[rr][cc].color === color) myStones++;
+    }
+    if (myStones <= 5) return -200;
+    if (friends >= 3) return -100;
+    let timingMod = 0;
+    if (empty >= 45) timingMod = -10;
+    else if (empty <= 25) timingMod = +5;
+    const efficiency = enemies < 4 ? -15 + enemies * 2 : 0;
+    return enemies * 1.5 + value + timingMod + efficiency - friends * 8;
   }
   if (skill === 'hogeki') {
-    let count = 0;
+    let count = 0, value = 0;
     for (const [dr, dc] of DIRS_4) {
       for (let k = 1; k <= 3; k++) {
         const nr = r + dr*k, nc = c + dc*k;
         if (!inb(nr, nc)) break;
-        if (state.board[nr][nc].color && state.board[nr][nc].color !== color) count++;
+        if (state.board[nr][nc].color && state.board[nr][nc].color !== color) {
+          count++;
+          value += Math.max(0, POS_WEIGHTS[nr][nc]) * 0.25;
+        }
       }
     }
-    return count * 1.2;
+    let empty = 0;
+    for (let rr = 0; rr < N; rr++) for (let cc = 0; cc < N; cc++) {
+      if (state.board[rr][cc].color === null) empty++;
+    }
+    const timingMod = empty >= 48 ? -6 : 0;
+    const efficiency = count < 3 ? -8 : 0;
+    return count * 1.2 + value + timingMod + efficiency;
   }
   if (skill === 'tanchi') {
     const opp = color === 'D' ? 'L' : 'D';
@@ -872,7 +895,17 @@ function skillContextBonus(state, r, c, skill, color) {
     }
     return infoCount * perInfoBonus;
   }
-  if (skill === 'kyozo' || skill === 'hanten') return 0;
+  if (skill === 'hanten') {
+    let value = Math.max(0, POS_WEIGHTS[r][c]) * 0.15;
+    let enemiesNear = 0;
+    const opp = color === 'D' ? 'L' : 'D';
+    for (const [dr, dc] of DIRS_8) {
+      const nr = r + dr, nc = c + dc;
+      if (inb(nr, nc) && state.board[nr][nc].color === opp) enemiesNear++;
+    }
+    return value + enemiesNear * 0.8;
+  }
+  if (skill === 'kyozo') return Math.max(0, POS_WEIGHTS[r][c]) * 0.1;
   if (skill === 'zoshoku') {
     return (r === 0 || r === 7 || c === 0 || c === 7) ? 5 : 0;
   }

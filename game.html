@@ -2997,6 +2997,51 @@ function evaluateBoard(board, color, profile) {
       else if (board[cr][cc].color !== null)     score -= cornerBonus;
     }
   }
+  // LV90+: 相手の異能脅威を検知（爆弾・砲撃が刺さる位置にいるか）
+  // 相手のハンドに爆弾/砲撃が見えていれば、それを打たれた時の被害を予測してペナルティ
+  if (profile.lv >= 90 && typeof state !== 'undefined' && state.hands) {
+    const oppHand = state.hands[opp] || [];
+    const oppActive = oppHand.filter(h => h && !h.used);
+    const oppHasBakudan = oppActive.some(h => h.skill === 'bakudan');
+    const oppHasHogeki = oppActive.some(h => h.skill === 'hogeki');
+    if (oppHasBakudan || oppHasHogeki) {
+      // 相手の有効手 × 異能で最大被害を概算
+      let maxThreat = 0;
+      for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+        if (board[r][c].color !== null) continue;
+        // 反転条件チェック（簡易：8方向に挟める敵石があるか）
+        let canPlace = false;
+        for (const [dr, dc] of DIRS_8) {
+          let nr = r + dr, nc = c + dc, f = false;
+          while (inb(nr, nc) && board[nr][nc].color && board[nr][nc].color !== opp) { nr+=dr; nc+=dc; f=true; }
+          if (f && inb(nr, nc) && board[nr][nc].color === opp) { canPlace = true; break; }
+        }
+        if (!canPlace) continue;
+        // 爆弾の被害評価（周囲8マスの自分の石数）
+        if (oppHasBakudan) {
+          let damage = 0;
+          for (const [dr, dc] of DIRS_8) {
+            const nr = r + dr, nc = c + dc;
+            if (inb(nr, nc) && board[nr][nc].color === color) damage += 3 + Math.max(0, POS_WEIGHTS[nr][nc]) * 0.2;
+          }
+          if (damage > maxThreat) maxThreat = damage;
+        }
+        // 砲撃の被害評価（十字3マス）
+        if (oppHasHogeki) {
+          let damage = 0;
+          for (const [dr, dc] of DIRS_4) {
+            for (let k = 1; k <= 3; k++) {
+              const nr = r + dr*k, nc = c + dc*k;
+              if (!inb(nr, nc)) break;
+              if (board[nr][nc].color === color) damage += 2 + Math.max(0, POS_WEIGHTS[nr][nc]) * 0.15;
+            }
+          }
+          if (damage > maxThreat) maxThreat = damage;
+        }
+      }
+      score -= maxThreat * wf;
+    }
+  }
   return score;
 }
 
@@ -3374,25 +3419,60 @@ function scoreMove(r, c, color) {
 function skillContextBonus(r, c, skill, color) {
   // Heuristic bonuses based on placement context
   if (skill === 'bakudan') {
-    // Better when surrounded by enemies (likely to be flipped)
-    let enemies = 0;
+    // 周囲の敵石が多いほど＋ POS_WEIGHTS で角・辺の敵石を重視
+    let value = 0;
+    let enemies = 0, friends = 0;
     for (const [dr, dc] of DIRS_8) {
       const nr = r + dr, nc = c + dc;
-      if (inb(nr, nc) && state.board[nr][nc].color && state.board[nr][nc].color !== color) enemies++;
+      if (!inb(nr, nc)) continue;
+      const c2 = state.board[nr][nc].color;
+      if (c2 && c2 !== color) {
+        enemies++;
+        value += Math.max(0, POS_WEIGHTS[nr][nc]) * 0.3; // 高価値石を巻き込めば加点
+      } else if (c2 === color) {
+        friends++;
+      }
     }
-    return enemies * 1.5;
+    // 盤面の状況
+    let empty = 0, myStones = 0;
+    for (let rr = 0; rr < N; rr++) for (let cc = 0; cc < N; cc++) {
+      if (state.board[rr][cc].color === null) empty++;
+      else if (state.board[rr][cc].color === color) myStones++;
+    }
+    // 自滅防止：自分の石が少なすぎる時は爆弾禁止（自爆+反転で残数ピンチに）
+    if (myStones <= 5) return -200;
+    // 自分の石を多く巻き込む爆弾も避ける
+    if (friends >= 3) return -100;
+    // 手札温存：序盤（残≥45マス）に爆弾を切るのを抑制、終盤（残≤25）は加点
+    let timingMod = 0;
+    if (empty >= 45) timingMod = -10;
+    else if (empty <= 25) timingMod = +5;
+    // 敵石が4個未満なら爆弾の旨みが薄い → 大幅減点
+    const efficiency = enemies < 4 ? -15 + enemies * 2 : 0;
+    // 巻き添えの自分の石（friends）に応じてマイナス
+    return enemies * 1.5 + value + timingMod + efficiency - friends * 8;
   }
   if (skill === 'hogeki') {
-    // 反転対象（敵石）が多いほど高評価
-    let count = 0;
+    // 反転対象を POS_WEIGHTS で重み付け
+    let count = 0, value = 0;
     for (const [dr, dc] of DIRS_4) {
       for (let k = 1; k <= 3; k++) {
         const nr = r + dr*k, nc = c + dc*k;
         if (!inb(nr, nc)) break;
-        if (state.board[nr][nc].color && state.board[nr][nc].color !== color) count++;
+        if (state.board[nr][nc].color && state.board[nr][nc].color !== color) {
+          count++;
+          value += Math.max(0, POS_WEIGHTS[nr][nc]) * 0.25;
+        }
       }
     }
-    return count * 1.2;
+    // 砲撃も序盤温存
+    let empty = 0;
+    for (let rr = 0; rr < N; rr++) for (let cc = 0; cc < N; cc++) {
+      if (state.board[rr][cc].color === null) empty++;
+    }
+    const timingMod = empty >= 48 ? -6 : 0;
+    const efficiency = count < 3 ? -8 : 0;
+    return count * 1.2 + value + timingMod + efficiency;
   }
   if (skill === 'tanchi') {
     // 探知は情報カード：範囲内の未露出の相手異能石が多いほど価値が高い
@@ -3437,9 +3517,22 @@ function skillContextBonus(r, c, skill, color) {
     }
     return infoCount * perInfoBonus;
   }
-  if (skill === 'kyozo' || skill === 'hanten') {
-    // Defensive — better in less critical positions, slight bonus
-    return 0;
+  if (skill === 'hanten') {
+    // 反転：自陣の重要位置に置くほど価値が高い（相手にひっくり返されにくくなる）
+    // 角や辺の近くに置くと敵の砲撃・爆弾の被害軽減になる
+    let value = Math.max(0, POS_WEIGHTS[r][c]) * 0.15;
+    // 周囲に敵石が多い＝ひっくり返されやすい場所なら反転の価値↑
+    let enemiesNear = 0;
+    const opp = color === 'D' ? 'L' : 'D';
+    for (const [dr, dc] of DIRS_8) {
+      const nr = r + dr, nc = c + dc;
+      if (inb(nr, nc) && state.board[nr][nc].color === opp) enemiesNear++;
+    }
+    return value + enemiesNear * 0.8;
+  }
+  if (skill === 'kyozo') {
+    // 虚像：高価値位置に置くほど"釣りエサ"として機能
+    return Math.max(0, POS_WEIGHTS[r][c]) * 0.1;
   }
   if (skill === 'zoshoku') {
     // Better near edges/corners
