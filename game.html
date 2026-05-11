@@ -3149,7 +3149,15 @@ function minimax(board, depth, alpha, beta, currentColor, me, profile) {
   const moves = orderMoves(getValidMovesForBoard(board, currentColor));
   if (moves.length === 0) {
     const oppMoves = getValidMovesForBoard(board, otherColor);
-    if (oppMoves.length === 0) return evaluateBoard(board, me, profile);
+    if (oppMoves.length === 0) {
+      // 終局：石数差で完全評価
+      let myC = 0, oppC = 0;
+      for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+        if (board[r][c].color === me) myC++;
+        else if (board[r][c].color === opp) oppC++;
+      }
+      return (myC - oppC) * 1000;
+    }
     return minimax(board, depth, alpha, beta, otherColor, me, profile);
   }
   if (currentColor === me) {
@@ -3175,16 +3183,83 @@ function minimax(board, depth, alpha, beta, currentColor, me, profile) {
   }
 }
 
+// 異能込み Minimax — LV99 専用、両陣営の異能を実際にシミュレートして読む
+// usedSetByColor: { D: Set<idx>, L: Set<idx> } — この読み筋で使用済みの異能
+// abilityPliesLeft: 残り何手まで異能候補も考慮するか（探索爆発を防ぐ）
+function minimaxFull(board, depth, alpha, beta, currentColor, me, profile, usedSetByColor, abilityPliesLeft) {
+  if (depth === 0) return evaluateBoard(board, me, profile);
+  const opp = me === 'D' ? 'L' : 'D';
+  const otherColor = currentColor === 'D' ? 'L' : 'D';
+  const moves = orderMoves(getValidMovesForBoard(board, currentColor));
+  if (moves.length === 0) {
+    const oppMoves = getValidMovesForBoard(board, otherColor);
+    if (oppMoves.length === 0) {
+      // 両者パス → 終局：石数差で評価（終局ボーナス大）
+      let myC = 0, oppC = 0;
+      for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+        if (board[r][c].color === me) myC++;
+        else if (board[r][c].color === opp) oppC++;
+      }
+      return (myC - oppC) * 1000;
+    }
+    return minimaxFull(board, depth, alpha, beta, otherColor, me, profile, usedSetByColor, abilityPliesLeft);
+  }
+
+  // 候補リスト：通常手 + 異能候補（上位 top3 のマス × 未使用異能）
+  const candidates = [];
+  for (const [r, c] of moves) candidates.push({ r, c, skill: null, idx: null });
+  if (abilityPliesLeft > 0 && typeof state !== 'undefined' && state.hands) {
+    const hand = state.hands[currentColor] || [];
+    const usedSet = usedSetByColor[currentColor];
+    const topMoves = moves.slice(0, 3);
+    for (const card of hand) {
+      if (!card || card.used) continue;
+      if (usedSet.has(card.idx)) continue;
+      if (card.skill === 'shoshitsu') continue; // 消滅は別途target必要
+      if (card.skill === 'tanchi' || card.skill === 'kyozo' || card.skill === 'hanten' || card.skill === 'gyakushu' || card.skill === 'muko') continue;
+      for (const [r, c] of topMoves) {
+        candidates.push({ r, c, skill: card.skill, idx: card.idx });
+      }
+    }
+  }
+
+  const isMax = currentColor === me;
+  let best = isMax ? -Infinity : Infinity;
+  // 1 ply 進むので異能予算を 1 減らす（ability 使用の有無に関わらず）
+  const nextAbilityPlies = abilityPliesLeft - 1;
+  for (const cand of candidates) {
+    const next = cand.skill
+      ? simulatePlaceWithSkill(board, cand.r, cand.c, currentColor, cand.skill)
+      : simulatePlace(board, cand.r, cand.c, currentColor);
+    let newUsedSet = usedSetByColor;
+    if (cand.idx !== null) {
+      const newSet = new Set(usedSetByColor[currentColor]);
+      newSet.add(cand.idx);
+      newUsedSet = { D: currentColor === 'D' ? newSet : usedSetByColor.D, L: currentColor === 'L' ? newSet : usedSetByColor.L };
+    }
+    const v = minimaxFull(next, depth - 1, alpha, beta, otherColor, me, profile, newUsedSet, nextAbilityPlies);
+    if (isMax) {
+      if (v > best) best = v;
+      if (v > alpha) alpha = v;
+    } else {
+      if (v < best) best = v;
+      if (v < beta) beta = v;
+    }
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
 // LV と空マス数から探索深度を決定（鬼神は終盤でさらに深く）
 function getSearchDepth(lv, emptyCount) {
   if (lv < 85) return 1;
   if (lv < 90) return 3;
   if (lv < 95) return 4;
   // LV95-99: 終盤拡張
-  if (emptyCount <= 8)  return 10; // 終盤完全読み（旧 8 → 10）
-  if (emptyCount <= 12) return 8;  // 旧 6 → 8
-  if (emptyCount <= 16) return 7;  // 旧 6 → 7
-  if (lv >= 99) return 6;          // LV99 中盤は 6（旧 5）
+  if (emptyCount <= 8)  return 10; // 終盤完全読み
+  if (emptyCount <= 12) return 9;
+  if (emptyCount <= 16) return 7;
+  if (lv >= 99) return 6;          // LV99 中盤は 6
   return 5;
 }
 
@@ -3339,7 +3414,15 @@ function aiThink() {
           if (next[rr][cc].color === null) emptyCount++;
         }
         const depth = getSearchDepth(lv, emptyCount);
-        const score = minimax(next, depth, -Infinity, Infinity, opp, me, profile);
+        // LV99 中盤限定：異能込み minimax（終盤は深い読みに集中するため通常 minimax）
+        let score;
+        if (lv >= 99 && emptyCount > 18) {
+          const initUsed = { D: new Set(), L: new Set() };
+          const abilityBudget = 2; // 1ply目（相手）と2ply目（自分）で異能を読む
+          score = minimaxFull(next, depth, -Infinity, Infinity, opp, me, profile, initUsed, abilityBudget);
+        } else {
+          score = minimax(next, depth, -Infinity, Infinity, opp, me, profile);
+        }
         baseScore = baseScore * 0.15 + score;
       } else {
         // LV70-84：軽量1-ply
@@ -3381,7 +3464,16 @@ function aiThink() {
           if (nextSk[rr][cc].color === null) emptyCount++;
         }
         const depth = getSearchDepth(lvNow, emptyCount);
-        const lookScore = minimax(nextSk, depth, -Infinity, Infinity, opp, me, profile);
+        // LV99 中盤限定：相手の異能応手を読む
+        let lookScore;
+        if (lvNow >= 99 && emptyCount > 18) {
+          const initUsed = { D: new Set(), L: new Set() };
+          initUsed[me].add(cand.skillIdx);
+          const abilityBudget = 1;
+          lookScore = minimaxFull(nextSk, depth, -Infinity, Infinity, opp, me, profile, initUsed, abilityBudget);
+        } else {
+          lookScore = minimax(nextSk, depth, -Infinity, Infinity, opp, me, profile);
+        }
         const heuristic = (SKILL_BONUS[skill] || 0) + skillContextBonus(r, c, skill, me);
         cand.score = cand._baseRaw * 0.15 + lookScore + heuristic * 0.5;
       } catch (e) {

@@ -653,7 +653,15 @@ function minimaxSim(board, depth, alpha, beta, currentColor, me, profile) {
   const moves = orderMovesSim(getValidMovesForBoardSim(board, currentColor));
   if (moves.length === 0) {
     const oppMoves = getValidMovesForBoardSim(board, otherColor);
-    if (oppMoves.length === 0) return evaluateBoardFlat(board, me, profile);
+    if (oppMoves.length === 0) {
+      // 終局：石数差で完全評価
+      let myC = 0, oppC = 0;
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        if (board[r][c].color === me) myC++;
+        else if (board[r][c].color === opp) oppC++;
+      }
+      return (myC - oppC) * 1000;
+    }
     return minimaxSim(board, depth, alpha, beta, otherColor, me, profile);
   }
   if (currentColor === me) {
@@ -678,12 +686,71 @@ function minimaxSim(board, depth, alpha, beta, currentColor, me, profile) {
     return best;
   }
 }
+
+// 異能込み minimax (LV95+)：両陣営の異能を実際にシミュレートして読む
+function minimaxFullSim(state, board, depth, alpha, beta, currentColor, me, profile, usedSetByColor, abilityPliesLeft) {
+  if (depth === 0) return evaluateBoardFlat(board, me, profile);
+  const opp = me === 'D' ? 'L' : 'D';
+  const otherColor = currentColor === 'D' ? 'L' : 'D';
+  const moves = orderMovesSim(getValidMovesForBoardSim(board, currentColor));
+  if (moves.length === 0) {
+    const oppMoves = getValidMovesForBoardSim(board, otherColor);
+    if (oppMoves.length === 0) {
+      let myC = 0, oppC = 0;
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        if (board[r][c].color === me) myC++;
+        else if (board[r][c].color === opp) oppC++;
+      }
+      return (myC - oppC) * 1000;
+    }
+    return minimaxFullSim(state, board, depth, alpha, beta, otherColor, me, profile, usedSetByColor, abilityPliesLeft);
+  }
+  const candidates = [];
+  for (const [r, c] of moves) candidates.push({ r, c, skill: null, idx: null });
+  if (abilityPliesLeft > 0 && state.hands) {
+    const hand = state.hands[currentColor] || [];
+    const usedSet = usedSetByColor[currentColor];
+    const topMoves = moves.slice(0, 3);
+    for (const card of hand) {
+      if (!card || card.used) continue;
+      if (usedSet.has(card.idx)) continue;
+      if (card.skill === 'shoshitsu' || card.skill === 'tanchi' || card.skill === 'kyozo' || card.skill === 'hanten' || card.skill === 'gyakushu' || card.skill === 'muko') continue;
+      for (const [r, c] of topMoves) {
+        candidates.push({ r, c, skill: card.skill, idx: card.idx });
+      }
+    }
+  }
+  const isMax = currentColor === me;
+  let best = isMax ? -Infinity : Infinity;
+  const nextAbilityPlies = abilityPliesLeft - 1;
+  for (const cand of candidates) {
+    const next = cand.skill
+      ? simulatePlaceWithSkillFlat(board, cand.r, cand.c, currentColor, cand.skill)
+      : simulatePlaceFlat(board, cand.r, cand.c, currentColor);
+    let newUsedSet = usedSetByColor;
+    if (cand.idx !== null) {
+      const newSet = new Set(usedSetByColor[currentColor]);
+      newSet.add(cand.idx);
+      newUsedSet = { D: currentColor === 'D' ? newSet : usedSetByColor.D, L: currentColor === 'L' ? newSet : usedSetByColor.L };
+    }
+    const v = minimaxFullSim(state, next, depth - 1, alpha, beta, otherColor, me, profile, newUsedSet, nextAbilityPlies);
+    if (isMax) {
+      if (v > best) best = v;
+      if (v > alpha) alpha = v;
+    } else {
+      if (v < best) best = v;
+      if (v < beta) beta = v;
+    }
+    if (alpha >= beta) break;
+  }
+  return best;
+}
 function getSearchDepthSim(lv, emptyCount) {
   if (lv < 85) return 1;
   if (lv < 90) return 3;
   if (lv < 95) return 4;
   if (emptyCount <= 8)  return 10;
-  if (emptyCount <= 12) return 8;
+  if (emptyCount <= 12) return 9;
   if (emptyCount <= 16) return 7;
   if (lv >= 99) return 6;
   return 5;
@@ -1060,7 +1127,14 @@ function aiPickAction(state, me) {
           if (next[rr][cc].color === null) emptyCount++;
         }
         const depth = getSearchDepthSim(lv, emptyCount);
-        const score = minimaxSim(next, depth, -Infinity, Infinity, opp, me, profile);
+        let score;
+        if (lv >= 99 && emptyCount > 18) {
+          const initUsed = { D: new Set(), L: new Set() };
+          const abilityBudget = 2;
+          score = minimaxFullSim(state, next, depth, -Infinity, Infinity, opp, me, profile, initUsed, abilityBudget);
+        } else {
+          score = minimaxSim(next, depth, -Infinity, Infinity, opp, me, profile);
+        }
         baseScore = baseScore * 0.15 + score;
       } else {
         // LV70-84: 軽量 1-ply
@@ -1098,7 +1172,15 @@ function aiPickAction(state, me) {
           if (nextSk[rr][cc].color === null) emptyCount++;
         }
         const depth = getSearchDepthSim(lv, emptyCount);
-        const lookScore = minimaxSim(nextSk, depth, -Infinity, Infinity, opp, me, profile);
+        let lookScore;
+        if (lv >= 99 && emptyCount > 18) {
+          const initUsed = { D: new Set(), L: new Set() };
+          initUsed[me].add(cand.skillIdx);
+          const abilityBudget = 2;
+          lookScore = minimaxFullSim(state, nextSk, depth, -Infinity, Infinity, opp, me, profile, initUsed, abilityBudget);
+        } else {
+          lookScore = minimaxSim(nextSk, depth, -Infinity, Infinity, opp, me, profile);
+        }
         const heuristic = (SKILL_BONUS[skill] || 0) + skillContextBonus(state, r, c, skill, me);
         cand.score = cand._baseRaw * 0.15 + lookScore + heuristic * 0.5;
       } catch (e) { /* fallback to heuristic */ }
