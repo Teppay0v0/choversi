@@ -140,13 +140,23 @@
     background: var(--dark);
     color: var(--cream);
   }
+  /* パネルを同じ場所に重ねてサイズを固定 */
+  .mode-panels-container {
+    display: grid;
+  }
   .mode-panel {
+    grid-area: 1 / 1;
     background: rgba(58, 53, 48, 0.04);
     border-radius: 14px;
     padding: 14px 16px;
     text-align: center;
+    transition: opacity 0.15s, visibility 0.15s;
   }
-  .mode-panel.hidden { display: none; }
+  .mode-panel.hidden {
+    visibility: hidden;
+    pointer-events: none;
+    opacity: 0;
+  }
   .lv-display .lv-num {
     font-family: 'Manrope', sans-serif;
     font-size: 22px;
@@ -735,6 +745,7 @@
         <button class="mode-tab" data-mode="single">フリー対戦</button>
         <button class="mode-tab" data-mode="online">オンライン</button>
       </div>
+      <div class="mode-panels-container">
       <div class="mode-panel" id="campaign-panel">
         <div class="lv-display">
           <div class="lv-num">LV <span id="campaign-lv">1</span></div>
@@ -767,6 +778,7 @@
         </div>
         <div class="mode-desc">友達と1対1で対戦。経験値には影響しません。</div>
       </div>
+      </div><!-- /mode-panels-container -->
     </div>
 
     <div class="color-picker" id="color-picker">
@@ -891,8 +903,11 @@ window.addEventListener('DOMContentLoaded', () => {
     singlePanel.classList.toggle('hidden', mode !== 'single');
     onlinePanel.classList.toggle('hidden', mode !== 'online');
     // オンラインモードでは色選択 & はじめるボタンを隠す（サーバーが色を決める）
-    colorPicker.style.display = (mode === 'online') ? 'none' : '';
-    startBtnEl.style.display = (mode === 'online') ? 'none' : '';
+    // display:none ではなく visibility:hidden でサイズを固定
+    colorPicker.style.visibility = (mode === 'online') ? 'hidden' : '';
+    colorPicker.style.pointerEvents = (mode === 'online') ? 'none' : '';
+    startBtnEl.style.visibility = (mode === 'online') ? 'hidden' : '';
+    startBtnEl.style.pointerEvents = (mode === 'online') ? 'none' : '';
     try { localStorage.setItem('choversi.mode', JSON.stringify(mode)); } catch (e) {}
   }
   tabs.forEach(t => t.addEventListener('click', () => {
