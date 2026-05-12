@@ -580,8 +580,12 @@
     border: 1.5px solid rgba(58, 53, 48, 0.2);
   }
   .color-option .stone-mark.random {
-    background: linear-gradient(135deg, var(--dark) 50%, var(--light) 50%);
-    border: 1.5px solid rgba(58, 53, 48, 0.2);
+    background: none;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    width: 36px;
+    height: 36px;
   }
   .color-option .name {
     font-family: 'Noto Sans JP', sans-serif;
@@ -868,7 +872,7 @@
           <div class="sub">後手</div>
         </div>
         <div class="color-option" data-color="random">
-          <div class="stone-mark random"></div>
+          <img class="stone-mark random" src="img/random-stone.png" alt="おまかせ" aria-hidden="true" style="width:36px;height:36px;display:block;border-radius:0;box-shadow:none;">
           <div class="name">おまかせ</div>
           <div class="sub">RANDOM</div>
         </div>

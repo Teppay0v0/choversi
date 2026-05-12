@@ -3252,14 +3252,14 @@ function evaluateBoard(board, color, profile) {
       else if (board[cr][cc].color !== null)     score -= cornerBonus;
     }
   }
-  // LV90+: 相手の異能脅威を検知（爆弾・砲撃が刺さる位置にいるか）
-  // 相手のハンドに爆弾/砲撃が見えていれば、それを打たれた時の被害を予測してペナルティ
+  // LV90+: 相手の異能脅威を検知（爆弾・砲撃・増殖が刺さる位置にいるか）
+  // 相手のアクティブハンドを見て、それを打たれた時の被害を予測してペナルティ
   if (profile.lv >= 90 && typeof state !== 'undefined' && state.hands) {
-    const oppHand = state.hands[opp] || [];
-    const oppActive = oppHand.filter(h => h && !h.used);
-    const oppHasBakudan = oppActive.some(h => h.skill === 'bakudan');
-    const oppHasHogeki = oppActive.some(h => h.skill === 'hogeki');
-    if (oppHasBakudan || oppHasHogeki) {
+    const oppActiveHand = getActiveHand(opp);
+    const oppHasBakudan = oppActiveHand.some(h => h.skill === 'bakudan');
+    const oppHasHogeki  = oppActiveHand.some(h => h.skill === 'hogeki');
+    const oppHasZoushoku = oppActiveHand.some(h => h.skill === 'zoushoku');
+    if (oppHasBakudan || oppHasHogeki || oppHasZoushoku) {
       // 相手の有効手 × 異能で最大被害を概算
       let maxThreat = 0;
       for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
@@ -3292,6 +3292,15 @@ function evaluateBoard(board, color, profile) {
             }
           }
           if (damage > maxThreat) maxThreat = damage;
+        }
+        // 増殖の被害評価（隣接する相手石が増える）
+        if (oppHasZoushoku) {
+          let gained = 0;
+          for (const [dr, dc] of DIRS_8) {
+            const nr = r + dr, nc = c + dc;
+            if (inb(nr, nc) && board[nr][nc].color === opp) gained += 1.5 + Math.max(0, POS_WEIGHTS[nr][nc]) * 0.1;
+          }
+          if (gained > maxThreat) maxThreat = gained;
         }
       }
       score -= maxThreat * wf;
@@ -3527,12 +3536,12 @@ function minimaxFull(board, depth, alpha, beta, currentColor, me, profile, usedS
   const candidates = [];
   for (const [r, c] of moves) candidates.push({ r, c, skill: null, idx: null });
   if (abilityPliesLeft > 0 && typeof state !== 'undefined' && state.hands) {
-    const hand = state.hands[currentColor] || [];
+    // getActiveHand を使うことで .idx が正しくセットされ、使用済み追跡が機能する
+    const activeCards = getActiveHand(currentColor);
     const usedSet = usedSetByColor[currentColor];
     const topMoves = moves.slice(0, 3);
-    for (const card of hand) {
-      if (!card || card.used) continue;
-      if (usedSet.has(card.idx)) continue;
+    for (const card of activeCards) {
+      if (usedSet.has(card.idx)) continue;  // .idx が正しく設定されているので機能する
       if (card.skill === 'shoshitsu') continue; // 消滅は別途target必要
       if (card.skill === 'tanchi' || card.skill === 'kyozo' || card.skill === 'hanten' || card.skill === 'gyakushu' || card.skill === 'muko') continue;
       for (const [r, c] of topMoves) {
@@ -3737,11 +3746,13 @@ function aiThink() {
           if (next[rr][cc].color === null) emptyCount++;
         }
         const depth = getSearchDepth(lv, emptyCount);
-        // LV99 中盤限定：異能込み minimax（終盤は深い読みに集中するため通常 minimax）
+        // LV95+：異能込み minimax（手持ちを考慮した深い読み）
+        // LV99 は常に、LV95-98 は中盤まで使用（終盤は純粋な石数の読みを優先）
         let score;
-        if (lv >= 99 && emptyCount > 18) {
+        const useFullMinimax = lv >= 99 || (lv >= 95 && emptyCount > 20);
+        if (useFullMinimax) {
           const initUsed = { D: new Set(), L: new Set() };
-          const abilityBudget = 2; // 1ply目（相手）と2ply目（自分）で異能を読む
+          const abilityBudget = 3; // 3手先まで異能を読む（相手の対応も含む）
           score = minimaxFull(next, depth, -Infinity, Infinity, opp, me, profile, initUsed, abilityBudget);
         } else {
           score = minimax(next, depth, -Infinity, Infinity, opp, me, profile);
@@ -3787,12 +3798,13 @@ function aiThink() {
           if (nextSk[rr][cc].color === null) emptyCount++;
         }
         const depth = getSearchDepth(lvNow, emptyCount);
-        // LV99 中盤限定：相手の異能応手を読む
+        // LV95+：スキル候補に対して相手の異能応手も読む
         let lookScore;
-        if (lvNow >= 99 && emptyCount > 18) {
+        const useFullMinimaxSk = lvNow >= 99 || (lvNow >= 95 && emptyCount > 20);
+        if (useFullMinimaxSk) {
           const initUsed = { D: new Set(), L: new Set() };
           initUsed[me].add(cand.skillIdx);
-          const abilityBudget = 1;
+          const abilityBudget = 2; // 相手の応手まで読む
           lookScore = minimaxFull(nextSk, depth, -Infinity, Infinity, opp, me, profile, initUsed, abilityBudget);
         } else {
           lookScore = minimax(nextSk, depth, -Infinity, Infinity, opp, me, profile);
