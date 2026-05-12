@@ -6,4 +6,4 @@
 //
 // 空文字列の場合、オンライン対戦ボタンは「未設定」エラーを表示します。
 
-window.CHOVERSI_ONLINE_SERVER = '';
+window.CHOVERSI_ONLINE_SERVER = 'https://choversi-online.teppei-hirota.workers.dev';
