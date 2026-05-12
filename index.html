@@ -10,6 +10,8 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#F2EBE0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<!-- オンライン対戦サーバー設定 -->
+<script src="online-config.js"></script>
 <!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-DMYYMHQ0KG"></script>
 <script>
@@ -179,6 +181,158 @@
     font-size: 11px;
     color: var(--muted);
     line-height: 1.5;
+  }
+
+  /* === オンライン対戦パネル === */
+  .online-name-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .online-name-label {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: left;
+    letter-spacing: 0.05em;
+  }
+  .online-name-input, .online-code-input {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    padding: 9px 12px;
+    border: 1px solid rgba(58, 53, 48, 0.15);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--text);
+    width: 100%;
+    -webkit-appearance: none;
+  }
+  .online-code-input {
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 600;
+    text-align: center;
+  }
+  .online-name-input:focus, .online-code-input:focus {
+    outline: none;
+    border-color: var(--sage-dark);
+  }
+  .online-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .online-btn {
+    border: none;
+    background: var(--dark);
+    color: var(--cream);
+    padding: 11px 14px;
+    border-radius: 10px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.2s;
+  }
+  .online-btn:hover { opacity: 0.85; }
+  .online-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .online-btn-join { background: var(--sage-dark); }
+  .online-or {
+    text-align: center;
+    font-family: 'Manrope', sans-serif;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 2px 0;
+  }
+  .online-join-row {
+    display: flex;
+    gap: 8px;
+  }
+  .online-join-row .online-code-input { flex: 1; }
+  .online-join-row .online-btn-join { padding: 9px 18px; }
+
+  /* === オンラインルーム待機モーダル === */
+  .online-modal-mask {
+    position: fixed; inset: 0;
+    background: rgba(58, 53, 48, 0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  .online-modal-mask.active { opacity: 1; pointer-events: auto; }
+  .online-modal {
+    background: var(--cream);
+    border-radius: 18px;
+    padding: 28px 24px 20px;
+    width: 88%; max-width: 340px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .online-modal-title {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .online-modal-code {
+    font-family: 'Manrope', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    color: var(--sage-dark);
+    padding: 10px 0;
+    user-select: all;
+  }
+  .online-modal-hint {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .online-modal-status {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    margin: 10px 0;
+  }
+  .online-modal-status::before {
+    content: ''; display: inline-block;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--sage-dark);
+    margin-right: 8px;
+    animation: pulse 1.4s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+  .online-modal-actions {
+    display: flex; gap: 8px; margin-top: 10px;
+  }
+  .online-modal-actions button {
+    flex: 1;
+    border: 1px solid rgba(58, 53, 48, 0.15);
+    background: transparent;
+    color: var(--text);
+    padding: 9px 8px;
+    border-radius: 8px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .online-modal-actions button.primary {
+    background: var(--dark);
+    color: var(--cream);
+    border-color: var(--dark);
   }
   /* === ランクタイル（フリー対戦） === */
   .rank-grid {
@@ -579,6 +733,7 @@
       <div class="mode-tabs">
         <button class="mode-tab active" data-mode="campaign">ランク戦</button>
         <button class="mode-tab" data-mode="single">フリー対戦</button>
+        <button class="mode-tab" data-mode="online">オンライン</button>
       </div>
       <div class="mode-panel" id="campaign-panel">
         <div class="lv-display">
@@ -596,6 +751,21 @@
           <div class="rank-summary-name" id="rank-name">中級</div>
           <div class="rank-summary-meta">内部 LV <span id="rank-lv">30</span> ／ 1戦のみ・経験値には影響なし</div>
         </div>
+      </div>
+      <div class="mode-panel hidden" id="online-panel">
+        <div class="online-name-row">
+          <label for="online-name" class="online-name-label">あなたの名前</label>
+          <input type="text" id="online-name" class="online-name-input" maxlength="12" placeholder="プレイヤー">
+        </div>
+        <div class="online-actions">
+          <button class="online-btn online-btn-create" id="online-create">部屋を作る</button>
+          <div class="online-or">または</div>
+          <div class="online-join-row">
+            <input type="text" id="online-join-code" class="online-code-input" maxlength="6" placeholder="部屋コード" autocapitalize="characters">
+            <button class="online-btn online-btn-join" id="online-join">参加</button>
+          </div>
+        </div>
+        <div class="mode-desc">友達と1対1で対戦。経験値には影響しません。</div>
       </div>
     </div>
 
@@ -624,6 +794,20 @@
       <span>初心者向け（連鎖が起きやすいデッキ）</span>
     </label>
     <a href="#" id="start-btn" class="btn">はじめる</a>
+
+    <!-- オンライン対戦：ルーム待機モーダル -->
+    <div class="online-modal-mask" id="online-modal-mask">
+      <div class="online-modal">
+        <div class="online-modal-title" id="online-modal-title">部屋を作成中…</div>
+        <div class="online-modal-code" id="online-modal-code">------</div>
+        <div class="online-modal-hint" id="online-modal-hint">このコードを友達に教えてください</div>
+        <div class="online-modal-status" id="online-modal-status">相手の参加を待っています…</div>
+        <div class="online-modal-actions">
+          <button id="online-modal-copy">コピー</button>
+          <button id="online-modal-cancel">キャンセル</button>
+        </div>
+      </div>
+    </div>
     <div class="footer-links">
       <a href="rules.html">ルール</a>
       <span>·</span>
@@ -689,18 +873,26 @@ window.addEventListener('DOMContentLoaded', () => {
     try { localStorage.setItem('choversi.beginner', begCheck.checked ? '1' : '0'); } catch (e) {}
   });
 
-  // === モード（campaign / single） ===
+  // === モード（campaign / single / online） ===
   let mode = ls('choversi.mode', '"campaign"');
   try { mode = JSON.parse(mode); } catch(e) { mode = 'campaign'; }
+  if (!['campaign','single','online'].includes(mode)) mode = 'campaign';
   const modePicker = document.getElementById('mode-picker');
   const tabs = modePicker.querySelectorAll('.mode-tab');
   const campaignPanel = document.getElementById('campaign-panel');
   const singlePanel = document.getElementById('single-panel');
+  const onlinePanel = document.getElementById('online-panel');
+  const colorPicker = document.getElementById('color-picker');
+  const startBtnEl = document.getElementById('start-btn');
 
   function updateModeUI() {
     tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
     campaignPanel.classList.toggle('hidden', mode !== 'campaign');
     singlePanel.classList.toggle('hidden', mode !== 'single');
+    onlinePanel.classList.toggle('hidden', mode !== 'online');
+    // オンラインモードでは色選択 & はじめるボタンを隠す（サーバーが色を決める）
+    colorPicker.style.display = (mode === 'online') ? 'none' : '';
+    startBtnEl.style.display = (mode === 'online') ? 'none' : '';
     try { localStorage.setItem('choversi.mode', JSON.stringify(mode)); } catch (e) {}
   }
   tabs.forEach(t => t.addEventListener('click', () => {
@@ -788,6 +980,214 @@ window.addEventListener('DOMContentLoaded', () => {
     if (begCheck.checked) params.push('beg=1');
     params.push(`v=${Date.now()}`);
     window.location.href = `game.html?${params.join('&')}`;
+  });
+
+  // === オンライン対戦：ロビー ===
+  // サーバーURLは Cloudflare Worker のデプロイ後にここを書き換えてください
+  // 例: 'https://choversi-online.your-subdomain.workers.dev'
+  const ONLINE_SERVER = (window.CHOVERSI_ONLINE_SERVER || '').trim();
+
+  const nameInput = document.getElementById('online-name');
+  const codeInput = document.getElementById('online-join-code');
+  const createBtn = document.getElementById('online-create');
+  const joinBtn = document.getElementById('online-join');
+  const modalMask = document.getElementById('online-modal-mask');
+  const modalTitle = document.getElementById('online-modal-title');
+  const modalCode = document.getElementById('online-modal-code');
+  const modalHint = document.getElementById('online-modal-hint');
+  const modalStatus = document.getElementById('online-modal-status');
+  const modalCopy = document.getElementById('online-modal-copy');
+  const modalCancel = document.getElementById('online-modal-cancel');
+
+  // 名前を localStorage から復元
+  try {
+    const savedName = localStorage.getItem('choversi.onlineName');
+    if (savedName) nameInput.value = savedName;
+  } catch (e) {}
+  nameInput.addEventListener('input', () => {
+    try { localStorage.setItem('choversi.onlineName', nameInput.value); } catch (e) {}
+  });
+  codeInput.addEventListener('input', () => {
+    codeInput.value = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  });
+
+  function showModal({ title, code, hint, status }) {
+    modalTitle.textContent = title || '';
+    modalCode.textContent = code || '';
+    modalCode.style.display = code ? '' : 'none';
+    modalHint.textContent = hint || '';
+    modalHint.style.display = hint ? '' : 'none';
+    modalStatus.textContent = status || '';
+    modalMask.classList.add('active');
+  }
+  function hideModal() {
+    modalMask.classList.remove('active');
+  }
+  modalCancel.addEventListener('click', () => {
+    if (currentWs) { try { currentWs.close(); } catch (e) {} currentWs = null; }
+    hideModal();
+  });
+  modalCopy.addEventListener('click', async () => {
+    const code = modalCode.textContent.trim();
+    if (!code || code === '------') return;
+    try {
+      await navigator.clipboard.writeText(code);
+      modalCopy.textContent = 'コピー済';
+      setTimeout(() => { modalCopy.textContent = 'コピー'; }, 1500);
+    } catch (e) {
+      // フォールバック：選択
+      const range = document.createRange();
+      range.selectNode(modalCode);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    }
+  });
+
+  let currentWs = null;
+
+  function getName() {
+    return (nameInput.value || '').trim().slice(0, 12) || 'プレイヤー';
+  }
+
+  function getOrMakePid() {
+    try {
+      let pid = localStorage.getItem('choversi.pid');
+      if (!pid) {
+        pid = (crypto.randomUUID && crypto.randomUUID()) ||
+              ('p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10));
+        localStorage.setItem('choversi.pid', pid);
+      }
+      return pid;
+    } catch (e) {
+      return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+    }
+  }
+
+  async function createRoom() {
+    if (!ONLINE_SERVER) {
+      alert('オンライン対戦サーバーが未設定です。\n（管理者: index.html に CHOVERSI_ONLINE_SERVER を設定してください）');
+      return;
+    }
+    const name = getName();
+    try { localStorage.setItem('choversi.onlineName', name); } catch (e) {}
+
+    showModal({ title: '部屋を作成中…', code: '------', status: '少々お待ちください' });
+    let code;
+    try {
+      const res = await fetch(ONLINE_SERVER.replace(/\/$/, '') + '/api/create', { method: 'POST' });
+      if (!res.ok) throw new Error('create failed');
+      const data = await res.json();
+      code = data.code;
+    } catch (e) {
+      hideModal();
+      alert('サーバーに接続できませんでした。\nしばらくしてから再度お試しください。');
+      return;
+    }
+    showModal({
+      title: '部屋を作成しました',
+      code,
+      hint: 'このコードを友達に教えてください',
+      status: '相手の参加を待っています…',
+    });
+    connectAndWait(code, name, /*isCreator*/ true);
+  }
+
+  function joinRoom() {
+    if (!ONLINE_SERVER) {
+      alert('オンライン対戦サーバーが未設定です。\n（管理者: index.html に CHOVERSI_ONLINE_SERVER を設定してください）');
+      return;
+    }
+    const name = getName();
+    const code = codeInput.value.trim().toUpperCase();
+    if (code.length !== 6) {
+      alert('部屋コードは6文字です');
+      return;
+    }
+    try { localStorage.setItem('choversi.onlineName', name); } catch (e) {}
+
+    showModal({ title: '部屋に参加中…', code, status: '接続しています…' });
+    connectAndWait(code, name, /*isCreator*/ false);
+  }
+
+  function connectAndWait(code, name, isCreator) {
+    const wsBase = ONLINE_SERVER.replace(/^http/, 'ws').replace(/\/$/, '');
+    const pid = getOrMakePid();
+    const ws = new WebSocket(`${wsBase}/ws/${code}?name=${encodeURIComponent(name)}&pid=${encodeURIComponent(pid)}`);
+    currentWs = ws;
+
+    let myColor = null;
+
+    ws.addEventListener('open', () => {
+      modalStatus.textContent = isCreator ? '相手の参加を待っています…' : '接続しました';
+    });
+
+    ws.addEventListener('message', (evt) => {
+      let msg;
+      try { msg = JSON.parse(evt.data); } catch (e) { return; }
+
+      if (msg.type === 'error') {
+        if (currentWs === ws) currentWs = null;
+        try { ws.close(); } catch (e) {}
+        hideModal();
+        alert(msg.message || 'エラーが発生しました');
+        return;
+      }
+      if (msg.type === 'joined') {
+        myColor = msg.color;
+        modalStatus.textContent = msg.color === 'D'
+          ? '相手の参加を待っています…（あなたは黒・先手）'
+          : '対戦開始の準備中…（あなたは白・後手）';
+        return;
+      }
+      if (msg.type === 'start') {
+        // セッション情報を sessionStorage に保存して game.html に遷移
+        try {
+          sessionStorage.setItem('choversi.online', JSON.stringify({
+            code,
+            color: msg.color,
+            pid: msg.pid || pid,
+            myHand: msg.myHand,
+            oppHandSize: msg.oppHandSize,
+            partnerName: msg.partnerName,
+            myName: name,
+            server: ONLINE_SERVER,
+            ts: Date.now(),
+          }));
+        } catch (e) {}
+        // この時点で WS は閉じて、game.html 側で改めて接続し直す
+        try { ws.close(); } catch (e) {}
+        currentWs = null;
+        const params = [
+          `as=${msg.color}`,
+          'mode=online',
+          `v=${Date.now()}`,
+        ];
+        window.location.href = `game.html?${params.join('&')}`;
+        return;
+      }
+      if (msg.type === 'opponent_left') {
+        modalStatus.textContent = '相手が退室しました';
+      }
+    });
+
+    ws.addEventListener('close', () => {
+      if (currentWs === ws) {
+        currentWs = null;
+        modalStatus.textContent = '接続が切れました';
+      }
+    });
+
+    ws.addEventListener('error', () => {
+      hideModal();
+      alert('サーバーに接続できませんでした');
+      if (currentWs === ws) currentWs = null;
+    });
+  }
+
+  createBtn.addEventListener('click', createRoom);
+  joinBtn.addEventListener('click', joinRoom);
+  codeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') joinRoom();
   });
 })();
 </script>

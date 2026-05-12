@@ -10,6 +10,8 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#F2EBE0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<!-- オンライン対戦サーバー設定 -->
+<script src="online-config.js"></script>
 <!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-DMYYMHQ0KG"></script>
 <script>
@@ -1864,7 +1866,12 @@ function getAILevel() {
 function getCurrentMode() {
   const m = new URLSearchParams(window.location.search).get('mode')
             || loadJSON(STORAGE.mode, 'campaign');
-  return m === 'single' ? 'single' : 'campaign';
+  if (m === 'single') return 'single';
+  if (m === 'online') return 'online';
+  return 'campaign';
+}
+function isOnlineMode() {
+  return getCurrentMode() === 'online';
 }
 
 // 戦績の取得・更新
@@ -2000,26 +2007,51 @@ function confirmNewGame() {
 }
 
 function newGame() {
-  const aiOn = document.getElementById('ai-mode')?.checked ?? true;
-  const playerColor = getPlayerColor();
+  const online = isOnlineMode();
+  // オンライン時はサーバーが配った手札を sessionStorage から復元
+  let onlineSession = null;
+  if (online) {
+    try {
+      const raw = sessionStorage.getItem('choversi.online');
+      if (raw) onlineSession = JSON.parse(raw);
+    } catch (e) {}
+    if (!onlineSession || !onlineSession.myHand) {
+      // セッション情報がない場合はトップに戻す
+      alert('オンライン対戦のセッション情報がありません。トップに戻ります。');
+      window.location.href = 'index.html';
+      return;
+    }
+  }
+  const aiOn = online ? false : (document.getElementById('ai-mode')?.checked ?? true);
+  const playerColor = online ? onlineSession.color : getPlayerColor();
   const aiColor = playerColor === 'D' ? 'L' : 'D';
-  const aiLevel = getAILevel();
+  const aiLevel = online ? 0 : getAILevel();
   const mode = getCurrentMode();
+  // オンライン時の手札復元
+  const onlineMyHand = online ? onlineSession.myHand : null;
+  const onlineOppHandSize = online ? onlineSession.oppHandSize : null;
   state = {
     board: createBoard(),
     turn: 'D',
     playerColor, // ユーザーが操作する色
-    aiColor,     // AIが操作する色
-    aiLevel,     // 1〜99
-    mode,        // 'campaign' | 'single'
-    hands: {
-      D: ensureStrongCardInHand(shuffleDeck(DECK_TEMPLATES.D), HAND_SIZE_D)
-           .map(s => ({ skill: s, used: false })),
-      // 初心者モード時は白も強カード保証して連鎖が起きやすく
-      L: (isBeginnerMode()
-           ? ensureStrongCardInHand(shuffleDeck(DECK_TEMPLATES.L), HAND_SIZE_L)
-           : shuffleDeck(DECK_TEMPLATES.L)
-         ).map(s => ({ skill: s, used: false }))
+    aiColor,     // AIが操作する色（オンライン時は「相手」の意味）
+    aiLevel,     // 1〜99（オンライン時は 0）
+    mode,        // 'campaign' | 'single' | 'online'
+    hands: online
+      ? {
+          // 自分の手札はサーバーから受け取った skill 名の配列
+          // 相手の手札は未知（オープン時のみ skill が分かる）→ プレースホルダー
+          [playerColor]: onlineMyHand.map(s => ({ skill: s, used: false })),
+          [aiColor]: Array.from({ length: onlineOppHandSize }, () => ({ skill: null, used: false })),
+        }
+      : {
+        D: ensureStrongCardInHand(shuffleDeck(DECK_TEMPLATES.D), HAND_SIZE_D)
+             .map(s => ({ skill: s, used: false })),
+        // 初心者モード時は白も強カード保証して連鎖が起きやすく
+        L: (isBeginnerMode()
+             ? ensureStrongCardInHand(shuffleDeck(DECK_TEMPLATES.L), HAND_SIZE_L)
+             : shuffleDeck(DECK_TEMPLATES.L)
+           ).map(s => ({ skill: s, used: false }))
     },
     selectedSkill: -1,
     pendingAction: null,            // 'vanish-target' | 'muko-target' | null
@@ -2036,6 +2068,8 @@ function newGame() {
     passes: 0,
     log: [],
     aiMode: aiOn,
+    online: online,
+    onlineSession: onlineSession,  // {code, server, partnerName, myName, ...}
     // 試合中の統計（バッジ判定用）
     gameStats: {
       turns: 0,
@@ -2051,8 +2085,15 @@ function newGame() {
   // ロールラベル更新
   const roleD = document.getElementById('role-D');
   const roleL = document.getElementById('role-L');
-  if (roleD) roleD.textContent = (playerColor === 'D' ? 'YOU' : 'CPU') + ' · D';
-  if (roleL) roleL.textContent = (playerColor === 'L' ? 'YOU' : 'CPU') + ' · L';
+  if (online) {
+    // オンライン対戦：自分は YOU、相手は相手の名前（最大8文字に切り詰め）
+    const oppName = (onlineSession.partnerName || '相手').slice(0, 8);
+    if (roleD) roleD.textContent = (playerColor === 'D' ? 'YOU' : oppName) + ' · D';
+    if (roleL) roleL.textContent = (playerColor === 'L' ? 'YOU' : oppName) + ' · L';
+  } else {
+    if (roleD) roleD.textContent = (playerColor === 'D' ? 'YOU' : 'CPU') + ' · D';
+    if (roleL) roleL.textContent = (playerColor === 'L' ? 'YOU' : 'CPU') + ' · L';
+  }
   // パネル順序＆スタイル：プレイヤーは下（パネル内のスタイルもクラスで切替）
   document.body.dataset.player = playerColor;
   const dPanel = document.getElementById('panel-D');
@@ -2065,7 +2106,10 @@ function newGame() {
     lPanel.classList.add('panel-player');    lPanel.classList.remove('panel-ai');
   }
   hideResult();
-  log('NEW GAME', aiOn ? 'vs AI' : 'vs Human');
+  // オンライン時は AI トグルを隠す
+  const aiToggleLabel = document.getElementById('ai-mode')?.closest('label');
+  if (aiToggleLabel) aiToggleLabel.style.display = state.online ? 'none' : '';
+  log('NEW GAME', state.online ? `オンライン対戦 vs ${onlineSession.partnerName || '相手'}` : (aiOn ? 'vs AI' : 'vs Human'));
   // GA4: ゲーム開始イベント
   track('game_start', {
     mode: state.mode,
@@ -2074,7 +2118,12 @@ function newGame() {
     beginner_mode: isBeginnerMode(),
   });
   render();
-  triggerAIIfNeeded();
+  // オンライン時は WS 再接続
+  if (state.online) {
+    Online.init();
+  } else {
+    triggerAIIfNeeded();
+  }
 }
 
 function toggleAI() {
@@ -2663,9 +2712,188 @@ function selectSkill(idx) {
 function switchTurn() { state.turn = state.turn === 'D' ? 'L' : 'D'; }
 
 function triggerAIIfNeeded() {
-  if (state && state.aiMode && state.turn === state.aiColor && !state.busy && !state.ended) {
+  if (!state) return;
+  // オンライン対戦時は AI を発動しない
+  if (state.online) return;
+  if (state.aiMode && state.turn === state.aiColor && !state.busy && !state.ended) {
     setTimeout(aiThink, 1500);
   }
+}
+
+// ============================================================
+//  ONLINE MULTIPLAYER LAYER
+// ============================================================
+const Online = {
+  ws: null,
+  ready: false,
+  init() {
+    if (!state || !state.online || !state.onlineSession) return;
+    const session = state.onlineSession;
+    const serverUrl = session.server || (window.CHOVERSI_ONLINE_SERVER || '');
+    const wsBase = serverUrl.replace(/^http/, 'ws').replace(/\/$/, '');
+    if (!wsBase) {
+      log('オンライン', 'サーバーURL 未設定');
+      return;
+    }
+    // pid を取得（再接続のため）
+    let pid = session.pid;
+    if (!pid) {
+      try { pid = localStorage.getItem('choversi.pid') || ''; } catch (e) { pid = ''; }
+    }
+    const url = `${wsBase}/ws/${session.code}?name=${encodeURIComponent(session.myName || '')}&pid=${encodeURIComponent(pid)}`;
+    try {
+      this.ws = new WebSocket(url);
+    } catch (e) {
+      log('オンライン', 'WebSocket 接続失敗');
+      return;
+    }
+    this.ws.addEventListener('open', () => {
+      this.ready = true;
+      log('オンライン', '接続完了');
+    });
+    this.ws.addEventListener('message', (evt) => {
+      let msg;
+      try { msg = JSON.parse(evt.data); } catch (e) { return; }
+      this.handleIncoming(msg);
+    });
+    this.ws.addEventListener('close', () => {
+      this.ready = false;
+      if (state && !state.ended) {
+        log('オンライン', '接続が切れました');
+        Online._showDisconnect();
+      }
+    });
+    this.ws.addEventListener('error', () => {
+      log('オンライン', '通信エラー');
+    });
+  },
+  send(msg) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try { this.ws.send(JSON.stringify(msg)); } catch (e) {}
+    }
+  },
+  _showDisconnect() {
+    // 結果画面の上に「相手切断」と表示
+    if (state && !state.ended) {
+      state.ended = true;
+      try {
+        const overlay = document.getElementById('result-overlay');
+        if (overlay) {
+          const title = overlay.querySelector('.result-title');
+          const msg = overlay.querySelector('.result-message');
+          if (title) title.textContent = '相手が切断しました';
+          if (msg) msg.textContent = '対戦を続けるには新しい部屋を作成してください。';
+          overlay.classList.add('show');
+        }
+      } catch (e) {}
+    }
+  },
+  handleIncoming(msg) {
+    if (!state) return;
+    if (msg.type === 'opponent_left') {
+      Online._showDisconnect();
+      return;
+    }
+    if (msg.type === 'start' || msg.type === 'joined') {
+      // 再接続時に届く可能性。色とハンドが一致するか確認
+      // ハンドは index.html で確定済みなので無視（手札が変わる可能性は無い）
+      return;
+    }
+    if (msg.type === 'error') {
+      try { alert(msg.message || '通信エラー'); } catch (e) {}
+      return;
+    }
+    // 自分が送った行為のエコーは無視
+    if (!msg.from || msg.from !== state.aiColor) return;
+    // 相手の手番でない場合は少し待って再試行（アニメーション中など）
+    if (state.turn !== state.aiColor || state.busy || state.ended) {
+      let tries = 0;
+      const tryApply = () => {
+        if (state.ended) return;
+        if (state.turn === state.aiColor && !state.busy) {
+          this._applyMessage(msg);
+        } else if (tries++ < 30) {
+          setTimeout(tryApply, 200);
+        }
+      };
+      setTimeout(tryApply, 200);
+      return;
+    }
+    this._applyMessage(msg);
+  },
+  _applyMessage(msg) {
+    if (!state || state.ended) return;
+    if (msg.type === 'move') {
+      state.pendingAction = null;
+      state.selectedSkill = -1;
+      if (msg.skill) {
+        // 相手の手札の空いている placeholder にスキルを割り当て、選択する
+        const oppHand = state.hands[state.aiColor];
+        const idx = oppHand.findIndex(c => !c.used);
+        if (idx >= 0) {
+          oppHand[idx].skill = msg.skill;
+          state.selectedSkill = idx;
+        }
+      }
+      makeMove(msg.r, msg.c);
+    } else if (msg.type === 'vanish') {
+      // 相手の消滅：相手の手札から shoshitsu を取り出す
+      const oppHand = state.hands[state.aiColor];
+      let idx = oppHand.findIndex(c => !c.used && c.skill === 'shoshitsu');
+      if (idx < 0) {
+        // 未割り当ての placeholder に shoshitsu を割り当てる
+        idx = oppHand.findIndex(c => !c.used);
+        if (idx >= 0) oppHand[idx].skill = 'shoshitsu';
+      }
+      if (idx >= 0) {
+        state.selectedSkill = idx;
+        state.pendingAction = 'vanish-target';
+      }
+      execVanish(msg.r, msg.c);
+    } else if (msg.type === 'gyakushu') {
+      fireGyakushuAt(msg.r, msg.c);
+    } else if (msg.type === 'pass') {
+      executePass(state.aiColor);
+    }
+  },
+};
+
+// ローカル操作（プレイヤー）からの行為を WS でも送信
+function netMaybeSendMove(r, c) {
+  if (!state.online) return;
+  let skill = null;
+  let skillIdx = -1;
+  if (state.selectedSkill >= 0) {
+    const card = state.hands[state.turn][state.selectedSkill];
+    if (card && !card.used) {
+      skill = card.skill;
+      skillIdx = state.selectedSkill;
+    }
+  }
+  Online.send({ type: 'move', r, c, skill, skillIdx });
+}
+function netMaybeSendVanish(r, c) {
+  if (!state.online) return;
+  Online.send({ type: 'vanish', r, c });
+}
+function netMaybeSendGyakushu(r, c) {
+  if (!state.online) return;
+  Online.send({ type: 'gyakushu', r, c });
+}
+function netMaybeSendPass() {
+  if (!state.online) return;
+  Online.send({ type: 'pass' });
+}
+
+// 自分の手番か（プレイヤー操作許可判定）
+function canPlayerAct() {
+  if (!state || state.busy || state.ended) return false;
+  if (state.online) {
+    return state.turn === state.playerColor;
+  }
+  // オフライン：AI モード時は AI の手番中は不可
+  if (state.aiMode && state.turn === state.aiColor) return false;
+  return true;
 }
 
 // パスの実行（自動／手動 共通）
@@ -2711,9 +2939,10 @@ function passTurn() {
   executePass(state.turn);
 }
 
-// PASSボタン用：AIの手番中は無視
+// PASSボタン用：AI/相手の手番中は無視
 function userPassTurn() {
-  if (state.aiMode && state.turn === state.aiColor) return;
+  if (!canPlayerAct()) return;
+  if (state.online) netMaybeSendPass();
   passTurn();
 }
 
@@ -3944,8 +4173,30 @@ function renderBoard() {
       }
 
       div.onclick = () => {
-        // AIの手番中はプレイヤーのタップを無視（誤入力防止）
-        if (state.aiMode && state.turn === state.aiColor) return;
+        // 自分の手番でない時は無視
+        if (!canPlayerAct()) return;
+        // オンライン時は WS で相手にも通知
+        if (state.online) {
+          // shoshitsu のターゲット選択中
+          if (state.pendingAction === 'vanish-target') {
+            netMaybeSendVanish(r, c);
+            execVanish(r, c);
+            return;
+          }
+          // 配置済み逆襲石クリック
+          if (state.selectedSkill < 0 && isGyakushuEligible(r, c, state.turn)) {
+            netMaybeSendGyakushu(r, c);
+            fireGyakushuAt(r, c);
+            return;
+          }
+          // 通常配置（スキル付きも含む）
+          if (state.board[r][c].color !== null) return;
+          if (getFlipsForPlace(r, c, state.turn).length === 0) return;
+          netMaybeSendMove(r, c);
+          makeMove(r, c);
+          return;
+        }
+        // オフライン（AI 戦）
         makeMove(r, c);
       };
       div.onmouseenter = () => showPreview(r, c);
@@ -3956,12 +4207,16 @@ function renderBoard() {
 }
 
 function renderHands() {
-  const showAll = document.getElementById('show-all').checked;
+  // オンライン時は show-all を強制 OFF（相手の手札は絶対に見えない）
+  const showAll = state.online ? false : document.getElementById('show-all').checked;
   for (const player of ['D', 'L']) {
     const hand = document.getElementById(`hand-${player}`);
     hand.innerHTML = '';
     const isMyTurn = state.turn === player && !state.busy && !state.ended;
-    const hideContent = state.aiMode && player === state.aiColor && !showAll;
+    // オンライン時は state.playerColor 以外の手札を常に隠す
+    const hideContent = state.online
+      ? (player !== state.playerColor)
+      : (state.aiMode && player === state.aiColor && !showAll);
 
     const activeHand = getActiveHand(player);
 

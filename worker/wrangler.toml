@@ -1,0 +1,15 @@
+name = "choversi-online"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["Room"]
+
+# 任意：カスタムドメインを使う場合は wrangler.toml で routes を設定するか、
+# Cloudflare ダッシュボードの "Workers Routes" で割り当てる。
