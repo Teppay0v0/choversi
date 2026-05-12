@@ -2988,6 +2988,16 @@ function evaluateBoard(board, color, profile) {
   const myStable = countStableEdgeStones(board, color);
   const oppStable = countStableEdgeStones(board, opp);
   score += (myStable - oppStable) * 10 * wf;
+  // パリティ（残マス数の偶奇）— 中盤以降で有効
+  // 黒先手の前提で、残マスが奇数なら最後の1手を打つのが現手番側 = 有利
+  if (profile.lv >= 85 && emptyCount > 0 && emptyCount <= 24) {
+    // 現在の手番を石数から推定（4 初期 → 黒先）
+    const totalPlaced = myCount + oppCount;
+    const isMyTurn = (totalPlaced % 2 === 0 && color === 'D') || (totalPlaced % 2 === 1 && color === 'L');
+    // 残マス奇数で手番なら勝ち+3、相手なら-3。偶数なら逆
+    const parityBonus = (emptyCount % 2 === 1) === isMyTurn ? 4 : -4;
+    score += parityBonus * wf;
+  }
   // LV95+: 角の支配を強く評価（鬼神では特に重要）
   if (profile.lv >= 95) {
     const corners = [[0,0],[0,7],[7,0],[7,7]];
@@ -3139,14 +3149,68 @@ function orderMoves(moves) {
   return moves.slice().sort((a, b) => POS_WEIGHTS[b[0]][b[1]] - POS_WEIGHTS[a[0]][a[1]]);
 }
 
-// Minimax with alpha-beta pruning + move ordering
+// === Killer move + Transposition table（鬼神級探索の高速化） ===
+// キラームーブ：α-β cutoff を発生させた手を depth ごとに記憶
+let _killerMoves = {};
+function resetKillers() { _killerMoves = {}; }
+function recordKiller(depth, r, c) {
+  const slot = _killerMoves[depth] || (_killerMoves[depth] = [null, null]);
+  if (slot[0] && slot[0][0] === r && slot[0][1] === c) return;
+  slot[1] = slot[0]; slot[0] = [r, c];
+}
+function isKiller(depth, r, c) {
+  const slot = _killerMoves[depth];
+  if (!slot) return 0;
+  if (slot[0] && slot[0][0] === r && slot[0][1] === c) return 2;
+  if (slot[1] && slot[1][0] === r && slot[1][1] === c) return 1;
+  return 0;
+}
+// 強化版 move ordering：POS_WEIGHTS + killer
+function orderMovesAdvanced(moves, depth) {
+  return moves.slice().sort((a, b) => {
+    const ak = isKiller(depth, a[0], a[1]) * 200;
+    const bk = isKiller(depth, b[0], b[1]) * 200;
+    return (POS_WEIGHTS[b[0]][b[1]] + bk) - (POS_WEIGHTS[a[0]][a[1]] + ak);
+  });
+}
+
+// 置換表（プレーン minimax 用）
+// キー：盤面の色のみのハッシュ（簡易：JSON 風文字列）
+let _tt;
+function resetTT() { _tt = new Map(); }
+function hashBoardSimple(board, currentColor) {
+  // 64 セルを 'D'/'L'/'.' で1文字ずつ
+  const a = new Array(65);
+  let i = 0;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const col = board[r][c].color;
+    a[i++] = col === 'D' ? 'D' : col === 'L' ? 'L' : '.';
+  }
+  a[i] = currentColor;
+  return a.join('');
+}
+
+// Minimax with alpha-beta pruning + move ordering + TT + killer
 function minimax(board, depth, alpha, beta, currentColor, me, profile) {
   if (depth === 0) {
     return evaluateBoard(board, me, profile);
   }
   const opp = me === 'D' ? 'L' : 'D';
   const otherColor = currentColor === 'D' ? 'L' : 'D';
-  const moves = orderMoves(getValidMovesForBoard(board, currentColor));
+  // TT lookup — depth が深く、終盤（hash collision が少なくて再到達しやすい）でのみ
+  const origAlpha = alpha, origBeta = beta;
+  let ttKey = null;
+  if (_tt && depth >= 4) {
+    ttKey = hashBoardSimple(board, currentColor) + ':' + depth;
+    const ent = _tt.get(ttKey);
+    if (ent) {
+      if (ent.flag === 'EXACT') return ent.value;
+      if (ent.flag === 'LOWER' && ent.value > alpha) alpha = ent.value;
+      else if (ent.flag === 'UPPER' && ent.value < beta) beta = ent.value;
+      if (alpha >= beta) return ent.value;
+    }
+  }
+  const moves = orderMovesAdvanced(getValidMovesForBoard(board, currentColor), depth);
   if (moves.length === 0) {
     const oppMoves = getValidMovesForBoard(board, otherColor);
     if (oppMoves.length === 0) {
@@ -3167,7 +3231,12 @@ function minimax(board, depth, alpha, beta, currentColor, me, profile) {
       const v = minimax(next, depth - 1, alpha, beta, opp, me, profile);
       if (v > best) best = v;
       if (v > alpha) alpha = v;
-      if (alpha >= beta) break;
+      if (alpha >= beta) { recordKiller(depth, r, c); break; }
+    }
+    // TT store
+    if (ttKey && _tt) {
+      const flag = best <= origAlpha ? 'UPPER' : best >= origBeta ? 'LOWER' : 'EXACT';
+      _tt.set(ttKey, { value: best, flag });
     }
     return best;
   } else {
@@ -3177,7 +3246,11 @@ function minimax(board, depth, alpha, beta, currentColor, me, profile) {
       const v = minimax(next, depth - 1, alpha, beta, me, me, profile);
       if (v < best) best = v;
       if (v < beta) beta = v;
-      if (alpha >= beta) break;
+      if (alpha >= beta) { recordKiller(depth, r, c); break; }
+    }
+    if (ttKey && _tt) {
+      const flag = best <= origAlpha ? 'UPPER' : best >= origBeta ? 'LOWER' : 'EXACT';
+      _tt.set(ttKey, { value: best, flag });
     }
     return best;
   }
@@ -3251,15 +3324,16 @@ function minimaxFull(board, depth, alpha, beta, currentColor, me, profile, usedS
 }
 
 // LV と空マス数から探索深度を決定（鬼神は終盤でさらに深く）
+// killer move heuristic + TT で実効的に深く読める
 function getSearchDepth(lv, emptyCount) {
   if (lv < 85) return 1;
   if (lv < 90) return 3;
   if (lv < 95) return 4;
   // LV95-99: 終盤拡張
-  if (emptyCount <= 8)  return 10; // 終盤完全読み
-  if (emptyCount <= 12) return 9;
-  if (emptyCount <= 16) return 7;
-  if (lv >= 99) return 6;          // LV99 中盤は 6
+  if (emptyCount <= 8)  return 12; // 終盤完全読み
+  if (emptyCount <= 12) return 10;
+  if (emptyCount <= 16) return 8;
+  if (lv >= 99) return 6;          // LV99 中盤は 6（速度優先）
   return 5;
 }
 
@@ -3343,6 +3417,10 @@ function aiThink() {
   const opp = me === 'D' ? 'L' : 'D';
   const validMoves = getValidMoves(me);
   const profile = getAIProfile(state.aiLevel || 30);
+
+  // 探索の補助構造をリセット（鬼神の高速化）
+  resetKillers();
+  resetTT();
 
   // No moves → pass
   if (validMoves.length === 0) {

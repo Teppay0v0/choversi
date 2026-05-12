@@ -618,6 +618,13 @@ function evaluateBoardFlat(board, color, profile) {
   const myStable = countStableEdgeStones(board, color);
   const oppStable = countStableEdgeStones(board, opp);
   score += (myStable - oppStable) * 10 * wf;
+  // パリティ：残マス奇数で手番なら有利
+  if (profile.lv >= 85 && emptyCount > 0 && emptyCount <= 24) {
+    const totalPlaced = myCount + oppCount;
+    const isMyTurn = (totalPlaced % 2 === 0 && color === 'D') || (totalPlaced % 2 === 1 && color === 'L');
+    const parityBonus = (emptyCount % 2 === 1) === isMyTurn ? 4 : -4;
+    score += parityBonus * wf;
+  }
   if (profile.lv >= 95) {
     const corners = [[0,0],[0,7],[7,0],[7,7]];
     const cornerBonus = (15 + ((profile.lv - 95) / 4) * 10) * wf;
@@ -646,15 +653,62 @@ function getValidMovesForBoardSim(board, color) {
 function orderMovesSim(moves) {
   return moves.slice().sort((a, b) => POS_WEIGHTS[b[0]][b[1]] - POS_WEIGHTS[a[0]][a[1]]);
 }
+
+// === Killer + TT for sim ===
+let _killerMovesSim = {};
+function resetKillersSim() { _killerMovesSim = {}; }
+function recordKillerSim(depth, r, c) {
+  const slot = _killerMovesSim[depth] || (_killerMovesSim[depth] = [null, null]);
+  if (slot[0] && slot[0][0] === r && slot[0][1] === c) return;
+  slot[1] = slot[0]; slot[0] = [r, c];
+}
+function isKillerSim(depth, r, c) {
+  const slot = _killerMovesSim[depth];
+  if (!slot) return 0;
+  if (slot[0] && slot[0][0] === r && slot[0][1] === c) return 2;
+  if (slot[1] && slot[1][0] === r && slot[1][1] === c) return 1;
+  return 0;
+}
+function orderMovesAdvancedSim(moves, depth) {
+  return moves.slice().sort((a, b) => {
+    const ak = isKillerSim(depth, a[0], a[1]) * 200;
+    const bk = isKillerSim(depth, b[0], b[1]) * 200;
+    return (POS_WEIGHTS[b[0]][b[1]] + bk) - (POS_WEIGHTS[a[0]][a[1]] + ak);
+  });
+}
+let _ttSim;
+function resetTTSim() { _ttSim = new Map(); }
+function hashBoardSimpleSim(board, currentColor) {
+  const a = new Array(65);
+  let i = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const col = board[r][c].color;
+    a[i++] = col === 'D' ? 'D' : col === 'L' ? 'L' : '.';
+  }
+  a[i] = currentColor;
+  return a.join('');
+}
+
 function minimaxSim(board, depth, alpha, beta, currentColor, me, profile) {
   if (depth === 0) return evaluateBoardFlat(board, me, profile);
   const opp = me === 'D' ? 'L' : 'D';
   const otherColor = currentColor === 'D' ? 'L' : 'D';
-  const moves = orderMovesSim(getValidMovesForBoardSim(board, currentColor));
+  const origAlpha = alpha, origBeta = beta;
+  let ttKey = null;
+  if (_ttSim && depth >= 4) {
+    ttKey = hashBoardSimpleSim(board, currentColor) + ':' + depth;
+    const ent = _ttSim.get(ttKey);
+    if (ent) {
+      if (ent.flag === 'EXACT') return ent.value;
+      if (ent.flag === 'LOWER' && ent.value > alpha) alpha = ent.value;
+      else if (ent.flag === 'UPPER' && ent.value < beta) beta = ent.value;
+      if (alpha >= beta) return ent.value;
+    }
+  }
+  const moves = orderMovesAdvancedSim(getValidMovesForBoardSim(board, currentColor), depth);
   if (moves.length === 0) {
     const oppMoves = getValidMovesForBoardSim(board, otherColor);
     if (oppMoves.length === 0) {
-      // 終局：石数差で完全評価
       let myC = 0, oppC = 0;
       for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
         if (board[r][c].color === me) myC++;
@@ -671,7 +725,11 @@ function minimaxSim(board, depth, alpha, beta, currentColor, me, profile) {
       const v = minimaxSim(next, depth - 1, alpha, beta, opp, me, profile);
       if (v > best) best = v;
       if (v > alpha) alpha = v;
-      if (alpha >= beta) break;
+      if (alpha >= beta) { recordKillerSim(depth, r, c); break; }
+    }
+    if (ttKey && _ttSim) {
+      const flag = best <= origAlpha ? 'UPPER' : best >= origBeta ? 'LOWER' : 'EXACT';
+      _ttSim.set(ttKey, { value: best, flag });
     }
     return best;
   } else {
@@ -681,7 +739,11 @@ function minimaxSim(board, depth, alpha, beta, currentColor, me, profile) {
       const v = minimaxSim(next, depth - 1, alpha, beta, me, me, profile);
       if (v < best) best = v;
       if (v < beta) beta = v;
-      if (alpha >= beta) break;
+      if (alpha >= beta) { recordKillerSim(depth, r, c); break; }
+    }
+    if (ttKey && _ttSim) {
+      const flag = best <= origAlpha ? 'UPPER' : best >= origBeta ? 'LOWER' : 'EXACT';
+      _ttSim.set(ttKey, { value: best, flag });
     }
     return best;
   }
@@ -749,9 +811,9 @@ function getSearchDepthSim(lv, emptyCount) {
   if (lv < 85) return 1;
   if (lv < 90) return 3;
   if (lv < 95) return 4;
-  if (emptyCount <= 8)  return 10;
-  if (emptyCount <= 12) return 9;
-  if (emptyCount <= 16) return 7;
+  if (emptyCount <= 8)  return 12;
+  if (emptyCount <= 12) return 10;
+  if (emptyCount <= 16) return 8;
   if (lv >= 99) return 6;
   return 5;
 }
@@ -1077,6 +1139,10 @@ function aiPickAction(state, me) {
   const lv = getAILevel(state, me);
   const profile = getAIProfile(lv);
   const opp = me === 'D' ? 'L' : 'D';
+
+  // 探索の補助構造をリセット
+  resetKillersSim();
+  resetTTSim();
 
   const activeHand = getActiveHand(state, me);
 
