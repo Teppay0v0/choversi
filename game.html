@@ -2038,12 +2038,28 @@ function newGame() {
     aiLevel,     // 1〜99（オンライン時は 0）
     mode,        // 'campaign' | 'single' | 'online'
     hands: online
-      ? {
-          // 自分の手札はサーバーから受け取った skill 名の配列
-          // 相手の手札は未知（オープン時のみ skill が分かる）→ プレースホルダー
-          [playerColor]: onlineMyHand.map(s => ({ skill: s, used: false })),
-          [aiColor]: Array.from({ length: onlineOppHandSize }, () => ({ skill: null, used: false })),
-        }
+      ? (() => {
+          // 自分の手札：サーバーから受け取った初期手札 + 残りデッキ（補充用）
+          // オフラインと同様に9枚フルで持ち、先頭HAND_SIZE枚がアクティブ
+          const usedInHand = [...onlineMyHand];
+          const remaining = shuffleDeck(
+            FULL_DECK.filter(s => {
+              const i = usedInHand.indexOf(s);
+              if (i >= 0) { usedInHand.splice(i, 1); return false; }
+              return true;
+            })
+          );
+          const myFullHand = [
+            ...onlineMyHand.map(s => ({ skill: s, used: false })),
+            ...remaining.map(s => ({ skill: s, used: false })),
+          ];
+          // 相手の手札：先頭oppHandSizeがアクティブ、残りもプレースホルダーで補充分確保
+          const oppFullHand = Array.from({ length: 9 }, () => ({ skill: null, used: false }));
+          return {
+            [playerColor]: myFullHand,
+            [aiColor]: oppFullHand,
+          };
+        })()
       : {
         D: ensureStrongCardInHand(shuffleDeck(DECK_TEMPLATES.D), HAND_SIZE_D)
              .map(s => ({ skill: s, used: false })),
