@@ -196,6 +196,47 @@
     line-height: 1.5;
   }
 
+  /* === 通算成績 === */
+  .campaign-stats {
+    margin-top: 12px;
+    margin-bottom: 2px;
+  }
+  .campaign-stats-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.45);
+    border-radius: 10px;
+    padding: 10px 8px;
+  }
+  .campaign-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+  }
+  .campaign-stat-num {
+    font-family: 'Manrope', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .campaign-stat-label {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+  .campaign-stat-sep {
+    width: 1px;
+    height: 28px;
+    background: rgba(58,53,48,0.12);
+    flex-shrink: 0;
+  }
+
   /* === オンライン対戦パネル === */
   .online-name-row {
     display: flex;
@@ -761,6 +802,29 @@
           <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div></div>
           <div class="xp-text"><span id="xp-text">0 / 5</span> XP — 次のLVまで</div>
         </div>
+        <div class="campaign-stats" id="campaign-stats">
+          <div class="campaign-stats-row">
+            <div class="campaign-stat">
+              <div class="campaign-stat-num" id="stat-win">0</div>
+              <div class="campaign-stat-label">勝</div>
+            </div>
+            <div class="campaign-stat-sep"></div>
+            <div class="campaign-stat">
+              <div class="campaign-stat-num" id="stat-lose">0</div>
+              <div class="campaign-stat-label">敗</div>
+            </div>
+            <div class="campaign-stat-sep"></div>
+            <div class="campaign-stat">
+              <div class="campaign-stat-num" id="stat-draw">0</div>
+              <div class="campaign-stat-label">引分</div>
+            </div>
+            <div class="campaign-stat-sep"></div>
+            <div class="campaign-stat">
+              <div class="campaign-stat-num" id="stat-rate">—</div>
+              <div class="campaign-stat-label">勝率</div>
+            </div>
+          </div>
+        </div>
         <div class="mode-desc">勝てば強敵に、負ければ少し優しい敵に。最大 LV99。</div>
       </div>
       <div class="mode-panel hidden" id="single-panel">
@@ -932,6 +996,20 @@ window.addEventListener('DOMContentLoaded', () => {
     needForNext === 0 ? 'MAX' : `${intoLv} / ${needForNext}`;
   const fillPct = needForNext === 0 ? 100 : Math.round(intoLv / needForNext * 100);
   document.getElementById('xp-fill').style.width = fillPct + '%';
+
+  // === 通算成績表示 ===
+  try {
+    const stats = JSON.parse(localStorage.getItem('choversi.stats') || '{}');
+    const wins   = stats.wins   || 0;
+    const losses = stats.losses || 0;
+    const draws  = stats.draws  || 0;
+    const games  = wins + losses + draws;
+    document.getElementById('stat-win').textContent  = wins;
+    document.getElementById('stat-lose').textContent = losses;
+    document.getElementById('stat-draw').textContent = draws;
+    document.getElementById('stat-rate').textContent =
+      games === 0 ? '—' : Math.round(wins / games * 100) + '%';
+  } catch (e) {}
 
   // === フリー対戦 7段ランクピッカー ===
   const RANK_PRESETS = [
