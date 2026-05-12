@@ -65,8 +65,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 24px 24px 56px;
+    justify-content: flex-start;
+    padding: clamp(28px, 8dvh, 80px) 24px 56px;
     gap: 24px;
   }
 
@@ -690,7 +690,7 @@
 
   /* モバイル */
   @media (max-width: 720px) {
-    .start { gap: 12px; padding: 10px 20px 50px; }
+    .start { gap: 12px; padding: clamp(16px, 5dvh, 40px) 20px 50px; }
     /* モバイル：横長タイトルロゴ（logo-mobile.png）を大きく表示 */
     .start-logo .logo-full {
       width: 320px;
