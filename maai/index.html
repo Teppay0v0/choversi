@@ -1,0 +1,2600 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>MAAi -間合-</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0d16">
+<style>
+/* ============================================================
+   MAAi -間合-  prototype v0.2  /  単一ファイル試作
+   縦持ち一人称MMA × 主観時間 × リズム
+   ============================================================ */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+  width:100%;height:100%;overflow:hidden;background:#0a0d16;
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  color:#e8e2d4;
+  -webkit-user-select:none;user-select:none;
+  touch-action:none;overscroll-behavior:none;
+}
+#stage{position:fixed;inset:0;overflow:hidden}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+/* ---- オーバーレイ共通 ---- */
+.overlay{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:calc(env(safe-area-inset-top) + 24px) 24px calc(env(safe-area-inset-bottom) + 24px);
+  background:radial-gradient(120% 80% at 50% 30%,rgba(19,26,43,.86),rgba(6,8,14,.97));
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+  z-index:10;
+}
+.overlay.hidden{display:none}
+
+.brand{text-align:center;margin-bottom:auto;padding-top:6vh}
+.brand .logo{
+  font-size:clamp(44px,15vw,84px);font-weight:800;letter-spacing:.06em;line-height:1;
+  color:#e8e2d4;
+}
+.brand .logo em{font-style:normal;color:#ff3b30}
+.brand .ma{
+  margin-top:10px;font-size:clamp(18px,6vw,30px);letter-spacing:.5em;
+  color:#8d93a6;text-indent:.5em;
+}
+.brand .tag{
+  margin-top:22px;font-size:13px;line-height:1.9;color:#8d93a6;letter-spacing:.04em;
+}
+.brand .tag b{display:block;color:#e8e2d4;font-weight:600;font-size:15px;letter-spacing:.08em}
+
+.menu{width:100%;max-width:420px;display:flex;flex-direction:column;gap:10px;margin-top:auto}
+.row{display:flex;gap:8px}
+.btn{
+  flex:1;appearance:none;border:1px solid rgba(232,226,212,.22);
+  background:rgba(232,226,212,.05);color:#e8e2d4;
+  padding:15px 12px;border-radius:2px;font-size:15px;font-weight:600;letter-spacing:.06em;
+  font-family:inherit;cursor:pointer;transition:background .12s,border-color .12s;
+}
+.btn:active{background:rgba(232,226,212,.14)}
+.btn.primary{background:#ff3b30;border-color:#ff3b30;color:#0a0d16}
+.btn.primary:active{background:#ff6257}
+.btn.sub{font-size:12px;padding:11px 8px;font-weight:500;color:#8d93a6}
+.btn[data-on="1"]{border-color:#ff3b30;color:#ff3b30;background:rgba(255,59,48,.08)}
+.label{font-size:10px;letter-spacing:.24em;color:#5c6274;margin:14px 0 -2px 2px}
+
+/* ---- 操作説明 ---- */
+.sheet{
+  width:100%;max-width:460px;max-height:100%;overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.sheet h2{font-size:12px;letter-spacing:.3em;color:#ff3b30;margin:0 0 16px}
+.sheet h3{font-size:11px;letter-spacing:.22em;color:#5c6274;margin:20px 0 8px}
+.ctrl{display:flex;align-items:baseline;gap:12px;padding:7px 0;border-bottom:1px solid rgba(232,226,212,.08)}
+.ctrl .k{flex:0 0 116px;font-size:12px;color:#8d93a6;letter-spacing:.02em}
+.ctrl .v{flex:1;font-size:13px;color:#e8e2d4}
+.note{font-size:12px;line-height:1.85;color:#8d93a6;margin-top:14px}
+.note b{color:#e8e2d4;font-weight:600}
+
+/* ---- リザルト ---- */
+.result{width:100%;max-width:420px;text-align:center}
+.result .verdict{font-size:clamp(34px,11vw,58px);font-weight:800;letter-spacing:.08em;line-height:1.1}
+.result .verdict.win{color:#ff3b30}
+.result .verdict.lose{color:#5c6274}
+.result .sub{font-size:12px;letter-spacing:.24em;color:#8d93a6;margin-top:8px}
+.stats{margin:26px 0;border-top:1px solid rgba(232,226,212,.12)}
+.stat{display:flex;justify-content:space-between;padding:9px 2px;border-bottom:1px solid rgba(232,226,212,.08);font-size:13px}
+.stat span:first-child{color:#8d93a6;letter-spacing:.04em}
+.stat span:last-child{font-weight:600;font-variant-numeric:tabular-nums}
+.stat.hl span:last-child{color:#ff3b30}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv"></canvas>
+
+  <!-- タイトル -->
+  <div class="overlay" id="ovTitle">
+    <div class="brand">
+      <div class="logo">MA<em>A</em>i</div>
+      <div class="ma">間 合</div>
+      <div class="tag">
+        <b>見えた瞬間、世界は遅くなる。</b>
+        When you see it, time slows.
+      </div>
+    </div>
+    <div class="menu">
+      <div class="label">MODE</div>
+      <button class="btn primary" data-act="start-single">単一攻防　10秒</button>
+      <button class="btn" data-act="start-match">試　合　60秒</button>
+      <div class="label">DIFFICULTY</div>
+      <div class="row">
+        <button class="btn sub" data-diff="BEGINNER">BEGINNER</button>
+        <button class="btn sub" data-diff="NORMAL">NORMAL</button>
+      </div>
+      <div class="row">
+        <button class="btn sub" data-act="howto">操作を確認</button>
+        <button class="btn sub" data-act="calib">タイミング補正</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 操作説明 -->
+  <div class="overlay hidden" id="ovHowto">
+    <div class="sheet" id="howtoBody"></div>
+    <div class="menu"><button class="btn primary" data-act="close-howto">閉じる</button></div>
+  </div>
+
+  <!-- リザルト -->
+  <div class="overlay hidden" id="ovResult">
+    <div class="result" id="resultBody"></div>
+    <div class="menu">
+      <button class="btn primary" data-act="retry">もう一度</button>
+      <button class="btn" data-act="title">タイトルへ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   1. CONFIG  —  仕様書 v0.2 の数値をそのまま定数化
+   ============================================================ */
+const BPM  = 100;
+const BEAT = 60000 / BPM;          // 600 ms
+
+// --- ジェスチャー認識 (§7) 画面短辺比 ---
+const G = {
+  TAP_MAX_MS   : 180,
+  TAP_MAX_MOVE : 0.03,
+  SWIPE_DIST   : 0.07,
+  HOLD_MS      : 220,
+  DUAL_WINDOW  : 140,
+  DIR_TOL      : 30 * Math.PI / 180,
+  GUARD_IGNORE : 0.05,
+};
+
+// --- リズム判定 (§9) ゲーム内時間での差分 ms ---
+const JUDGE = {
+  PERFECT: 70,
+  GOOD   : 150,
+  EARLY  : -250,   // -250 〜 -151
+  LATE   :  250,   // +151 〜 +250
+};
+const COUNTER_WINDOW = 600;   // PERFECT防御後のカウンター受付 (ms)
+
+// --- 主観時間 (§9.1) ---
+const TS = {
+  OBSERVE : 1.00,
+  READ    : 0.35,
+  CHOICE  : 0.25,
+  IMPACT  : 0.04,
+  ENTER_MS: 120,   // 1.0 → 0.35
+  EXIT_MS : 100,   // 0.25 → 1.0
+  MAX_CHOICE_REAL: 1800,   // 安全弁（通常はインパクトまで減速を維持する）
+  CHOICE_REAL: 1100,       // 攻防選択に与える実時間。これに合わせて減速率を決める
+};
+
+// --- 距離 (§5) ---
+const FAR = 0, STRIKE = 1, CLINCH = 2;
+const DIST_NAME = ['遠距離', '打撃距離', '密着距離'];
+const STEP_MS = 300, STEP_MS_PERFECT = 240, STEP_STAMINA = 4;
+
+// --- 技データ (§10) ---
+// tell   : 予備動作の長さ
+// impact : 予備動作開始からインパクトまで
+// recover: インパクト後の硬直
+// arc    : 'straight' | 'hook' | 'upper' | 'kick' | 'tackle'
+// from   : 一人称で見た飛来方向 (-1=画面左から / +1=画面右から / 0=正面)
+// safe   : 有効な防御手段
+const MOVES = {
+  jab      :{ja:'左ジャブ',      dmg:6, stam:3, whiff:2, tell:190, impact:330, recover:250, arc:'straight', side:'L', from:+1, safe:['guard','slipL','sway'],           bad:['advance']},
+  straight :{ja:'右ストレート',  dmg:10,stam:6, whiff:4, tell:260, impact:440, recover:340, arc:'straight', side:'R', from:-1, safe:['guard','slipR','sway'],           bad:['slipL','advance']},
+  hook     :{ja:'左フック',      dmg:12,stam:8, whiff:5, tell:300, impact:520, recover:390, arc:'hook',     side:'L', from:+1, safe:['guard','sway','retreat'],         bad:['slipL','slipR']},
+  upper    :{ja:'右アッパー',    dmg:14,stam:10,whiff:6, tell:300, impact:520, recover:410, arc:'upper',    side:'R', from: 0, safe:['slipL','slipR','retreat'],        bad:['advance','sway']},
+  frontKick:{ja:'前蹴り',        dmg:7, stam:6, whiff:3, tell:260, impact:460, recover:340, arc:'kick',     side:'L', from: 0, safe:['guard','retreat'],                bad:['advance']},
+  lowKick  :{ja:'ローキック',    dmg:8, stam:7, whiff:4, tell:240, impact:430, recover:330, arc:'kick',     side:'R', from:-1, safe:['guard','retreat'],                bad:['slipL','slipR']},
+  midKick  :{ja:'ミドルキック',  dmg:12,stam:10,whiff:6, tell:320, impact:560, recover:430, arc:'kick',     side:'R', from:-1, safe:['guard','retreat'],                bad:['slipL','slipR']},
+  highKick :{ja:'ハイキック',    dmg:18,stam:16,whiff:10,tell:380, impact:640, recover:520, arc:'kick',     side:'R', from:-1, safe:['guard','retreat','sway'],         bad:['slipL','slipR','advance']},
+  tackle   :{ja:'タックル',      dmg:0, stam:18,whiff:12,tell:330, impact:560, recover:420, arc:'tackle',   side:'C', from: 0, safe:['sprawl','slipL','slipR','intercept'], bad:['retreat','guard']},
+};
+
+// プレイヤー側の技（距離ごとの割り当て §6）
+const PLAYER_MOVES = {
+  //            遠距離        打撃距離     密着距離
+  tapL   : ['frontKick', 'jab',      'shortHookL'],
+  tapR   : ['lowKick',   'straight', 'elbowR'],
+  slideIn: ['midKick',   'hook',     'kneeC'],
+  slideUp: ['highKick',  'upper',    'kneeC'],
+};
+const PMOVE_DATA = {
+  shortHookL:{ja:'左ショートフック', dmg:9, stam:5, whiff:3, arc:'hook',  side:'L'},
+  elbowR    :{ja:'右肘',            dmg:13,stam:7, whiff:4, arc:'hook',  side:'R'},
+  kneeC     :{ja:'膝',              dmg:15,stam:11,whiff:6, arc:'upper', side:'C'},
+};
+function pmove(id){ return MOVES[id] || PMOVE_DATA[id]; }
+
+// --- 敵パターン (§17.1) ---
+// s: 拍単位の相対開始位置 / a: 行動
+const PATTERNS = [
+  {id:'P01', dist:STRIKE, next:['P02','P03','P08'], steps:[{s:0,a:'jab'},{s:1.5,a:'straight'}]},
+  {id:'P02', dist:STRIKE, next:['P01','P05','P04'], steps:[{s:0,a:'jab'},{s:1,a:'jab'},{s:2,a:'retreat'}]},
+  {id:'P03', dist:STRIKE, next:['P04','P01'],       steps:[{s:0,a:'feint'},{s:1,a:'straight'}]},
+  {id:'P04', dist:STRIKE, next:['P08','P01'],       steps:[{s:0,a:'tackle'}]},
+  {id:'P05', dist:FAR,    next:['P06','P01'],       steps:[{s:0,a:'advance'},{s:1.5,a:'midKick'}]},
+  {id:'P06', dist:FAR,    next:['P01','P02'],       steps:[{s:0,a:'advance'},{s:1,a:'advance'}]},
+  {id:'P07', dist:STRIKE, next:['P04','P08'],       steps:[{s:0,a:'hook'},{s:1.5,a:'jab'},{s:3,a:'tackle'}], cageOnly:true},
+  {id:'P08', dist:STRIKE, next:['P01','P05'],       steps:[{s:0,a:'block'},{s:1.5,a:'retreat'}]},
+  {id:'P09', dist:FAR,    next:['P05','P06'],       steps:[{s:0,a:'lowKick'},{s:2,a:'advance'}]},
+  {id:'P10', dist:STRIKE, next:['P01','P08'],       steps:[{s:0,a:'hook'},{s:1,a:'upper'}]},
+];
+
+// --- 難易度 (§12) ---
+const DIFF = {
+  BEGINNER:{ja:'BEGINNER', judgeMul:1.5, showArrow:true, showRing:true, showIcon:true, fixedOrder:true,  tellMul:1.25, aiRest:1.6},
+  NORMAL  :{ja:'NORMAL',   judgeMul:1.0, showArrow:false,showRing:true, showIcon:false,fixedOrder:false, tellMul:1.0,  aiRest:1.15},
+};
+
+// --- パレット (§4.1  基調2色 + アクセント1) ---
+const C = {
+  bg0:'#070910', bg1:'#131a2b', bg2:'#1d2740',
+  ink:'#e8e2d4', inkDim:'#8d93a6', inkFaint:'#5c6274',
+  accent:'#ff3b30', accentSoft:'#ff6257',
+  skin:'#c9a184', skinShade:'#8d6b55', skinLit:'#e6c4a6',
+  gloveP:'#ded5c2', glovePShade:'#918978',
+  gloveE:'#ff3b30', gloveEShade:'#a3241d',
+  cage:'#39435c',
+};
+
+/* ============================================================
+   2. ユーティリティ
+   ============================================================ */
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+const lerp =(a,b,t)=>a+(b-a)*t;
+const ease =t=>t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const easeOut=t=>1-Math.pow(1-t,3);
+const easeIn =t=>t*t*t;
+const rnd  =(a,b)=>a+Math.random()*(b-a);
+const pick =arr=>arr[(Math.random()*arr.length)|0];
+// フレームレート非依存の指数補間
+const damp =(cur,tgt,rate,dt)=>cur+(tgt-cur)*(1-Math.exp(-rate*dt/1000));
+
+/* ============================================================
+   3. AUDIO  —  足音・呼吸・打撃を合成 (§14 リズム音響レイヤー)
+   ============================================================ */
+const Audio_ = {
+  ctx:null, master:null, lp:null, env:null, envGain:null, ready:false,
+  heartTimer:0, crowdNode:null,
+
+  init(){
+    if(this.ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    this.ctx = new AC();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.9;
+    // 主観時間に入るとローパスが閉じる (§9.1 音響)
+    this.lp = this.ctx.createBiquadFilter();
+    this.lp.type='lowpass'; this.lp.frequency.value=18000; this.lp.Q.value=0.6;
+    this.lp.connect(this.master); this.master.connect(this.ctx.destination);
+    // 環境音（観客）レイヤー
+    this.envGain = this.ctx.createGain(); this.envGain.gain.value=0.0;
+    this.envGain.connect(this.lp);
+    this.ready = true;
+  },
+  resume(){ this.init(); if(this.ctx && this.ctx.state==='suspended') this.ctx.resume(); },
+  get t(){ return this.ctx ? this.ctx.currentTime : 0; },
+
+  // ローパスを主観時間に追従させる
+  setSlow(k){                                   // k: 0=通常 1=最も遅い
+    if(!this.ready) return;
+    const f = lerp(18000, 620, k);
+    this.lp.frequency.setTargetAtTime(f, this.t, 0.05);
+  },
+
+  noise(dur){
+    const n = Math.max(1,(this.ctx.sampleRate*dur)|0);
+    const buf = this.ctx.createBuffer(1,n,this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i] = Math.random()*2-1;
+    const src = this.ctx.createBufferSource(); src.buffer=buf; return src;
+  },
+
+  // 汎用ノイズヒット
+  hit(o){
+    if(!this.ready) return;
+    const {f0=900,f1=120,dur=0.16,gain=0.5,type='lowpass',q=1.2,delay=0}=o;
+    const t = this.t + delay;
+    const src = this.noise(dur+0.05);
+    const flt = this.ctx.createBiquadFilter(); flt.type=type; flt.Q.value=q;
+    flt.frequency.setValueAtTime(f0,t);
+    flt.frequency.exponentialRampToValueAtTime(Math.max(40,f1),t+dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(gain,t+0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    src.connect(flt); flt.connect(g); g.connect(this.lp);
+    src.start(t); src.stop(t+dur+0.05);
+  },
+
+  tone(o){
+    if(!this.ready) return;
+    const {f=200,f2=null,dur=0.2,gain=0.3,type='sine',delay=0}=o;
+    const t=this.t+delay;
+    const osc=this.ctx.createOscillator(); osc.type=type;
+    osc.frequency.setValueAtTime(f,t);
+    if(f2) osc.frequency.exponentialRampToValueAtTime(Math.max(20,f2),t+dur);
+    const g=this.ctx.createGain();
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(gain,t+0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    osc.connect(g); g.connect(this.lp);
+    osc.start(t); osc.stop(t+dur+0.02);
+  },
+
+  // --- レイヤー別 SE ---
+  step(strong){            // 足音：基本拍
+    this.hit({f0:420,f1:70,dur:strong?0.19:0.12,gain:strong?0.42:0.24,q:1.6});
+    this.tone({f:strong?78:96,f2:38,dur:0.11,gain:strong?0.32:0.16});
+  },
+  breath(inhale,intensity){ // 呼吸：裏拍・疲労・攻撃前の吸気
+    this.hit({f0:inhale?1100:2600,f1:inhale?2500:500,dur:inhale?0.20:0.28,
+              gain:0.07+0.10*(intensity||0),type:'bandpass',q:0.9});
+  },
+  glove(){ this.hit({f0:2600,f1:900,dur:0.07,gain:0.20,type:'bandpass',q:0.8}); },
+  punchHit(power){         // 打撃：拍へ着地
+    this.hit({f0:1500,f1:110,dur:0.13+0.05*power,gain:0.44+0.22*power,q:1.1});
+    this.tone({f:150,f2:44,dur:0.16+0.08*power,gain:0.34+0.2*power});
+  },
+  punchPerfect(){          // PERFECT時のみ低音を重ねる (§14)
+    this.punchHit(1);
+    this.tone({f:70,f2:30,dur:0.42,gain:0.5});
+    this.tone({f:1400,f2:2600,dur:0.10,gain:0.10,type:'triangle'});
+  },
+  guardHit(){
+    this.hit({f0:1000,f1:260,dur:0.11,gain:0.30,q:1.4});
+    this.tone({f:110,f2:60,dur:0.10,gain:0.20});
+  },
+  whoosh(){ this.hit({f0:600,f1:2400,dur:0.20,gain:0.13,type:'bandpass',q:0.7}); },
+  cage(){   this.hit({f0:3200,f1:1400,dur:0.24,gain:0.16,type:'bandpass',q:2.4}); },
+  heart(){  this.tone({f:56,f2:30,dur:0.16,gain:0.34}); this.tone({f:52,f2:28,dur:0.13,gain:0.22,delay:0.17}); },
+  slowIn(){ this.tone({f:420,f2:90,dur:0.55,gain:0.16,type:'triangle'}); },
+  slowOut(){this.tone({f:120,f2:520,dur:0.20,gain:0.14,type:'triangle'}); },
+  crowd(level){            // 観客：優勢/劣勢でレイヤー増減
+    if(!this.ready) return;
+    this.hit({f0:900,f1:400,dur:0.5,gain:0.05+0.10*level,type:'bandpass',q:0.5});
+  },
+  ui(){ this.tone({f:660,f2:880,dur:0.06,gain:0.10,type:'square'}); },
+};
+
+// 触覚 (§14)
+function haptic(kind){
+  if(!navigator.vibrate) return;
+  if(kind==='good')      navigator.vibrate(12);
+  else if(kind==='perfect')navigator.vibrate(28);
+  else if(kind==='guard')  navigator.vibrate([10,40,10]);
+  else if(kind==='hurt')   navigator.vibrate(60);
+}
+
+/* ============================================================
+   4. CLOCK  —  実時間 / 主観時間の二重時計 (§9.1)
+   入力・UI・触覚は実時間、敵アニメと攻撃進行は主観時間で進む
+   ============================================================ */
+const Clock = {
+  real:0,          // 実時間 ms
+  game:0,          // ゲーム内（主観）時間 ms
+  scale:1, target:1, rate:TS.ENTER_MS,
+  realDt:0, gameDt:0,
+  reset(){ this.real=0; this.game=0; this.scale=1; this.target=1; this.realDt=0; this.gameDt=0; },
+  to(target, ms){ this.target=target; this.rate=ms; },
+  tick(rawDt){
+    this.realDt = Math.min(rawDt, 50);
+    // scale を rate ms かけて target へ
+    if(this.scale !== this.target){
+      const sp = this.realDt / Math.max(16,this.rate);
+      if(this.scale < this.target) this.scale = Math.min(this.target, this.scale + sp*(1));
+      else                          this.scale = Math.max(this.target, this.scale - sp*(1));
+    }
+    this.gameDt = this.realDt * this.scale;
+    if(this.freeze) this.gameDt *= 0.02;      // ヒットストップ (§14)
+    this.real += this.realDt;
+    this.game += this.gameDt;
+    Audio_.setSlow(clamp((1-this.scale)/0.8,0,1));
+  },
+  // 主観時間の深さ 0..1（演出用）
+  get depth(){ return clamp((1-this.scale)/(1-TS.CHOICE),0,1); },
+};
+
+/* ============================================================
+   5. INPUT  —  ジェスチャー認識 (§7)
+   長さや速度で技を分けず、開始領域 / 方向 / 片指・両指で区別する
+   ============================================================ */
+const Input = {
+  pts:new Map(),        // pointerId -> P
+  short:1,              // 画面短辺 px
+  queue:[],             // 発火したジェスチャー
+  L:null, R:null,       // 各サイドのアクティブポインタ
+  dualHandled:false,
+  onFirstTouch:null,
+
+  bind(el){
+    const opt={passive:false};
+    el.addEventListener('pointerdown', e=>{e.preventDefault(); this.down(e);}, opt);
+    el.addEventListener('pointermove', e=>{e.preventDefault(); this.move(e);}, opt);
+    el.addEventListener('pointerup',   e=>{e.preventDefault(); this.up(e);},   opt);
+    el.addEventListener('pointercancel',e=>{this.up(e);}, opt);
+    el.addEventListener('contextmenu', e=>e.preventDefault());
+  },
+
+  emit(type, data){
+    this.queue.push(Object.assign({type, real:Clock.real, game:Clock.game}, data||{}));
+  },
+
+  down(e){
+    if(this.onFirstTouch){ this.onFirstTouch(); }
+    const W = window.innerWidth;
+    const side = e.clientX < W/2 ? 'L' : 'R';
+    const p = {
+      id:e.pointerId, side,
+      x0:e.clientX, y0:e.clientY, x:e.clientX, y:e.clientY,
+      t0:Clock.real, moved:0, maxMove:0,
+      gesture:null, holding:false, dual:false, consumed:false,
+    };
+    // 既存ポインタと 140ms 以内 → 両指入力候補 (§7 判定優先順位 1)
+    for(const q of this.pts.values()){
+      if(q.side!==side && Clock.real - q.t0 <= G.DUAL_WINDOW && !q.gesture){
+        p.dual=true; q.dual=true;
+      }
+    }
+    this.pts.set(e.pointerId,p);
+    this[side]=p;
+    this.emit(side==='L'?'LEFT_PRESS':'RIGHT_PRESS',{x:p.x0,y:p.y0});
+  },
+
+  move(e){
+    const p=this.pts.get(e.pointerId); if(!p) return;
+    p.x=e.clientX; p.y=e.clientY;
+    p.moved=Math.hypot(p.x-p.x0,p.y-p.y0)/this.short;
+    p.maxMove=Math.max(p.maxMove,p.moved);
+  },
+
+  up(e){
+    const p=this.pts.get(e.pointerId); if(!p) return;
+    // 速いフリックは down→up が同一フレームに収まることがある。
+    // 破棄する前に最新位置でジェスチャー判定を回す
+    if(e.clientX!==undefined){
+      p.x=e.clientX; p.y=e.clientY;
+      p.moved=Math.hypot(p.x-p.x0,p.y-p.y0)/this.short;
+      p.maxMove=Math.max(p.maxMove,p.moved);
+    }
+    this.update();
+    this.pts.delete(e.pointerId);
+    if(this[p.side]===p) this[p.side]=null;
+    const dur=Clock.real-p.t0;
+    if(p.holding){
+      this.emit(p.side==='L'?'LEFT_RELEASE':'RIGHT_RELEASE',{held:dur});
+    }else if(!p.gesture && !p.consumed){
+      // 180ms 以内 かつ 移動量 3% 未満 → タップ (§7 優先順位 4)
+      if(dur<=G.TAP_MAX_MS && p.maxMove<G.TAP_MAX_MOVE){
+        this.emit('TAP',{side:p.side,x:p.x,y:p.y});
+      }else{
+        this.emit('INVALID',{side:p.side});
+      }
+    }
+    if(this.pts.size===0) this.dualHandled=false;
+  },
+
+  // 毎フレーム：スライド / 長押しの成立判定
+  update(){
+    const arr=[...this.pts.values()];
+
+    // --- 両指入力 ---
+    const pair = arr.length===2 && arr[0].dual && arr[1].dual && !this.dualHandled ? arr : null;
+    if(pair){
+      const [a,b]=pair;
+      const dyA=a.y-a.y0, dyB=b.y-b.y0;
+      const dxA=a.x-a.x0, dxB=b.x-b.x0;
+      const th=G.SWIPE_DIST*this.short;
+      const upBoth   = dyA<-th && dyB<-th;
+      const downBoth = dyA> th && dyB> th;
+      // 中央方向：左指は右へ、右指は左へ
+      const L=a.side==='L'?a:b, R=a.side==='L'?b:a;
+      const inBoth = (L.x-L.x0)> th && (R.x-R.x0)< -th;
+      if(upBoth||downBoth||inBoth){
+        this.emit(upBoth?'DUAL_UP':downBoth?'DUAL_DOWN':'DUAL_IN');
+        a.gesture=b.gesture='dual'; a.consumed=b.consumed=true;
+        this.dualHandled=true;
+      }else if(Clock.real-Math.max(a.t0,b.t0)>=G.HOLD_MS &&
+               a.maxMove<G.GUARD_IGNORE && b.maxMove<G.GUARD_IGNORE &&
+               !a.holding && !b.holding){
+        // 両指長押し = スプロール／低い構え
+        a.holding=b.holding=true; a.gesture=b.gesture='dualhold';
+        this.emit('DUAL_HOLD');
+        this.dualHandled=true;
+      }
+      if(this.dualHandled) return;
+    }
+
+    // --- 片指 ---
+    for(const p of arr){
+      if(p.gesture||p.consumed) continue;
+      const dx=p.x-p.x0, dy=p.y-p.y0;
+      const d=Math.hypot(dx,dy);
+      if(d >= G.SWIPE_DIST*this.short){
+        // 主要方向から ±30度 (§7 優先順位 2)
+        const ang=Math.atan2(-dy,dx);            // 右=0, 上=+π/2
+        let dir=null;
+        if(Math.abs(ang-Math.PI/2)<=G.DIR_TOL) dir='UP';
+        else if(Math.abs(ang+Math.PI/2)<=G.DIR_TOL) dir='DOWN';
+        else if(Math.abs(ang)<=G.DIR_TOL) dir='RIGHT';
+        else if(Math.abs(Math.abs(ang)-Math.PI)<=G.DIR_TOL) dir='LEFT';
+        if(dir){
+          p.gesture=dir;
+          // 内側／外側へ変換
+          let kind=dir;
+          if(dir==='LEFT'||dir==='RIGHT'){
+            const inward = (p.side==='L') ? (dir==='RIGHT') : (dir==='LEFT');
+            kind = inward ? 'IN' : 'OUT';
+          }
+          this.emit('SWIPE',{side:p.side,dir:kind,raw:dir});
+        }
+      }else if(!p.holding && Clock.real-p.t0>=G.HOLD_MS && p.maxMove<G.GUARD_IGNORE){
+        // 220ms 静止 → 長押し (§7 優先順位 3)
+        p.holding=true; 
+        this.emit('HOLD',{side:p.side});
+      }
+    }
+  },
+
+  // 描画用：指の現在位置（腕の追従に使う）
+  finger(side){
+    const p=this[side];
+    if(p && this.pts.has(p.id)) return p;
+    for(const q of this.pts.values()) if(q.side===side) return q;
+    return null;
+  },
+  isHolding(side){
+    for(const q of this.pts.values()) if(q.side===side && q.holding) return true;
+    return false;
+  },
+  isDualHolding(){
+    const a=[...this.pts.values()].filter(q=>q.holding&&q.gesture==='dualhold');
+    return a.length===2;
+  },
+  clear(){ this.pts.clear(); this.L=this.R=null; this.queue.length=0; this.dualHandled=false; },
+};
+
+/* ============================================================
+   6. FIGHT  —  試合状態・距離・金網圧力 (§5 §10 §15)
+   ============================================================ */
+const Fight = {
+  mode:'single', diff:DIFF.NORMAL, offsetMs:0,
+
+  reset(mode,diff,offset){
+    this.mode=mode; this.diff=diff; this.offsetMs=offset|0;
+    this.over=false; this.endReason=''; this.win=false;
+    this.timeLimit = mode==='single' ? 12000 : 60000;
+    this.elapsed=0;
+
+    this.hitstop=0; this.lastMove=null; this.pending=null;
+    this.lastJudge=null; this.lastDiff=0;
+    this.feintPenalty=false; this.heartT=0;
+    this.p={hp:100,stam:100,cage:0,guard:null,guardSide:'L',guardT:0,swayT:-9999,
+            advUntil:-1,advPerfect:false,
+            stunUntil:-1,action:null,anim:null,slip:0,slipT:0,sway:0,lean:0,
+            crouch:0,camX:0,camY:0,camRot:0,shake:0,hurtT:-9999};
+    this.e={hp:100,stam:100,cage:0,act:null,state:'idle',stateT:0,
+            gaze:{x:0,y:0},breath:0,stagger:0,guardUp:0.78,leanZ:0,hipRot:0,
+            shoulderL:0,shoulderR:0,armL:0,armR:0,legStep:0,downT:-1,
+            fatigue:0,lastMoves:[]};
+    this.dist=STRIKE;
+    this.distTarget=STRIKE; this.distT=-1; this.distDur=STEP_MS;
+
+    this.beat=0; this.lastBeatIdx=-1;
+    this.exchange=null;         // 進行中の攻防 {move, t0, impact, phase, choice, judge}
+    this.stats={perfect:0,good:0,early:0,late:0,miss:0,hits:0,taken:0,
+                guarded:0,slipped:0,distChanges:0,favSec:0,cageOnSec:0,cageMySec:0,
+                inputs:0,intent:0};
+    this.fx=[];  this.floats=[];
+    this.ai={pattern:null,step:0,t0:0,restUntil:0,order:0,history:[]};
+    this.script = mode==='single' ? this.buildSingleScript() : null;
+    this.scriptIdx=0;
+    this.hint=null;
+    this.beginnerFlash=0;
+  },
+
+  // --- 第1段階：10秒の単一攻防 (§13) ---
+  buildSingleScript(){
+    return [
+      {at:0,      a:'breathe'},
+      {at:BEAT*2, a:'stepIn'},
+      {at:BEAT*3.4,a:'attack', move:'jab'},
+      {at:BEAT*6.2,a:'attack', move:'straight'},
+      {at:BEAT*9.4,a:'attack', move:'hook'},
+      {at:BEAT*13, a:'end'},
+    ];
+  },
+
+  // ---------- 距離 ----------
+  changeDist(delta, perfect){
+    if(this.distT>0) return false;
+    const t=clamp(this.dist+delta,0,2);
+    if(t===this.dist){
+      // 遠距離でさらに後退 → 金網圧力+1 (§5)
+      if(delta<0 && this.dist===FAR){
+        if(this.p.cage>=2){ this.float('金網際','#8d93a6'); return false; }
+        this.p.cage++; Audio_.cage(); this.float('金網圧力 +'+this.p.cage,'#8d93a6');
+      }
+      return false;
+    }
+    this.distTarget=t; this.distT=Clock.game; this.distDur=perfect?STEP_MS_PERFECT:STEP_MS;
+    this.p.stam=Math.max(0,this.p.stam-STEP_STAMINA);
+    this.stats.distChanges++;
+    Audio_.step(true);
+    return true;
+  },
+  updateDist(){
+    if(this.distT<0) return;
+    if(Clock.game-this.distT>=this.distDur){
+      this.dist=this.distTarget; this.distT=-1;
+      if(this.dist<this.p.cage*0) {}
+    }
+  },
+  get stepping(){ return this.distT>=0; },
+  get distVisual(){
+    if(this.distT<0) return this.dist;
+    const k=easeOut(clamp((Clock.game-this.distT)/this.distDur,0,1));
+    return lerp(this.dist,this.distTarget,k);
+  },
+
+  // ---------- 演出ヘルパ ----------
+  float(text,color,big){ this.floats.push({text,color:color||C.ink,t:Clock.real,big:!!big}); },
+  burst(x,y,kind,power){ this.fx.push({x,y,kind,t:Clock.real,power:power||1}); },
+
+  // ---------- 判定 (§9) ----------
+  judgeOf(diff){
+    const w=this.diff.judgeMul;
+    const a=Math.abs(diff);
+    if(a<=JUDGE.PERFECT*w) return 'PERFECT';
+    if(a<=JUDGE.GOOD*w)    return 'GOOD';
+    if(diff<0 && diff>=JUDGE.EARLY*w) return 'EARLY';
+    if(diff>0 && diff<=JUDGE.LATE*w)  return 'LATE';
+    return 'MISS';
+  },
+  countJudge(j){
+    const k={PERFECT:'perfect',GOOD:'good',EARLY:'early',LATE:'late',MISS:'miss'}[j];
+    if(k) this.stats[k]++;
+  },
+};
+
+/* ============================================================
+   7. 敵AI  —  短いパターンの条件付き接続 (§17.1)
+   ============================================================ */
+const AI = {
+  // BEGINNER：ほぼ固定順（§13 第2段階の譜面に対応）
+  fixedOrder:['P06','P01','P02','P10','P03','P04','P08','P05','P01','P07','P09','P04'],
+
+  choose(F){
+    const e=F.e;
+    if(F.diff.fixedOrder){
+      const id=this.fixedOrder[F.ai.order % this.fixedOrder.length];
+      F.ai.order++;
+      const p=PATTERNS.find(x=>x.id===id);
+      if(this.usable(F,p)) return p;
+    }
+    const last=F.ai.pattern;
+    let cands=PATTERNS.filter(p=>this.usable(F,p));
+    if(last && last.next){
+      const linked=cands.filter(p=>last.next.includes(p.id));
+      if(linked.length) cands=linked;
+    }
+    // 同じパターンは原則3回連続で使用しない
+    const h=F.ai.history;
+    if(h.length>=2 && h[h.length-1]===h[h.length-2]){
+      const f=cands.filter(p=>p.id!==h[h.length-1]);
+      if(f.length) cands=f;
+    }
+    return cands.length?pick(cands):PATTERNS[0];
+  },
+  usable(F,p){
+    if(!p) return false;
+    if(p.cageOnly && F.p.cage<2) return false;
+    if(p.dist!==F.dist) return false;
+    if(F.e.stam<20 && p.steps.some(s=>MOVES[s.a]&&MOVES[s.a].stam>10)) return false;
+    return true;
+  },
+
+  update(F){
+    const e=F.e, ai=F.ai;
+    if(F.over||F.exchange) return;
+    if(e.state==='stagger'||e.state==='down') return;
+    if(Clock.game < ai.restUntil) return;
+
+    if(!ai.pattern || ai.step>=ai.pattern.steps.length){
+      const p=this.choose(F);
+      ai.pattern=p; ai.step=0; ai.t0=Clock.game;
+      ai.history.push(p.id); if(ai.history.length>6) ai.history.shift();
+      // パターン間の休み
+      ai.restUntil=Clock.game + BEAT*rnd(0.4,1.0)*F.diff.aiRest;
+      return;
+    }
+    const st=ai.pattern.steps[ai.step];
+    if(Clock.game - ai.t0 < st.s*BEAT) return;
+    ai.step++;
+    this.act(F,st.a);
+  },
+
+  act(F,a){
+    const e=F.e;
+    if(MOVES[a]){ Fight.startEnemyAttack(a); return; }
+    switch(a){
+      case 'advance':
+        if(F.dist>FAR){ } // 既に近い
+        Fight.enemyStep(-1); break;
+      case 'retreat': Fight.enemyStep(+1); break;
+      case 'feint':   Fight.startEnemyFeint(); break;
+      case 'block':   e.state='blocking'; e.stateT=Clock.game; e.guardUp=1;
+                      F.ai.restUntil=Clock.game+BEAT*1.2; break;
+    }
+  },
+};
+
+/* ============================================================
+   8. COMBAT  —  攻防の生成・主観時間遷移・解決 (§9 §9.1 §10 §11)
+   ============================================================ */
+Object.assign(Fight,{
+
+  // ---------- 敵：攻撃開始 ----------
+  startEnemyAttack(id){
+    const m=MOVES[id]; if(!m) return;
+    const e=this.e;
+    const tellMul=this.diff.tellMul * (this.feintPenalty?0.8:1);
+    const tell   = m.tell*tellMul;
+    const impact = m.impact*tellMul;
+    e.state='windup'; e.stateT=Clock.game; e.stam=Math.max(0,e.stam-m.stam);
+    this.lastMove=m;
+    // 攻撃方向のヒントとして目線を動かす（必ずしも一致させない §4.2）
+    const truth = Math.random()<0.78;
+    e.gaze.x = truth ? (m.from*-0.6) : (m.from*0.55);
+    e.gaze.y = m.arc==='kick' ? 0.2 : (m.arc==='upper' ? 0.35 : -0.1);
+    Audio_.breath(true, 0.5+e.fatigue*0.5);
+    Audio_.step(true);
+
+    this.exchange={
+      id, data:m, t0:Clock.game, tell, impact:Clock.game+impact,
+      // 読み成立 → 主観時間へ（予備動作開始後に自動発動 §9.1）
+      slowAt:Clock.game + tell*0.70,
+      slowScale:clamp((impact - tell*0.70)/TS.CHOICE_REAL, 0.12, 0.60),
+      slowed:false, slowRealT:0, returning:false,
+      choice:null, judge:null, choiceT:0, resolved:false, feint:false,
+      pAtk:null,
+    };
+    this.hint = m;
+    this.feintPenalty=false;
+  },
+
+  // ---------- 敵：タックルフェイント (§11) ----------
+  startEnemyFeint(){
+    const e=this.e;
+    e.state='windup'; e.stateT=Clock.game; e.leanZ=0;
+    e.gaze.x=0; e.gaze.y=0.3;
+    Audio_.step(false); Audio_.breath(true,0.3);
+    const tell=150*this.diff.tellMul;
+    this.exchange={
+      id:'feint', data:{ja:'タックルフェイント',arc:'tackle',from:0,dmg:0,safe:[],bad:[]},
+      t0:Clock.game, tell, impact:Clock.game+tell+120,
+      slowAt:Clock.game+tell*0.4,
+      slowScale:clamp((tell*0.6+120)/TS.CHOICE_REAL,0.12,0.60),
+      slowed:false, slowRealT:0, returning:false,
+      choice:null, judge:null, choiceT:0, resolved:false, feint:true, pAtk:null,
+    };
+    this.hint=this.exchange.data;
+  },
+
+  // ---------- 敵：ステップ ----------
+  enemyStep(delta){
+    if(this.distT>0) return;
+    const t=clamp(this.dist+delta,0,2);
+    if(t===this.dist){
+      if(delta>0 && this.dist===FAR){ this.e.cage=Math.min(2,this.e.cage+1); Audio_.cage(); }
+      return;
+    }
+    this.distTarget=t; this.distT=Clock.game; this.distDur=STEP_MS;
+    this.e.state='moving'; this.e.stateT=Clock.game;
+    this.e.stam=Math.max(0,this.e.stam-STEP_STAMINA);
+    Audio_.step(delta<0);
+  },
+
+  // ---------- 主観時間の進行 ----------
+  updateExchange(){
+    const ex=this.exchange; if(!ex) return;
+
+    // 読み成立 → 減速 (§9.1)
+    if(!ex.slowed && Clock.game>=ex.slowAt){
+      ex.slowed=true; ex.slowRealT=Clock.real;
+      Clock.to(ex.slowScale||TS.CHOICE, TS.ENTER_MS);
+      Audio_.slowIn();
+      if(this.diff.showIcon) this.beginnerFlash=Clock.real;
+    }
+    // 選択時間の上限（実時間 1.2 秒）
+    if(ex.slowed && !ex.returning && !ex.choice &&
+       Clock.real-ex.slowRealT > TS.MAX_CHOICE_REAL){
+      ex.returning=true; Clock.to(TS.OBSERVE, TS.EXIT_MS); Audio_.slowOut();
+    }
+    // 行動確定 → 通常速度へ復帰
+    if(ex.choice && !ex.returning){
+      ex.returning=true; Clock.to(TS.OBSERVE, TS.EXIT_MS); Audio_.slowOut();
+    }
+    // 接触
+    if(!ex.resolved && Clock.game>=ex.impact){
+      ex.resolved=true;
+      if(ex.feint) this.resolveFeint(); else this.resolveExchange();
+    }
+  },
+
+  // ---------- フェイントの解決 ----------
+  resolveFeint(){
+    const ex=this.exchange;
+    if(ex.choice){
+      // フェイントに反応 → 主観時間を消費し、本命の受付が短くなる (§9.1)
+      this.p.stam=Math.max(0,this.p.stam-6);
+      this.feintPenalty=true;
+      this.float('FEINT','#ff3b30',true);
+      this.stats.miss++;
+      haptic('guard');
+    }else{
+      this.p.stam=Math.min(100,this.p.stam+4);
+      this.float('見切った','#e8e2d4');
+    }
+    this.exchange=null; this.hint=null;
+    Clock.to(TS.OBSERVE, TS.EXIT_MS);
+    this.e.state='recover'; this.e.stateT=Clock.game;
+    // 本タックルは腰を落としてから 450〜600ms 後、または派生打撃 (§11)
+    const follow = Math.random()<0.55 ? 'straight' : 'hook';
+    const delay = rnd(450,600);
+    this.pending={t:Clock.game+delay, move:follow};
+  },
+
+  // ---------- 攻防の解決 ----------
+  resolveExchange(){
+    const ex=this.exchange, m=ex.data, p=this.p, e=this.e;
+    const ch=ex.choice, j=ex.judge;
+    let dmg=m.dmg, note='', color=C.accent, avoided=false;
+
+    // 迎撃／相打ちが先に成立していた場合
+    if(ex.pAtk && ex.pAtk.interrupt){
+      this.exchange=null; this.hint=null; return;
+    }
+
+    const hitX=this.oppFaceX(), hitY=this.oppFaceY();
+
+    if(!ch){                                    // 無入力 → 被弾
+      this.hurt(dmg, m, 'clean');
+      this.float('MISS','#5c6274',true); this.stats.miss++;
+    }else if(j==='MISS'){
+      this.hurt(dmg, m, 'clean');
+      this.float('MISS','#5c6274',true); this.stats.miss++;
+    }else{
+      const safe = m.safe.includes(ch);
+      const bad  = m.bad.includes(ch);
+      this.countJudge(j);
+
+      if(ch==='guard'){
+        // ガードは接触の瞬間も保持している必要がある
+        const still = Input.isHolding(p.guardSide);
+        if(!still){ this.hurt(dmg,m,'clean'); this.float('ガード解除','#5c6274'); }
+        else if(j==='LATE'){
+          this.hurt(dmg*0.35,m,'guard'); this.float('LATE','#8d93a6',true);
+          Audio_.guardHit(); haptic('guard');
+        }else{
+          const red=dmg*0.30;                    // 70%軽減 (§10)
+          p.stam=Math.max(0,p.stam-dmg*0.5*(j==='EARLY'?1.5:1));
+          this.hurt(red,m,'guard');
+          this.stats.guarded++;
+          this.float(j,j==='PERFECT'?C.accent:C.ink,j==='PERFECT');
+          this.burst(hitX,hitY,'guard',j==='PERFECT'?1:0.6);
+          Audio_.guardHit(); haptic(j==='PERFECT'?'perfect':'guard');
+          if(j==='PERFECT') this.grantAdvantage(true);
+          avoided=true;
+        }
+      }else if(safe){
+        if(j==='LATE'){
+          this.hurt(dmg*0.35,m,'graze'); this.float('LATE','#8d93a6',true);
+        }else{
+          p.stam=Math.max(0,p.stam-(j==='PERFECT'?2:4)*(j==='EARLY'?1.5:1));
+          this.stats.slipped++;
+          this.float(j,j==='PERFECT'?C.accent:C.ink,j==='PERFECT');
+          Audio_.whoosh(); haptic(j==='PERFECT'?'perfect':'good');
+          if(j==='PERFECT'){
+            this.grantAdvantage(true);
+            // PERFECT回避後の回り込み → 金網圧力 -1 (§5)
+            if(p.cage>0){ p.cage--; this.float('回り込み','#8d93a6'); }
+          }else{
+            // GOOD／EARLY は姿勢を崩すだけで、カウンター受付は与えない
+            e.state='stagger'; e.stateT=Clock.game; e.stagger=0.4;
+          }
+          avoided=true;
+          if(ch==='sprawl'){                     // スプロール結果 (§11)
+            e.stam=Math.max(0,e.stam-(j==='PERFECT'?15:8));
+            if(j==='PERFECT') this.float('タックル阻止',C.accent);
+            else if(j==='GOOD'){ this.changeDist(+1,false); }
+          }
+          if(ch==='intercept'){                  // 膝・アッパー迎撃 (§11)
+            this.dealDamage(j==='PERFECT'?22:12, j, j==='PERFECT', 'upper');
+          }
+        }
+      }else if(bad){
+        this.hurt(dmg*1.2,m,'clean');
+        this.float('危険な対応','#ff3b30',true); this.stats.miss++;
+      }else{
+        this.hurt(dmg,m,'clean');
+        this.float('MISS','#5c6274',true); this.stats.miss++;
+      }
+    }
+
+    // タックルの MISS はテイクダウン (§11 §15)
+    if(ex.id==='tackle' && !avoided){
+      this.finish(false,'TAKEDOWN');
+    }
+    this.exchange=null; this.hint=null;
+    e.state='recover'; e.stateT=Clock.game;
+    Clock.to(TS.OBSERVE, TS.EXIT_MS);
+    this.ai.restUntil=Clock.game+BEAT*rnd(0.5,1.1)*this.diff.aiRest;
+  },
+
+  // ---------- 有利状態 (§9) ----------
+  grantAdvantage(perfect){
+    this.p.advUntil=Clock.game+COUNTER_WINDOW;
+    this.p.advPerfect=perfect;
+    this.e.state='stagger'; this.e.stateT=Clock.game;
+    this.e.stagger=perfect?1:0.55;
+  },
+
+  // ---------- プレイヤー被弾 ----------
+  hurt(dmg, m, kind){
+    const p=this.p;
+    if(this.stepping) dmg*=1.25;                 // ステップ中に被弾 (§5)
+    if(this.e.stam<20) dmg*=0.8;                 // 相手のスタミナ切れ (§10)
+    dmg=Math.round(dmg*10)/10;
+    p.hp=Math.max(0,p.hp-dmg);
+    p.hurtT=Clock.real;
+    p.shake=kind==='guard'?0.35:1;
+    this.stats.taken+=dmg;
+    this.burst(this.oppFaceX(),this.oppFaceY(),kind==='guard'?'guard':'hurt',
+               clamp(dmg/14,0.3,1));
+    if(kind==='guard') Audio_.guardHit(); else { Audio_.punchHit(clamp(dmg/14,0.2,1)); haptic('hurt'); }
+    // 強打を受ける → 30%で1段階後退 (§5)
+    if(kind==='clean' && dmg>=10 && Math.random()<0.3 && this.distT<0){
+      this.distTarget=clamp(this.dist-1,0,2);
+      if(this.distTarget!==this.dist){ this.distT=Clock.game; this.distDur=STEP_MS; }
+      else if(this.p.cage<2){ this.p.cage++; Audio_.cage(); }
+    }
+    if(p.hp<=0) this.finish(false,'KO');
+  },
+
+  // ---------- プレイヤー攻撃 ----------
+  playerAttack(id, gestureName){
+    const p=this.p, e=this.e;
+    const m=pmove(id); if(!m) return;
+    if(Clock.game<p.stunUntil) return;
+    if(p.stam<=0){ p.stunUntil=Clock.game+900; this.float('スタミナ切れ','#5c6274'); return; }
+
+    const travel = (MOVES[id]?MOVES[id].impact:420)*0.72;
+    const impactT = Clock.game+travel;
+    p.action={id,m,t0:Clock.game,impact:impactT,dur:travel,recover:travel*0.9,gesture:gestureName};
+    p.stam=Math.max(0,p.stam-m.stam);
+    this.stats.inputs++;
+    Audio_.glove();
+
+    // 相手の攻撃中に打つ → 迎撃 or 相打ち
+    const ex=this.exchange;
+    if(ex && !ex.resolved && !ex.feint){
+      const gap = ex.impact - impactT;
+      if(gap>40){ ex.pAtk={interrupt:true}; p.action.interrupt=true; }
+      else if(gap>-40){ p.action.trade=true; }
+      else { p.action.late=true; }
+    }
+  },
+
+  updatePlayerAttack(){
+    const p=this.p; if(!p.action) return;
+    const a=p.action;
+    if(!a.landed && Clock.game>=a.impact){
+      a.landed=true;
+      // 拍への着地でカウンター品質を決める (§9 §14)
+      const beatDiff=this.beatOffset(a.impact);
+      const j=this.judgeOf(beatDiff);
+      this.dealDamage(a.m.dmg, j, this.advantage, a.m.arc, a);
+    }
+    if(Clock.game>=a.impact+a.recover){ p.action=null; }
+  },
+
+  beatOffset(t){
+    const b=t % BEAT;
+    return b>BEAT/2 ? b-BEAT : b;
+  },
+
+  dealDamage(base, judge, isCounter, arc, action){
+    const e=this.e, p=this.p;
+    let dmg=base, tag='', color=C.ink, perfect=false;
+
+    if(action && action.late){                   // 攻撃が遅れて差し返される
+      this.float('差し込まれた','#5c6274');
+      p.stam=Math.max(0,p.stam-(action.m.whiff||3));
+      return;
+    }
+    // 相手が下がっている最中は空振り (§10 空振り時追加消費)
+    if(e.state==='moving' && this.distTarget<this.dist){
+      this.float('空振り','#5c6274');
+      p.stam=Math.max(0,p.stam-((action&&action.m.whiff)||4));
+      Audio_.whoosh();
+      return;
+    }
+    // 相手のガード状態でダメージが変わる（隙を突けるほど通る）
+    const guardMul = 1 - 0.7*e.guardUp;
+    const blocked = e.guardUp>0.42 && !isCounter;
+    dmg *= guardMul;
+    if(blocked){
+      // 構えたガードへ打ち込むのは割に合わない：スタミナを余分に失い、
+      // 相手に差し返しの機会を与える
+      p.stam=Math.max(0,p.stam-((action&&action.m.whiff)||3));
+      if(!this.exchange && !this.over && e.state==='idle' && Math.random()<0.38){
+        this.pending={t:Clock.game+rnd(120,260), move:Math.random()<0.6?'straight':'hook'};
+      }
+    }
+    if(this.stepping) dmg*=0.9;
+    if(p.stam<20) dmg*=0.8;                      // §10
+
+    if(isCounter){
+      if(judge==='PERFECT'){ dmg*=1.8; tag='PERFECT COUNTER'; color=C.accent; perfect=true; }
+      else { dmg*=1.5; tag='COUNTER'; color=C.accentSoft; }
+    }else{
+      if(judge==='PERFECT'){ dmg*=1.25; tag='PERFECT'; color=C.accent; perfect=true; }
+      else if(judge==='GOOD'){ tag='GOOD'; }
+      else { dmg*=0.9; tag=''; }
+    }
+    if(action && action.trade){ tag='相打ち'; }
+    if(action && action.interrupt){ dmg*=1.2; tag=tag||'迎撃'; color=C.accent; }
+
+    dmg=Math.round(dmg*10)/10;
+    e.hp=Math.max(0,e.hp-dmg);
+    this.stats.hits++;
+    if(perfect) this.stats.perfect++; else if(judge==='GOOD') this.stats.good++;
+
+    const x=this.oppFaceX(), y=arc==='kick'?this.oppBodyY():this.oppFaceY();
+    this.burst(x,y,perfect?'perfect':'hit',clamp(dmg/16,0.3,1));
+    if(tag) this.float(tag,color,perfect);
+    else if(blocked) this.float('ガードされた','#5c6274');
+    if(perfect){ Audio_.punchPerfect(); haptic('perfect'); this.hitstop=Clock.real+70; }
+    else { Audio_.punchHit(clamp(dmg/16,0.2,1)); haptic('good'); this.hitstop=Clock.real+28; }
+    Clock.to(TS.OBSERVE, TS.EXIT_MS);          // 拍へ戻す
+
+    e.state='stagger'; e.stateT=Clock.game; e.stagger=Math.max(e.stagger,clamp(dmg/16,0.3,1));
+    // 相打ちは相手の攻撃を止めない（こちらも被弾する）
+    if(!(action && action.trade)){ this.exchange=null; this.hint=null; }
+
+    // PERFECTカウンター → 相手を1段階後退、金網圧力の入れ替え (§5)
+    if(perfect && isCounter){
+      this.p.cage=Math.max(0,this.p.cage-1);
+      this.e.cage=Math.min(2,this.e.cage+1);
+      if(this.dist<FAR+1 && this.distT<0){}
+      if(this.distT<0 && this.dist<2){ this.distTarget=Math.min(2,this.dist); }
+      this.enemyKnockback();
+    }
+    this.p.advUntil=-1;
+    if(e.hp<=0) this.finish(true,'KO');
+  },
+
+  enemyKnockback(){
+    if(this.distT>=0) return;
+    const t=clamp(this.dist-1,0,2);
+    if(t!==this.dist){ this.distTarget=t; this.distT=Clock.game; this.distDur=STEP_MS; }
+    else { this.e.cage=Math.min(2,this.e.cage+1); Audio_.cage(); }
+  },
+
+  // ---------- 決着 ----------
+  finish(win,reason){
+    if(this.over) return;
+    this.over=true; this.win=win; this.endReason=reason;
+    this.overT=Clock.real;
+    Clock.to(0.35,300);
+    if(!win) this.e.state='idle'; else { this.e.state='down'; this.e.downT=Clock.game; }
+  },
+});
+
+// Object.assign はソースのゲッターを評価するため、個別に定義する
+Object.defineProperty(Fight,'advantage',{get(){ return Clock.game < this.p.advUntil; }});
+
+/* ============================================================
+   9. ジェスチャー → 行動 (§6 §8)
+   ============================================================ */
+Object.assign(Fight,{
+
+  setChoice(kind, gtime){
+    const ex=this.exchange;
+    if(!ex || ex.choice || ex.resolved) return null;
+    const diff=(gtime + this.offsetMs) - ex.impact;
+    ex.choice=kind; ex.choiceT=gtime; ex.judge=this.judgeOf(diff); ex.diff=diff;
+    this.lastJudge=ex.judge; this.lastDiff=Math.round(diff);
+    return ex.judge;
+  },
+
+  handleGesture(g){
+    if(this.over) return;
+    const p=this.p, e=this.e, d=this.dist;
+    const ex=(this.exchange && !this.exchange.resolved) ? this.exchange : null;
+    if(Clock.game<p.stunUntil) return;
+
+    switch(g.type){
+
+      case 'HOLD': {                       // 長押し = 左右ガード (§6)
+        p.guard=g.side; p.guardSide=g.side; p.guardT=Clock.game;
+        if(ex) this.setChoice('guard', g.game);
+        Audio_.glove();
+        break;
+      }
+
+      case 'LEFT_RELEASE': case 'RIGHT_RELEASE': {
+        const side=g.type[0]==='L'?'L':'R';
+        if(p.guard===side){
+          p.guard=null;
+          // ガード後に離す = クイックカウンター (§6)
+          if(this.advantage || Clock.game-p.guardT<900){
+            const id=PLAYER_MOVES[side==='L'?'tapL':'tapR'][d];
+            this.playerAttack(id,'quick');
+          }
+        }
+        break;
+      }
+
+      case 'TAP': {
+        const id=PLAYER_MOVES[g.side==='L'?'tapL':'tapR'][d];
+        if(ex) this.setChoice('attack', g.game);
+        this.playerAttack(id,'tap');
+        break;
+      }
+
+      case 'SWIPE': {
+        if(g.dir==='OUT'){
+          // 文脈型回避：攻撃が接近中ならスリップ、なければ回り込み (§8)
+          const sideDir = (g.side==='L') ? 'slipL' : 'slipR';
+          p.slip = (g.side==='L') ? -1 : 1;
+          p.slipT = Clock.real;
+          if(ex){ this.setChoice(sideDir, g.game); Audio_.whoosh(); }
+          else {
+            if(p.cage>0){ p.cage--; this.float('回り込み','#8d93a6'); }
+            else this.float('角度を取る','#5c6274');
+            Audio_.step(false);
+          }
+        }else if(g.dir==='IN'){
+          const id=PLAYER_MOVES.slideIn[d];
+          if(ex) this.setChoice('attack', g.game);
+          this.playerAttack(id,'in');
+        }else if(g.dir==='UP'){
+          if(ex && ex.data.arc==='tackle'){    // 膝・アッパー迎撃 (§11)
+            this.setChoice('intercept', g.game);
+            p.crouch=-0.4;
+          }else{
+            const id=PLAYER_MOVES.slideUp[d];
+            if(ex) this.setChoice('attack', g.game);
+            this.playerAttack(id,'up');
+          }
+        }
+        break;
+      }
+
+      case 'DUAL_UP': {                    // 両指上 = 前進 (§5)
+        if(ex) this.setChoice('advance', g.game);
+        this.changeDist(+1, this.advantage);
+        break;
+      }
+      case 'DUAL_DOWN': {                  // 両指下 = 後退／スウェー
+        if(ex) this.setChoice('sway', g.game);
+        p.sway=1; p.swayT=Clock.real;
+        this.changeDist(-1, false);
+        break;
+      }
+      case 'DUAL_IN': {                    // 両指中央 = タックル／ボディロック (§11)
+        if(d===FAR){ this.float('届かない','#5c6274'); p.stam=Math.max(0,p.stam-6); break; }
+        if(ex) this.setChoice('attack', g.game);
+        p.stam=Math.max(0,p.stam-MOVES.tackle.stam);
+        this.playerTackle();
+        break;
+      }
+      case 'DUAL_HOLD': {                  // 両指長押し = スプロール／低い構え (§11)
+        p.crouch=1;
+        if(ex) this.setChoice('sprawl', g.game);
+        break;
+      }
+    }
+  },
+
+  playerTackle(){
+    const e=this.e;
+    // 相手が硬直・崩れ中なら成功、そうでなければ切られる
+    const open = e.state==='stagger'||e.state==='recover';
+    if(open){ this.finish(true,'TAKEDOWN'); }
+    else { this.float('切られた','#5c6274'); this.p.stam=Math.max(0,this.p.stam-12);
+           this.hurt(6,{dmg:6,arc:'straight',from:0},'clean'); }
+  },
+});
+
+/* ============================================================
+   10. 毎フレーム更新
+   ============================================================ */
+Object.assign(Fight,{
+  update(){
+    if(this.over){ this.updateFx(); return; }
+    const p=this.p, e=this.e, gdt=Clock.gameDt;
+    this.elapsed += this.mode==='single' ? Clock.gameDt : Clock.gameDt;
+
+    // --- 拍：相手の踏み込みを基準音にする (§14) ---
+    const bi=Math.floor(Clock.game/BEAT);
+    if(bi!==this.lastBeatIdx){
+      this.lastBeatIdx=bi;
+      this.beat=bi;
+      if(Clock.scale>0.7 && !this.exchange){
+        const strong=(bi%4===0);
+        if(e.state==='idle'||e.state==='moving'){
+          Audio_.step(strong); e.legStep=1;
+        }
+        if(bi%2===1) Audio_.breath(false, e.fatigue);
+        if(strong && bi%8===0) Audio_.crowd(clamp((100-e.hp)/100,0,1));
+      }
+    }
+    // 心拍は実時間に近い速度で鳴らし、主観時間の基準にする (§9.1)
+    if(Clock.scale<0.6){
+      this.heartT=(this.heartT||0)+Clock.realDt;
+      if(this.heartT>620){ this.heartT=0; Audio_.heart(); }
+    }
+
+    // --- スタミナ (§10) ---
+    const regen = (p.guard?2:6)/1000*gdt;
+    p.stam=clamp(p.stam+regen,0,100);
+    e.stam=clamp(e.stam+6/1000*gdt,0,100);
+    e.fatigue=clamp(1-e.stam/100,0,1);
+    if(p.stam<=0 && Clock.game>p.stunUntil){ p.stunUntil=Clock.game+900; this.float('スタミナ切れ','#5c6274'); }
+
+    // --- 進行 ---
+    this.updateDist();
+    this.updateExchange();
+    this.updatePlayerAttack();
+    this.updateEnemyState();
+    this.updateFx();
+
+    // フェイント後の本命
+    if(this.pending && Clock.game>=this.pending.t){
+      const mv=this.pending.move; this.pending=null;
+      this.startEnemyAttack(mv);
+    }
+
+    // --- 敵の行動選択 ---
+    if(this.mode==='single') this.runScript(); else AI.update(this);
+
+    // --- 有利状態を使わなかった場合はスタミナ回復 (§9) ---
+    if(p.advUntil>0 && Clock.game>=p.advUntil){
+      p.advUntil=-1; p.stam=clamp(p.stam+5,0,100);
+    }
+
+    // --- スコア用の秒数 (§15) ---
+    const sec=gdt/1000;
+    if(this.dist===STRIKE) this.stats.favSec+=sec;
+    if(e.cage>=2) this.stats.cageOnSec+=sec;
+    if(p.cage>=2) this.stats.cageMySec+=sec;
+
+    // --- 時間 ---
+    if(this.mode==='match' && this.elapsed>=this.timeLimit){
+      const s=this.score();
+      this.finish(s>=0,'DECISION');
+    }
+  },
+
+  runScript(){
+    if(!this.script) return;
+    while(this.scriptIdx<this.script.length && this.elapsed>=this.script[this.scriptIdx].at){
+      const s=this.script[this.scriptIdx++];
+      if(s.a==='attack'){ if(!this.exchange) this.startEnemyAttack(s.move); else this.scriptIdx--; break; }
+      else if(s.a==='stepIn'){ Audio_.step(true); this.e.legStep=1; }
+      else if(s.a==='breathe'){ Audio_.breath(true,0.2); }
+      else if(s.a==='end'){ this.finish(this.e.hp<=this.p.hp,'SEQUENCE'); }
+    }
+  },
+
+  updateEnemyState(){
+    const e=this.e, ex=this.exchange;
+    const el=Clock.game-e.stateT;
+    // ガードの開き具合（隙の大きさ）
+    let target=0.78;
+    if(e.state==='windup')      target=0.15;
+    else if(e.state==='recover')target=0.06;
+    else if(e.state==='stagger')target=0.0;
+    else if(e.state==='blocking')target=1.0;
+    else if(e.state==='moving') target=0.50;
+    e.guardUp=damp(e.guardUp,target,10,Clock.realDt);
+
+    if(e.state==='recover' && el>320){ e.state='idle'; e.stateT=Clock.game; }
+    if(e.state==='blocking'&& el>700){ e.state='idle'; e.stateT=Clock.game; }
+    if(e.state==='moving'  && el>STEP_MS){ e.state='idle'; e.stateT=Clock.game; }
+    if(e.state==='stagger'){
+      e.stagger=damp(e.stagger,0,4,Clock.realDt);
+      if(el>560){ e.state='idle'; e.stateT=Clock.game; e.stagger=0; }
+    }
+    if(e.state==='idle'){ e.gaze.x=damp(e.gaze.x,Math.sin(Clock.game/1400)*0.12,3,Clock.realDt);
+                          e.gaze.y=damp(e.gaze.y,0,3,Clock.realDt); }
+    e.breath=Math.sin(Clock.game/(760-260*e.fatigue))*(0.5+0.5*e.fatigue);
+    e.legStep=damp(e.legStep,0,9,Clock.realDt);
+  },
+
+  updateFx(){
+    const now=Clock.real;
+    this.fx=this.fx.filter(f=>now-f.t<520);
+    this.floats=this.floats.filter(f=>now-f.t<1100);
+    this.p.shake=damp(this.p.shake,0,7,Clock.realDt);
+  },
+
+  // 判定スコア (§15)
+  score(){
+    const s=this.stats;
+    return Math.round(
+      (this.p.hp-this.e.hp)*10 + s.perfect*100 +
+      s.favSec*20 + s.cageOnSec*15 - s.cageMySec*15
+    );
+  },
+});
+
+/* ============================================================
+   11. VIEW  —  レイアウト計算 (§4)
+   上部15% HP / 中央70% 相手 / 下部15% 距離
+   ============================================================ */
+const V = {W:390,H:844,short:390,dpr:1,
+           topH:0,midH:0,botH:0,groundY:0,cx:195,bh:400,scale:1,
+           faceX:195,faceY:300,bodyY:400,shoulderY:0,hw:0};
+
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+
+function resize(){
+  const w=window.innerWidth, h=window.innerHeight;
+  const dpr=Math.min(window.devicePixelRatio||1, 2.5);
+  V.W=w; V.H=h; V.short=Math.min(w,h); V.dpr=dpr;
+  cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  Input.short=V.short;
+  V.topH=h*0.15; V.botH=h*0.15; V.midH=h*0.70;
+  V.groundY=h*0.815;
+}
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',()=>setTimeout(resize,120));
+
+// 距離 → 身長スケールと足元の位置（近いほど下半身が画面外へ出る）
+const DIST_SCALE =[0.62,1.06,1.72];
+const DIST_GROUND=[0.84,1.22,1.78];
+function distLerp(arr,dv){
+  const i=Math.floor(dv), f=dv-i;
+  return lerp(arr[clamp(i,0,2)],arr[clamp(i+1,0,2)],f);
+}
+function distScale(dv){ return distLerp(DIST_SCALE,dv); }
+
+// 相手の各部位（Fight から参照される接触点）
+Object.assign(Fight,{
+  oppFaceX(){ return V.faceX; },
+  oppFaceY(){ return V.faceY; },
+  oppBodyY(){ return V.bodyY; },
+});
+
+/* ============================================================
+   12. 背景・金網 (§4.1)
+   ============================================================ */
+function drawBackground(F){
+  const {W,H}=V;
+  // ベース
+  let g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#05070d'); g.addColorStop(0.42,C.bg1); g.addColorStop(1,'#04060b');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // リングライト
+  const lx=W*0.5, ly=H*0.12;
+  g=ctx.createRadialGradient(lx,ly,0,lx,ly,H*0.62);
+  const heat=clamp((100-F.e.hp)/100,0,1);
+  g.addColorStop(0,`rgba(${120+60*heat},${130},${170},0.34)`);
+  g.addColorStop(0.45,'rgba(40,54,86,0.16)');
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // 観客席（情報量を抑える §4.1）
+  ctx.save();
+  ctx.globalAlpha=0.5;
+  for(let r=0;r<3;r++){
+    const y=H*(0.16+r*0.045), a=0.10-r*0.02;
+    ctx.fillStyle=`rgba(232,226,212,${a})`;
+    const n=Math.ceil(W/13);
+    for(let i=0;i<n;i++){
+      const x=i*13+((r%2)*6);
+      const s=2+((i*7+r*3)%3);
+      const flick = 0.6+0.4*Math.sin(Clock.real/900+i*1.7+r);
+      ctx.globalAlpha=a*4*flick*0.5;
+      ctx.fillRect(x,y,s,s*0.7);
+    }
+  }
+  ctx.restore();
+
+  // 床（距離に応じて視界から外れる）
+  const fy=V.groundY;
+  if(fy<V.H){
+  g=ctx.createLinearGradient(0,fy-H*0.06,0,H);
+  g.addColorStop(0,'#0b1020'); g.addColorStop(0.35,'#151d31'); g.addColorStop(1,'#080b14');
+  ctx.fillStyle=g; ctx.fillRect(0,fy-2,W,H-fy+2);
+  ctx.save();
+  ctx.globalAlpha=0.10; ctx.fillStyle=C.ink;
+  ctx.beginPath(); ctx.ellipse(W*0.5,fy+H*0.055,W*0.42,H*0.045,0,0,7); ctx.fill();
+  ctx.restore();
+  }
+}
+
+function drawCage(F){
+  const {W,H}=V;
+  const near=1-clamp(F.distVisual/2,0,1);          // 遠いほど金網がはっきり
+  ctx.save();
+  ctx.globalAlpha=0.16+0.16*near;
+  ctx.strokeStyle=C.cage; ctx.lineWidth=1;
+  const top=V.topH*0.75, bot=Math.min(V.groundY,H*1.02);
+  const cell=Math.max(30,W*0.115*(0.7+0.6*near));
+  const span=bot-top;
+  ctx.beginPath();
+  for(let x=-span;x<W+span;x+=cell){
+    ctx.moveTo(x,top); ctx.lineTo(x+span,bot);
+    ctx.moveTo(x+span,top); ctx.lineTo(x,bot);
+  }
+  ctx.stroke();
+  // 支柱
+  ctx.globalAlpha=0.20; ctx.lineWidth=3;
+  ctx.beginPath();
+  for(let i=0;i<=3;i++){ const x=W*(i+0.5)/3; ctx.moveTo(x,top); ctx.lineTo(x,bot); }
+  ctx.stroke();
+  ctx.restore();
+
+  // 金網際の圧迫表現
+  if(F.p.cage>=2){
+    ctx.save();
+    const a=0.18+0.10*Math.sin(Clock.real/220);
+    let g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,`rgba(255,59,48,${a*0.5})`); g.addColorStop(0.5,'rgba(255,59,48,0)');
+    g.addColorStop(1,`rgba(255,59,48,${a*0.7})`);
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+}
+
+/* ============================================================
+   13. 相手の描画  —  セルルック / 面で構成 (§4.1 §4.2)
+   ============================================================ */
+function drawOpponent(F){
+  const e=F.e;
+  const dv=F.distVisual;
+  const sc=V.scale;
+  const bh=V.bh;                              // 身長
+  const feet=V.groundY;
+  const breath=e.breath*bh*0.006;
+  const stagX=e.stagger*Math.sin(Clock.real/45)*bh*0.03;
+  const cx=V.W*0.5 + stagX + e.hipRot*bh*0.03;
+
+  V.scale=sc; V.bh=bh; V.cx=cx;
+  const headY=feet-bh*0.895+breath;
+  const headR=bh*0.090;
+  const shY  =feet-bh*0.755+breath;
+  const hipY =feet-bh*0.520;
+  const hw   =bh*0.178;                        // 肩半幅
+  V.faceX=cx; V.faceY=headY; V.bodyY=(shY+hipY)/2; V.shoulderY=shY; V.hw=hw;
+
+  // --- 攻撃の進行度 ---
+  const ex=F.exchange;
+  let wind=0, strike=0, m=null, side=0, arc='straight';
+  if(ex && !ex.resolved){
+    m=ex.data; arc=m.arc||'straight';
+    side = m.side==='R' ? -1 : (m.side==='L' ? 1 : 0);   // 画面上の左右
+    const tellEnd=ex.t0+ex.tell;
+    if(Clock.game<tellEnd) wind=clamp((Clock.game-ex.t0)/ex.tell,0,1);
+    else { wind=1; strike=clamp((Clock.game-tellEnd)/Math.max(1,ex.impact-tellEnd),0,1); }
+  }else if(e.state==='recover'){
+    strike=1-clamp((Clock.game-e.stateT)/320,0,1);
+    const lm=F.lastMove; if(lm){ m=lm; side=lm.side==='R'?-1:(lm.side==='L'?1:0); arc=lm.arc; }
+  }
+
+  ctx.save();
+
+  // --- 影 ---
+  ctx.globalAlpha=0.32; ctx.fillStyle='#000';
+  ctx.beginPath(); ctx.ellipse(cx,feet+bh*0.012,bh*0.20,bh*0.028,0,0,7); ctx.fill();
+  ctx.globalAlpha=1;
+
+  const lean = (wind*0.5+strike*0.5);
+  const bodyDX = arc==='tackle' ? 0 : side*bh*0.020*wind - side*bh*0.014*strike;
+  const bodyDY = (arc==='tackle'? bh*0.12*lean : 0) + (arc==='upper'? bh*0.030*wind : 0)
+               + (arc!=='tackle' ? bh*0.010*wind : 0);
+  // 腰の回転（打つ側が引かれる → 打ち出しで一気に返る）
+  e.hipRot = (side||0)*(0.55*wind - 0.75*strike);
+  const twL = 1 + ((side===-1)? (-0.30*wind+0.34*strike) : (0.12*wind-0.08*strike));
+  const twR = 1 + ((side=== 1)? (-0.30*wind+0.34*strike) : (0.12*wind-0.08*strike));
+
+  // --- 脚（太腿→膝→脛→足を面で構成）---
+  if(feet-bh*0.52 < V.H){
+    const stepK=e.legStep;
+    const legs=[[-1,bh*0.105,-bh*0.010*stepK],[1,bh*0.115,bh*0.02*wind]];
+    for(const [sg,spread,off] of legs){
+      const hipX=cx+sg*bh*0.052, kneeX=cx+sg*spread*0.86+off*0.5;
+      const kneeY=feet-bh*0.255, ankX=cx+sg*spread+off, ankY=feet-bh*0.012;
+      ctx.beginPath();
+      ctx.moveTo(hipX-bh*0.050,hipY+bodyDY);
+      ctx.lineTo(hipX+bh*0.050,hipY+bodyDY);
+      ctx.quadraticCurveTo(kneeX+bh*0.040,(hipY+kneeY)/2,kneeX+bh*0.036,kneeY);
+      ctx.lineTo(ankX+bh*0.024,ankY);
+      ctx.lineTo(ankX-bh*0.024,ankY);
+      ctx.quadraticCurveTo(kneeX-bh*0.040,(hipY+kneeY)/2,hipX-bh*0.050,hipY+bodyDY);
+      ctx.closePath();
+      ctx.fillStyle=C.bg2; ctx.fill();
+      ctx.strokeStyle='rgba(10,13,22,0.7)'; ctx.lineWidth=Math.max(1,bh*0.005); ctx.stroke();
+      // 脛のハイライト面
+      ctx.fillStyle=sg<0?'rgba(232,226,212,0.10)':'rgba(0,0,0,0.16)';
+      ctx.beginPath();
+      ctx.moveTo(kneeX-bh*0.030,kneeY); ctx.lineTo(kneeX-bh*0.006,kneeY);
+      ctx.lineTo(ankX-bh*0.004,ankY); ctx.lineTo(ankX-bh*0.020,ankY);
+      ctx.closePath(); ctx.fill();
+      // 足
+      ctx.fillStyle='#0f1424';
+      ctx.beginPath();
+      ctx.ellipse(ankX+sg*bh*0.012,feet,bh*0.045,bh*0.016,0,0,7); ctx.fill();
+    }
+  }
+
+  // --- キック軌道 ---
+  if(arc==='kick' && strike>0){
+    const kx=cx+side*bh*0.30*(1-strike)+side*bh*0.02;
+    const ky=lerp(hipY, m.ja==='ハイキック'?headY:V.bodyY, easeOut(strike));
+    ctx.strokeStyle=C.bg2; ctx.lineWidth=bh*0.062; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(cx+side*bh*0.045,hipY); 
+    ctx.quadraticCurveTo(cx+side*bh*0.22,hipY-bh*0.02,kx,ky); ctx.stroke();
+    ctx.fillStyle=C.bg2;
+    ctx.beginPath(); ctx.arc(kx,ky,bh*0.045,0,7); ctx.fill();
+  }
+
+  // --- 胴（面で構成） ---
+  const sx=cx+bodyDX, sy=shY+bodyDY, hy=hipY+bodyDY;
+  // 首
+  ctx.fillStyle=C.skinShade;
+  ctx.beginPath();
+  ctx.moveTo(sx-headR*0.42,headY+headR*0.55); ctx.lineTo(sx+headR*0.42,headY+headR*0.55);
+  ctx.lineTo(sx+headR*0.52,sy+bh*0.006); ctx.lineTo(sx-headR*0.52,sy+bh*0.006);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,0.30)';
+  ctx.beginPath();
+  ctx.moveTo(sx-headR*0.42,headY+headR*0.55); ctx.lineTo(sx+headR*0.42,headY+headR*0.55);
+  ctx.lineTo(sx+headR*0.30,headY+headR*0.95); ctx.lineTo(sx-headR*0.30,headY+headR*0.95);
+  ctx.closePath(); ctx.fill();
+
+  const hwL=hw*twL, hwR=hw*twR;
+  const hipDX=e.hipRot*bh*0.020;
+  const torso=new Path2D();
+  torso.moveTo(sx-hwL,sy+bh*0.020);
+  torso.quadraticCurveTo(sx-hwL*0.92,(sy+hy)/2,sx-hw*0.60+hipDX,hy);
+  torso.lineTo(sx+hw*0.60+hipDX,hy);
+  torso.quadraticCurveTo(sx+hwR*0.92,(sy+hy)/2,sx+hwR,sy+bh*0.020);
+  // 僧帽筋のスロープ
+  torso.quadraticCurveTo(sx+hwR*0.52,sy-bh*0.030,sx+headR*0.50,sy-bh*0.040);
+  torso.lineTo(sx-headR*0.50,sy-bh*0.040);
+  torso.quadraticCurveTo(sx-hwL*0.52,sy-bh*0.030,sx-hwL,sy+bh*0.020);
+  torso.closePath();
+  ctx.fillStyle=C.bg2; ctx.fill(torso);
+  // 明面（リングライト側）
+  ctx.save(); ctx.clip(torso);
+  ctx.fillStyle='rgba(232,226,212,0.09)';
+  ctx.fillRect(sx-hw,sy-bh*0.05,hw*0.85,bh*0.4);
+  ctx.fillStyle='rgba(0,0,0,0.22)';
+  ctx.fillRect(sx+hw*0.25,sy-bh*0.05,hw,bh*0.4);
+  ctx.restore();
+  // 抑制した輪郭線
+  ctx.strokeStyle='rgba(10,13,22,0.85)'; ctx.lineWidth=Math.max(1,bh*0.006);
+  ctx.stroke(torso);
+  // ショーツのアクセント
+  ctx.fillStyle=C.accent; ctx.globalAlpha=0.85;
+  ctx.fillRect(sx-hw*0.64+hipDX,hy-bh*0.012,hw*1.28,bh*0.026);
+  ctx.globalAlpha=1;
+
+  // --- 腕 ---
+  const armOpt={cx:sx,shY:sy,headY,headR,bh,hw,side,wind,strike,arc,m};
+  drawEnemyArm(F,-1,armOpt);
+  drawEnemyArm(F,+1,armOpt);
+
+  // --- 頭 ---
+  drawEnemyHead(F,{cx:sx+ (e.gaze.x*headR*0.10), headY,headR,bh,wind,strike,arc});
+
+  // 手前へ来た拳は顔より前
+  if(side!==0 && strike>0.28 && arc!=='kick' && arc!=='tackle') drawEnemyArm(F,side,armOpt);
+
+  ctx.restore();
+}
+
+// s: -1 = 画面左（相手の右手） / +1 = 画面右（相手の左手）
+function drawEnemyArm(F,s,o){
+  const {cx,shY,headY,headR,bh,side,wind,strike,arc,m}=o;
+  // 打つ側の肩は引かれて中央へ寄り、打ち出すと前へ出る
+  const twist = (s===side) ? (-0.30*wind + 0.34*strike) : (0.12*wind - 0.08*strike);
+  const hw = o.hw*(1+twist);
+  const striking = (side===s) && strike>0 && arc!=='kick' && arc!=='tackle';
+  const shx=cx+s*hw*0.92, shy=shY+bh*0.012 + (s===side? bh*0.010*wind : 0);
+
+  // ガード位置（構え）
+  let gx=cx+s*hw*0.74, gy=headY+headR*0.62, r=bh*0.047;
+  let ex_=cx+s*hw*0.86, ey=shY+bh*0.095;     // 肘
+
+  if(wind>0 && strike===0){
+    const w=easeOut(wind);
+    if(side===s){
+      // 打つ側：引き手を後ろへ（画面上は中央寄り・小さく・下がる）
+      if(arc==='hook'){
+        gx=lerp(cx+s*hw*0.74, cx+s*hw*1.62, w);
+        gy=lerp(headY+headR*0.62, headY+headR*0.05, w);
+        r*=1+0.10*w;
+        ex_=lerp(ex_, cx+s*hw*1.34, w); ey=lerp(ey, shY+bh*0.02, w);
+      }else if(arc==='upper'){
+        gx=lerp(cx+s*hw*0.74, cx+s*hw*0.66, w);
+        gy=lerp(headY+headR*0.62, shY+bh*0.20, w);
+        r*=1-0.10*w;
+        ex_=lerp(ex_, cx+s*hw*0.96, w); ey=lerp(ey, shY+bh*0.19, w);
+      }else if(arc==='tackle'){
+        gx=lerp(cx+s*hw*0.74, cx+s*hw*1.05, w);
+        gy=lerp(headY+headR*0.62, shY+bh*0.10, w);
+        ex_=lerp(ex_, cx+s*hw*1.16, w);
+      }else{
+        // ジャブ／ストレート：顎の横へ引き、奥へ引く分だけ小さく見せる
+        gx=lerp(cx+s*hw*0.74, cx+s*hw*0.52, w);
+        gy=lerp(headY+headR*0.62, headY+headR*1.05, w);
+        r*=1-0.24*w;
+        ex_=lerp(ex_, cx+s*hw*0.70, w); ey=lerp(ey, shY+bh*0.13, w);
+      }
+    }else{
+      // 反対の腕：わずかに前へ出る
+      gx=lerp(gx, cx+s*hw*0.86, w*0.8);
+      gy=lerp(gy, headY+headR*0.48, w*0.8);
+      r*=1+0.08*w;
+    }
+  }
+  if(striking){
+    const u=Math.pow(strike,1.55);
+    const tx=V.W*0.5+s*bh*0.03, ty=V.H*0.44;
+    let sx0=cx+s*hw*0.98, sy0=headY+headR*0.55;
+    if(arc==='upper'){ sx0=cx+s*hw*0.75; sy0=shY+bh*0.14; }
+    if(arc==='hook'){ sx0=cx+s*hw*1.45; sy0=headY-headR*0.15; }
+    if(arc==='hook'){
+      const c1x=cx+s*hw*2.6, c1y=headY+headR*0.1;
+      gx=(1-u)*(1-u)*sx0+2*(1-u)*u*c1x+u*u*tx;
+      gy=(1-u)*(1-u)*sy0+2*(1-u)*u*c1y+u*u*ty;
+    }else if(arc==='upper'){
+      const c1x=cx+s*hw*0.6, c1y=V.H*0.72;
+      gx=(1-u)*(1-u)*sx0+2*(1-u)*u*c1x+u*u*tx;
+      gy=(1-u)*(1-u)*sy0+2*(1-u)*u*c1y+u*u*ty;
+    }else{
+      gx=lerp(sx0,tx,u); gy=lerp(sy0,ty,u);
+    }
+    r=lerp(bh*0.047,bh*0.23,Math.pow(u,1.8));
+    ex_=lerp(ex_,cx+s*hw*0.78,u*0.6);
+    ey=lerp(ey,shY+bh*0.05,u*0.6);
+    V.fist={x:gx,y:gy,r,active:true,s};
+  }
+
+  ctx.save();
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  if(striking){
+    // 前腕：肩側は細く、拳側は太く（正面へ伸びる遠近）
+    const ang=Math.atan2(gy-shy,gx-shx), nx=-Math.sin(ang), ny=Math.cos(ang);
+    const w0=bh*0.030, w1=r*0.72;
+    const arm=new Path2D();
+    arm.moveTo(shx+nx*w0,shy+ny*w0);
+    arm.quadraticCurveTo(ex_+nx*w1*0.7,ey+ny*w1*0.7,gx+nx*w1,gy+ny*w1);
+    arm.lineTo(gx-nx*w1,gy-ny*w1);
+    arm.quadraticCurveTo(ex_-nx*w1*0.7,ey-ny*w1*0.7,shx-nx*w0,shy-ny*w0);
+    arm.closePath();
+    ctx.fillStyle=C.bg2; ctx.fill(arm);
+    ctx.strokeStyle='rgba(10,13,22,0.75)'; ctx.lineWidth=Math.max(1,bh*0.006); ctx.stroke(arm);
+    ctx.save(); ctx.clip(arm);
+    ctx.fillStyle='rgba(232,226,212,0.09)';
+    ctx.beginPath();
+    ctx.moveTo(shx+nx*w0,shy+ny*w0);
+    ctx.quadraticCurveTo(ex_+nx*w1*0.7,ey+ny*w1*0.7,gx+nx*w1,gy+ny*w1);
+    ctx.lineTo(gx+nx*w1*0.45,gy+ny*w1*0.45);
+    ctx.quadraticCurveTo(ex_+nx*w1*0.3,ey+ny*w1*0.3,shx,shy);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }else{
+    // 前腕
+    ctx.strokeStyle=C.bg2; ctx.lineWidth=bh*0.048;
+    ctx.beginPath(); ctx.moveTo(shx,shy); ctx.lineTo(ex_,ey); ctx.lineTo(gx,gy); ctx.stroke();
+    ctx.strokeStyle='rgba(232,226,212,0.08)'; ctx.lineWidth=bh*0.016;
+    ctx.beginPath(); ctx.moveTo(shx,shy); ctx.lineTo(ex_,ey); ctx.stroke();
+  }
+
+  // グローブ
+  const gr=r;
+  ctx.beginPath(); ctx.arc(gx,gy,gr,0,7);
+  ctx.fillStyle=C.gloveE; ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.arc(gx,gy,gr,0,7); ctx.clip();
+  ctx.beginPath(); ctx.arc(gx+gr*0.34,gy+gr*0.30,gr*0.94,0,7);
+  ctx.fillStyle=C.gloveEShade; ctx.globalAlpha=0.6; ctx.fill(); ctx.globalAlpha=1;
+  // ナックル面
+  ctx.fillStyle='rgba(255,255,255,0.16)';
+  ctx.beginPath(); ctx.ellipse(gx-gr*0.10,gy-gr*0.30,gr*0.66,gr*0.34,0,0,7); ctx.fill();
+  // 縫い目
+  ctx.strokeStyle='rgba(90,20,16,0.22)'; ctx.lineWidth=Math.max(1,gr*0.030);
+  ctx.beginPath();
+  ctx.moveTo(gx-gr*0.66,gy+gr*0.42);
+  ctx.quadraticCurveTo(gx,gy+gr*0.58,gx+gr*0.66,gy+gr*0.40); ctx.stroke();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(gx-gr*0.34,gy-gr*0.36,gr*0.26,0,7);
+  ctx.fillStyle='rgba(255,255,255,0.26)'; ctx.fill();
+  ctx.strokeStyle='rgba(10,13,22,0.8)'; ctx.lineWidth=Math.max(1.2,bh*0.007);
+  ctx.beginPath(); ctx.arc(gx,gy,gr,0,7); ctx.stroke();
+  ctx.restore();
+}
+
+function drawEnemyHead(F,o){
+  const {cx,headY,headR,bh,wind,strike,arc}=o;
+  const e=F.e, R=headR;
+  const shade=e.stagger;
+
+  ctx.save();
+  // 頭部：少数の大きな面で構成
+  const head=new Path2D();
+  head.moveTo(cx-R*0.90,headY-R*0.24);
+  head.quadraticCurveTo(cx-R*0.94,headY-R*1.02,cx,headY-R*1.06);
+  head.quadraticCurveTo(cx+R*0.94,headY-R*1.02,cx+R*0.90,headY-R*0.24);
+  head.lineTo(cx+R*0.80,headY+R*0.30);
+  head.quadraticCurveTo(cx+R*0.66,headY+R*0.86,cx,headY+R*0.94);
+  head.quadraticCurveTo(cx-R*0.66,headY+R*0.86,cx-R*0.80,headY+R*0.30);
+  head.closePath();
+  ctx.fillStyle=C.skin; ctx.fill(head);
+
+  ctx.save(); ctx.clip(head);
+  // 影面（右側）
+  ctx.fillStyle=C.skinShade; ctx.globalAlpha=0.75;
+  ctx.beginPath();
+  ctx.moveTo(cx+R*0.18,headY-R*1.2); ctx.lineTo(cx+R*1.2,headY-R*1.2);
+  ctx.lineTo(cx+R*1.2,headY+R*1.2); ctx.lineTo(cx+R*0.42,headY+R*1.2);
+  ctx.closePath(); ctx.fill();
+  // 頬骨のハイライト面
+  ctx.globalAlpha=0.55; ctx.fillStyle=C.skinLit;
+  ctx.beginPath();
+  ctx.moveTo(cx-R*0.86,headY-R*0.12); ctx.lineTo(cx-R*0.20,headY-R*0.30);
+  ctx.lineTo(cx-R*0.30,headY+R*0.34); ctx.lineTo(cx-R*0.78,headY+R*0.20);
+  ctx.closePath(); ctx.fill();
+  // 眉骨の影
+  ctx.globalAlpha=0.45; ctx.fillStyle='#4a3529';
+  ctx.beginPath();
+  ctx.moveTo(cx-R*0.92,headY-R*0.46); ctx.lineTo(cx+R*0.92,headY-R*0.46);
+  ctx.lineTo(cx+R*0.86,headY-R*0.16); ctx.lineTo(cx-R*0.86,headY-R*0.16);
+  ctx.closePath(); ctx.fill();
+  ctx.globalAlpha=1;
+  ctx.restore();
+
+  ctx.strokeStyle='rgba(10,13,22,0.8)'; ctx.lineWidth=Math.max(1,bh*0.005);
+  ctx.stroke(head);
+
+  // 髪（面）
+  ctx.fillStyle='#171b28';
+  const hair=new Path2D();
+  hair.moveTo(cx-R*0.93,headY-R*0.42);
+  hair.quadraticCurveTo(cx-R*0.97,headY-R*1.10,cx,headY-R*1.12);
+  hair.quadraticCurveTo(cx+R*0.97,headY-R*1.10,cx+R*0.93,headY-R*0.42);
+  hair.lineTo(cx+R*0.74,headY-R*0.62);
+  hair.quadraticCurveTo(cx,headY-R*0.48,cx-R*0.74,headY-R*0.64);
+  hair.closePath();
+  ctx.fill(hair);
+
+  // --- 目線：常に判読可能 (§4.1) ---
+  const gx=e.gaze.x, gy=e.gaze.y;
+  const eyeY=headY-R*0.15, eyeDX=R*0.40, eyeW=R*0.240, eyeH=R*0.145;
+  const blink = (Math.sin(Clock.game/2200)>0.982) ? 0.12 : 1;
+  const squint = 1-clamp(shade*0.5+e.fatigue*0.35,0,0.6);
+  for(const sgn of [-1,1]){
+    const ex=cx+sgn*eyeDX;
+    // 眼窩の影（上側のみ）
+    ctx.fillStyle='rgba(58,40,30,0.30)';
+    ctx.beginPath(); ctx.ellipse(ex,eyeY-eyeH*0.5,eyeW*1.15,eyeH*1.15,0,0,7); ctx.fill();
+    ctx.save();
+    const eye=new Path2D();
+    eye.ellipse(ex,eyeY,eyeW,eyeH*blink*squint,0,0,7);
+    ctx.fillStyle='#e6ded0'; ctx.fill(eye);
+    ctx.clip(eye);
+    // 瞳（虹彩＋瞳孔）
+    const px=ex+gx*eyeW*0.40, py=eyeY+gy*eyeH*0.42;
+    ctx.fillStyle='#333a4a';
+    ctx.beginPath(); ctx.arc(px,py,eyeW*0.50,0,7); ctx.fill();
+    ctx.fillStyle='#11141d';
+    ctx.beginPath(); ctx.arc(px,py,eyeW*0.26,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.8)';
+    ctx.beginPath(); ctx.arc(px-eyeW*0.20,py-eyeW*0.22,eyeW*0.13,0,7); ctx.fill();
+    // 上瞼の落ち影
+    ctx.fillStyle='rgba(48,32,22,0.50)';
+    ctx.fillRect(ex-eyeW,eyeY-eyeH*2,eyeW*2,eyeH*1.32);
+    ctx.restore();
+    ctx.strokeStyle='rgba(38,25,18,0.75)'; ctx.lineWidth=Math.max(1,R*0.035);
+    ctx.beginPath(); ctx.moveTo(ex-eyeW,eyeY-eyeH*0.55);
+    ctx.quadraticCurveTo(ex,eyeY-eyeH*1.5,ex+eyeW,eyeY-eyeH*0.55); ctx.stroke();
+  }
+  // 眉：集中／怒り／疲労で角度が変わる
+  const brow = wind*0.5 + shade*0.6 + e.fatigue*0.25;
+  ctx.strokeStyle='#1b1a22'; ctx.lineWidth=R*0.11; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(cx-eyeDX-eyeW,eyeY-R*0.34+brow*R*0.10);
+  ctx.lineTo(cx-eyeDX+eyeW*0.8,eyeY-R*0.40-brow*R*0.12);
+  ctx.moveTo(cx+eyeDX+eyeW,eyeY-R*0.34+brow*R*0.10);
+  ctx.lineTo(cx+eyeDX-eyeW*0.8,eyeY-R*0.40-brow*R*0.12);
+  ctx.stroke();
+  // 鼻：線ではなく影の面で
+  ctx.fillStyle='rgba(74,53,41,0.42)';
+  ctx.beginPath();
+  ctx.moveTo(cx+R*0.04,eyeY+R*0.02);
+  ctx.lineTo(cx+R*0.15,headY+R*0.20);
+  ctx.lineTo(cx-R*0.15,headY+R*0.20);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(40,26,18,0.55)';
+  ctx.beginPath(); ctx.ellipse(cx-R*0.09,headY+R*0.19,R*0.05,R*0.035,0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+R*0.09,headY+R*0.19,R*0.05,R*0.035,0,0,7); ctx.fill();
+  // 口（マウスピース）
+  const open=clamp(wind*0.45+e.fatigue*0.55+shade*0.8,0,1);
+  ctx.fillStyle='#2e1812';
+  ctx.beginPath();
+  ctx.ellipse(cx,headY+R*0.50,R*0.165+R*0.045*open,R*0.026+R*0.115*open,0,0,7); ctx.fill();
+  if(open>0.25){
+    ctx.fillStyle='rgba(232,226,212,0.6)';
+    ctx.beginPath();
+    ctx.ellipse(cx,headY+R*0.465,R*0.14,R*0.026,0,0,7); ctx.fill();
+  }
+  ctx.fillStyle='rgba(120,84,64,0.35)';
+  ctx.beginPath(); ctx.ellipse(cx,headY+R*0.64,R*0.20,R*0.05,0,0,7); ctx.fill();
+
+  // マウスピース／汗（粒子として抽象化 §4.1）
+  if(e.fatigue>0.4){
+    ctx.fillStyle='rgba(210,230,255,0.5)';
+    for(let i=0;i<3;i++){
+      const t=(Clock.real/700+i*0.33)%1;
+      ctx.globalAlpha=0.5*(1-t);
+      ctx.fillRect(cx-R*0.7+i*R*0.6, headY-R*0.6+t*R*1.6, R*0.05,R*0.16);
+    }
+    ctx.globalAlpha=1;
+  }
+  ctx.restore();
+}
+
+/* ============================================================
+   14. 一人称の自分の腕 (§4 §4.1)
+   長押し・スライド・タップに実時間で追従する
+   ============================================================ */
+const Arms = {
+  L:{x:0,y:0,r:0,init:false}, R:{x:0,y:0,r:0,init:false},
+  base(side){
+    const s=side==='L'?-1:1;
+    return {x:V.W*0.5+s*V.W*0.315, y:V.H*0.965, r:V.W*0.190};
+  },
+  update(F){
+    const p=F.p, dt=Clock.realDt;
+    for(const side of ['L','R']){
+      const a=this[side], b=this.base(side);
+      if(!a.init){ a.x=b.x; a.y=b.y; a.r=b.r; a.init=true; }
+      let tx=b.x, ty=b.y, tr=b.r, rate=13;
+
+      const f=Input.finger(side);
+      const holding=Input.isHolding(side);
+
+      if(holding||p.guard===side){
+        // ガード：肘より先を画面中央へ入れ、視界を狭める (§4)
+        const s=side==='L'?-1:1;
+        tx=V.W*0.5+s*V.W*0.196;
+        ty=V.H*0.620;
+        tr=V.W*0.168;
+        if(f){ ty=clamp(f.y-V.H*0.085, V.H*0.47, V.H*0.80); tx=lerp(tx,f.x,0.20); }
+        rate=22;                      // 入力への即時追従
+      }else if(f){
+        // 指に軽く追従（構えの微調整）
+        tx=lerp(b.x,f.x,0.30); ty=lerp(b.y,f.y+V.H*0.10,0.32); rate=18;
+      }
+
+      // 攻撃中：拳が相手へ届く (§4 §14)
+      const act=p.action;
+      if(act && (act.m.side===side || (act.m.side==='C'&&side==='R'))){
+        const tt=Clock.game-act.t0;
+        const out=clamp(tt/act.dur,0,1);
+        const back=clamp((tt-act.dur)/Math.max(1,act.recover),0,1);
+        const u = back>0 ? 1-easeOut(back) : easeIn(out)*0.35+easeOut(out)*0.65;
+        const fx_=V.faceX, fy_=(act.m.arc==='kick'||act.m.arc==='upper')?V.bodyY:V.faceY;
+        if(act.m.arc==='hook'){
+          const s=side==='L'?-1:1;
+          const cx1=V.W*0.5+s*V.W*0.62, cy1=V.H*0.60;
+          tx=(1-u)*(1-u)*b.x+2*(1-u)*u*cx1+u*u*fx_;
+          ty=(1-u)*(1-u)*b.y+2*(1-u)*u*cy1+u*u*fy_;
+        }else{
+          tx=lerp(b.x,fx_,u); ty=lerp(b.y,fy_,u);
+        }
+        tr=lerp(b.r,V.bh*0.10,u);
+        rate=40;
+      }
+      a.x=damp(a.x,tx,rate,dt); a.y=damp(a.y,ty,rate,dt); a.r=damp(a.r,tr,rate,dt);
+    }
+  },
+  draw(F){
+    const p=F.p;
+    // 被弾時は腕とカメラを別々に揺らす (§4)
+    const sh=p.shake, t=Clock.real;
+    const ox=sh*Math.sin(t/23)*V.W*0.02, oy=sh*Math.cos(t/19)*V.H*0.008;
+    for(const side of ['R','L']){
+      const a=this[side];
+      drawPlayerGlove(a.x+ox,a.y+oy,a.r,side, p.guard===side||Input.isHolding(side));
+    }
+  },
+};
+
+function drawPlayerGlove(x,y,r,side,guarding){
+  const s=side==='L'?-1:1;
+  const OUT='rgba(8,11,19,0.85)', LW=Math.max(1.2,r*0.042);
+  ctx.save();
+  ctx.lineJoin='round';
+
+  // ---- 前腕（画面下から伸びる。手前ほど太い）----
+  const wx=x + s*r*0.08, wy=y + r*0.72;
+  const bx=lerp(x, V.W*0.5+s*V.W*0.40, 0.55), byy=V.H + r*0.9;
+  const fore=new Path2D();
+  fore.moveTo(wx - r*0.46, wy);
+  fore.lineTo(wx + r*0.46, wy);
+  fore.quadraticCurveTo(bx + r*0.62, (wy+byy)/2, bx + r*0.70, byy);
+  fore.lineTo(bx - r*0.70, byy);
+  fore.quadraticCurveTo(bx - r*0.62, (wy+byy)/2, wx - r*0.46, wy);
+  fore.closePath();
+  ctx.fillStyle=C.skin; ctx.fill(fore);
+  ctx.save(); ctx.clip(fore);
+  ctx.fillStyle=C.skinShade; ctx.globalAlpha=0.85;
+  ctx.fillRect(bx + s*r*0.10, wy-r, r*2.0, V.H);     // 影面
+  ctx.globalAlpha=0.5; ctx.fillStyle=C.skinLit;
+  ctx.fillRect(bx - s*r*0.72, wy-r, r*0.34, V.H);    // 明面
+  ctx.restore();
+  ctx.strokeStyle=OUT; ctx.lineWidth=LW; ctx.stroke(fore);
+
+  // ---- バンテージ（手首）----
+  ctx.save(); ctx.clip(fore);
+  ctx.fillStyle=C.accent;
+  ctx.fillRect(x-r*1.3, wy-r*0.04, r*2.6, r*0.17);
+  ctx.fillStyle='rgba(232,226,212,0.8)';
+  ctx.fillRect(x-r*1.3, wy+r*0.18, r*2.6, r*0.055);
+  ctx.restore();
+
+  // ---- グローブ本体（親指を持つ形）----
+  const g=new Path2D();
+  g.moveTo(x - s*r*0.98, y + r*0.30);
+  g.quadraticCurveTo(x - s*r*1.02, y - r*0.72, x - s*r*0.10, y - r*0.98);
+  g.quadraticCurveTo(x + s*r*0.86, y - r*0.86, x + s*r*0.99, y - r*0.02);
+  g.quadraticCurveTo(x + s*r*1.05, y + r*0.72, x + s*r*0.30, y + r*0.86);
+  g.quadraticCurveTo(x - s*r*0.62, y + r*0.92, x - s*r*0.98, y + r*0.30);
+  g.closePath();
+  ctx.fillStyle=C.gloveP; ctx.fill(g);
+  ctx.save(); ctx.clip(g);
+  // 影面
+  ctx.fillStyle=C.glovePShade; ctx.globalAlpha=0.55;
+  ctx.beginPath(); ctx.ellipse(x+s*r*0.62,y+r*0.42,r*1.05,r*0.98,s*0.35,0,7); ctx.fill();
+  ctx.globalAlpha=1;
+  // ナックル部の面
+  ctx.fillStyle='rgba(255,255,255,0.22)';
+  ctx.beginPath(); ctx.ellipse(x-s*r*0.28,y-r*0.40,r*0.52,r*0.30,-s*0.25,0,7); ctx.fill();
+  // 親指
+  ctx.fillStyle='rgba(0,0,0,0.15)';
+  ctx.beginPath(); ctx.ellipse(x-s*r*0.62,y+r*0.26,r*0.30,r*0.44,s*0.42,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(10,13,22,0.30)'; ctx.lineWidth=LW*0.8;
+  ctx.beginPath(); ctx.ellipse(x-s*r*0.62,y+r*0.26,r*0.30,r*0.44,s*0.42,0,7); ctx.stroke();
+  // 縫い目
+  ctx.strokeStyle='rgba(10,13,22,0.22)'; ctx.lineWidth=LW*0.7;
+  ctx.beginPath();
+  ctx.moveTo(x-s*r*0.72,y-r*0.06); ctx.quadraticCurveTo(x,y-r*0.20,x+s*r*0.72,y-r*0.02);
+  ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle=OUT; ctx.lineWidth=LW; ctx.stroke(g);
+
+  if(guarding){
+    ctx.strokeStyle='rgba(255,59,48,0.45)'; ctx.lineWidth=Math.max(1.5,r*0.05);
+    ctx.stroke(g);
+  }
+  ctx.restore();
+}
+
+/* ============================================================
+   15. カメラ  —  頭・肩の動き (§4 §14)
+   ============================================================ */
+function updateCamera(F){
+  const p=F.p, dt=Clock.realDt, t=Clock.real;
+  let tx=0, ty=0, rot=0;
+
+  // スリップ：頭が横へ抜ける
+  const st=(t-p.slipT)/420;
+  if(p.slip!==0 && st<1){
+    const k=Math.sin(clamp(st,0,1)*Math.PI);
+    tx += p.slip*V.W*0.17*k;
+    rot += p.slip*0.045*k;
+  }else if(st>=1) p.slip=0;
+
+  // スウェー／しゃがみ
+  const wt=(t-(p.swayT||-9999))/380;
+  if(p.sway && wt<1){ ty += V.H*0.05*Math.sin(clamp(wt,0,1)*Math.PI); }
+  else p.sway=0;
+  if(Input.isDualHolding()) p.crouch=damp(p.crouch,1,12,dt); else p.crouch=damp(p.crouch,0,9,dt);
+  ty += p.crouch*V.H*0.06;
+
+  // ガード中は指の位置に応じて頭も僅かに動く
+  const f=Input.finger(Input.isHolding('L')?'L':(Input.isHolding('R')?'R':null));
+  if(f) tx += (f.x-V.W/2)*0.05;
+
+  // 被弾シェイク
+  tx += p.shake*Math.sin(t/17)*V.W*0.035;
+  ty += p.shake*Math.cos(t/13)*V.H*0.012;
+  rot += p.shake*Math.sin(t/29)*0.03;
+
+  // 前進・後退の踏み込み
+  if(F.stepping){
+    const k=clamp((Clock.game-F.distT)/F.distDur,0,1);
+    ty += Math.sin(k*Math.PI)*V.H*0.012*(F.distTarget>F.dist?-1:1);
+  }
+
+  p.camX=damp(p.camX,tx,26,dt);
+  p.camY=damp(p.camY,ty,22,dt);
+  p.camRot=damp(p.camRot,rot,24,dt);
+}
+
+/* ============================================================
+   16. エフェクト  —  接触点・墨の一閃・PERFECT (§14)
+   ============================================================ */
+function drawFx(F){
+  const now=Clock.real;
+  for(const f of F.fx){
+    if(f.a===undefined){ f.a=rnd(-1,1); f.seed=Math.random(); }
+    const life = f.kind==='perfect'?520:360;
+    const k=clamp((now-f.t)/life,0,1);
+    if(k>=1) continue;
+    const P=f.power;
+    ctx.save();
+    ctx.translate(f.x,f.y);
+
+    if(f.kind==='perfect'||f.kind==='hit'){
+      // 白フラッシュ
+      const fl=1-easeOut(k);
+      ctx.globalAlpha=(f.kind==='perfect'?0.9:0.55)*fl;
+      ctx.fillStyle='#fff';
+      ctx.beginPath(); ctx.arc(0,0,V.bh*(0.05+0.12*P)*(0.5+k*1.6),0,7); ctx.fill();
+      // 放射線
+      ctx.globalAlpha=0.7*fl; ctx.strokeStyle=f.kind==='perfect'?C.accent:C.ink;
+      ctx.lineWidth=Math.max(1,V.bh*0.008);
+      ctx.beginPath();
+      for(let i=0;i<(f.kind==='perfect'?9:5);i++){
+        const a=f.a*2+i*(Math.PI*2/(f.kind==='perfect'?9:5));
+        const r0=V.bh*0.05*(1+k*3), r1=r0+V.bh*(0.10+0.16*P)*(1-k);
+        ctx.moveTo(Math.cos(a)*r0,Math.sin(a)*r0);
+        ctx.lineTo(Math.cos(a)*r1,Math.sin(a)*r1);
+      }
+      ctx.stroke();
+    }
+    if(f.kind==='perfect'){
+      // 墨の一閃（判定演出にのみ墨を使う §4.1）
+      ctx.rotate(f.a*0.9);
+      ctx.globalAlpha=0.92*(1-easeIn(k));
+      ctx.fillStyle='#0a0d16';
+      const L=V.W*1.3*(0.4+0.6*easeOut(k)), th=V.bh*0.055*P;
+      ctx.beginPath();
+      ctx.moveTo(-L/2,0);
+      ctx.quadraticCurveTo(-L*0.1,-th, L/2, -th*0.15);
+      ctx.quadraticCurveTo(L*0.1, th*0.7, -L/2, th*0.25);
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha=0.5*(1-easeIn(k)); ctx.fillStyle=C.accent;
+      ctx.fillRect(-L/2,-th*0.12,L*(1-k),th*0.16);
+    }
+    if(f.kind==='guard'){
+      const fl=1-easeOut(k);
+      ctx.globalAlpha=0.8*fl;
+      ctx.strokeStyle=C.ink; ctx.lineWidth=Math.max(1.5,V.bh*0.010);
+      ctx.beginPath(); ctx.arc(0,0,V.bh*0.06*(1+k*1.8),0,7); ctx.stroke();
+      ctx.globalAlpha=0.5*fl;
+      for(let i=0;i<6;i++){
+        const a=i*1.05+f.a;
+        const d=V.bh*(0.06+0.10*k);
+        ctx.fillRect(Math.cos(a)*d,Math.sin(a)*d,3,3);
+      }
+    }
+    if(f.kind==='hurt'){
+      const fl=1-easeOut(k);
+      ctx.globalAlpha=0.55*fl; ctx.fillStyle=C.accent;
+      ctx.beginPath(); ctx.arc(0,0,V.bh*0.08*P*(0.6+k*1.5),0,7); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+/* ============================================================
+   17. 主観時間の演出レイヤー (§9.1 §12)
+   ============================================================ */
+function drawSlowLayer(F){
+  const d=Clock.depth;
+  const {W,H}=V;
+  if(d>0.02){
+    // 彩度を落とし、周辺を締める
+    ctx.save();
+    ctx.globalAlpha=0.38*d; ctx.fillStyle='#0b1526'; ctx.fillRect(0,0,W,H);
+    const g=ctx.createRadialGradient(W*0.5,H*0.42,H*0.08,W*0.5,H*0.42,H*0.58);
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(3,5,10,${0.74*d})`);
+    ctx.globalAlpha=1; ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // 集中線（墨を軌道に使う）
+    ctx.globalAlpha=0.11*d; ctx.strokeStyle=C.ink; ctx.lineWidth=1;
+    ctx.beginPath();
+    for(let i=0;i<14;i++){
+      const a=i*0.449+Clock.real/9000, r0=H*0.46, r1=H*0.46+H*0.34;
+      const cx=W*0.5, cy=H*0.42;
+      ctx.moveTo(cx+Math.cos(a)*r0,cy+Math.sin(a)*r0);
+      ctx.lineTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  // 「見えた」
+  const ex=F.exchange;
+  if(ex && ex.slowed && !ex.feint){
+    const k=clamp((Clock.real-ex.slowRealT)/520,0,1);
+    if(k<1){
+      ctx.save();
+      ctx.globalAlpha=(1-k)*0.9;
+      ctx.fillStyle=C.ink; ctx.textAlign='center';
+      ctx.font=`600 ${Math.round(V.W*0.052)}px -apple-system,sans-serif`;
+      ctx.letterSpacing='0.42em';
+      ctx.fillText('見 え た',V.W*0.5+V.W*0.01*k,V.H*0.235);
+      ctx.letterSpacing='0px';
+      ctx.restore();
+    }
+  }
+}
+
+/* ============================================================
+   18. 視認補助 (§12)
+   ============================================================ */
+const ASSIST_LABEL={
+  guard:'長押しでガード', slipL:'左へスリップ', slipR:'右へスリップ',
+  sway:'両指下でスウェー', sprawl:'両指長押しでスプロール',
+  retreat:'両指下で後退', intercept:'上スライドで迎撃',
+};
+function drawAssist(F,phase){
+  const ex=F.exchange; if(!ex||ex.resolved) return;
+  const m=ex.data, D=F.diff;
+  const tellEnd=ex.t0+ex.tell;
+
+  // 収束リング：接触の瞬間に拳の大きさへ収束する
+  if(phase==='world' && D.showRing && V.fist && V.fist.active){
+    const rest=clamp((ex.impact-Clock.game)/Math.max(1,ex.impact-tellEnd),0,1);
+    const r=V.fist.r + V.W*0.30*rest;
+    ctx.save();
+    ctx.globalAlpha=0.30+0.45*(1-rest);
+    ctx.strokeStyle=rest<0.18?C.accent:C.ink;
+    ctx.lineWidth=Math.max(1.5,V.W*0.006);
+    ctx.beginPath(); ctx.arc(V.fist.x,V.fist.y,r,0,7); ctx.stroke();
+    ctx.restore();
+  }
+  // 予備動作の部位マーカー（HARD 相当は非表示）
+  if(phase==='world' && D.showRing && Clock.game<tellEnd){
+    const k=clamp((Clock.game-ex.t0)/ex.tell,0,1);
+    ctx.save();
+    ctx.globalAlpha=0.5*(1-k*0.4);
+    ctx.strokeStyle=C.accent; ctx.lineWidth=2;
+    const s=m.side==='R'?-1:(m.side==='L'?1:0);
+    const x=V.cx+s*V.hw*1.0, y=V.shoulderY;
+    ctx.beginPath(); ctx.arc(x,y,V.bh*0.055*(1.6-k*0.6),0,7); ctx.stroke();
+    ctx.restore();
+  }
+  // BEGINNER：正しい移動方向と操作する腕を短時間表示 (§12)
+  if(phase==='screen' && D.showArrow && ex.slowed && !ex.choice){
+    const safe=m.safe&&m.safe[0];
+    if(safe){
+      const txt=ASSIST_LABEL[safe]||safe;
+      ctx.save();
+      ctx.globalAlpha=0.85;
+      ctx.textAlign='center'; ctx.fillStyle=C.accent;
+      ctx.font=`600 ${Math.round(V.W*0.036)}px -apple-system,sans-serif`;
+      ctx.fillText(txt,V.W*0.5,V.H*0.795);
+      // 方向矢印
+      const dir = safe==='slipL'?-1:safe==='slipR'?1:0;
+      if(dir!==0){
+        const ax=V.W*0.5+dir*V.W*0.20, ay=V.H*0.745, s=V.W*0.035;
+        ctx.strokeStyle=C.accent; ctx.lineWidth=3; ctx.lineCap='round';
+        ctx.beginPath();
+        ctx.moveTo(ax-dir*s,ay); ctx.lineTo(ax+dir*s,ay);
+        ctx.moveTo(ax+dir*s,ay); ctx.lineTo(ax+dir*s*0.35,ay-s*0.55);
+        ctx.moveTo(ax+dir*s,ay); ctx.lineTo(ax+dir*s*0.35,ay+s*0.55);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+  // 初心者モード：タッチ時に左右の入力領域を薄く表示 (§4)
+  if(phase==='screen' && D.showIcon && Input.pts.size>0){
+    ctx.save(); ctx.globalAlpha=0.06; ctx.fillStyle=C.ink;
+    if(Input.finger('L')) ctx.fillRect(0,0,V.W/2,V.H);
+    if(Input.finger('R')) ctx.fillRect(V.W/2,0,V.W/2,V.H);
+    ctx.restore();
+  }
+}
+
+/* ============================================================
+   19. HUD  —  上部15% / 下部15% (§4)
+   ============================================================ */
+let SAFE_TOP=0, SAFE_BOT=0;
+(function(){
+  const probe=document.createElement('div');
+  probe.style.cssText='position:fixed;top:0;left:0;width:0;'+
+    'padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);'+
+    'visibility:hidden;pointer-events:none';
+  document.body.appendChild(probe);
+  const read=()=>{const s=getComputedStyle(probe);
+    SAFE_TOP=parseFloat(s.paddingTop)||0; SAFE_BOT=parseFloat(s.paddingBottom)||0;};
+  read(); window.addEventListener('resize',read);
+})();
+
+function bar(x,y,w,h,v,color,rtl){
+  ctx.fillStyle='rgba(232,226,212,0.13)'; ctx.fillRect(x,y,w,h);
+  const fw=w*clamp(v,0,1);
+  ctx.fillStyle=color;
+  ctx.fillRect(rtl?x+w-fw:x, y, fw, h);
+}
+function smallCaps(text,x,y,size,color,align,track){
+  ctx.save();
+  ctx.fillStyle=color; ctx.textAlign=align||'left';
+  ctx.font=`600 ${size}px -apple-system,"Helvetica Neue",sans-serif`;
+  if(track) ctx.letterSpacing=track;
+  ctx.fillText(text,x,y);
+  ctx.letterSpacing='0px';
+  ctx.restore();
+}
+
+function drawHUD(F){
+  const {W,H}=V;
+  const top=SAFE_TOP+10;
+  const bx=W*0.175, bw=W*0.755;
+  let tg=ctx.createLinearGradient(0,0,0,V.topH*1.35);
+  tg.addColorStop(0,'rgba(7,9,16,0.85)'); tg.addColorStop(1,'rgba(7,9,16,0)');
+  ctx.fillStyle=tg; ctx.fillRect(0,0,W,V.topH*1.35);
+
+  // 残り時間
+  const remain=Math.max(0,F.timeLimit-F.elapsed);
+  const sec=Math.floor(remain/1000), cs=Math.floor((remain%1000)/10);
+  ctx.save();
+  ctx.textAlign='center'; ctx.fillStyle=C.ink;
+  ctx.font=`700 ${Math.round(W*0.072)}px -apple-system,sans-serif`;
+  ctx.fillText(String(sec).padStart(2,'0'),W*0.5,top+W*0.062);
+  ctx.font=`600 ${Math.round(W*0.028)}px -apple-system,sans-serif`;
+  ctx.fillStyle=C.inkFaint;
+  ctx.fillText('.'+String(cs).padStart(2,'0'),W*0.5+W*0.062,top+W*0.062);
+  ctx.restore();
+
+  // RIVAL
+  let y=top+W*0.095;
+  smallCaps('RIVAL',W*0.045,y+5,Math.round(W*0.024),C.inkFaint,'left','0.18em');
+  bar(bx,y,bw,4,F.e.hp/100,C.accent,true);
+  bar(bx,y+6,bw,2,F.e.stam/100,'rgba(232,226,212,0.42)',true);
+
+  // YOU
+  y+=W*0.058;
+  smallCaps('YOU',W*0.045,y+5,Math.round(W*0.024),C.inkFaint,'left','0.18em');
+  bar(bx,y,bw,4,F.p.hp/100,C.ink,false);
+  bar(bx,y+6,bw,2,F.p.stam/100,
+      F.p.stam<20?'rgba(255,59,48,0.7)':'rgba(232,226,212,0.42)',false);
+
+  // 有利状態（カウンター受付）
+  if(F.advantage){
+    const k=clamp((F.p.advUntil-Clock.game)/COUNTER_WINDOW,0,1);
+    ctx.save();
+    ctx.globalAlpha=0.9; ctx.strokeStyle=C.accent; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(bx,y+13); ctx.lineTo(bx+bw*k,y+13); ctx.stroke();
+    smallCaps('COUNTER',W*0.045,y+17,Math.round(W*0.021),C.accent,'left','0.16em');
+    ctx.restore();
+  }
+
+  // ---- 下部：距離表示 ----
+  const by=H-SAFE_BOT-H*0.062;
+  let sg=ctx.createLinearGradient(0,by-H*0.075,0,H);
+  sg.addColorStop(0,'rgba(7,9,16,0)'); sg.addColorStop(0.6,'rgba(7,9,16,0.45)');
+  sg.addColorStop(1,'rgba(7,9,16,0.72)');
+  ctx.fillStyle=sg; ctx.fillRect(0,by-H*0.075,W,H-by+H*0.075);
+  const segW=W*0.20, gap=W*0.035;
+  const totalW=segW*3+gap*2, sx=(W-totalW)/2;
+  for(let i=0;i<3;i++){
+    const x=sx+i*(segW+gap);
+    const on=Math.round(F.distVisual)===i;
+    ctx.fillStyle=on?C.accent:'rgba(232,226,212,0.16)';
+    ctx.fillRect(x,by,segW,2);
+    smallCaps(DIST_NAME[i],x+segW/2,by+H*0.026,Math.round(W*0.026),
+              on?C.ink:C.inkFaint,'center','0.10em');
+  }
+  // 移動中のマーカー
+  const mx=sx+F.distVisual*(segW+gap)+segW/2;
+  ctx.fillStyle=C.accent;
+  ctx.beginPath(); ctx.moveTo(mx,by-5); ctx.lineTo(mx-4,by-11); ctx.lineTo(mx+4,by-11);
+  ctx.closePath(); ctx.fill();
+
+  // 金網圧力
+  const cy=by-H*0.030;
+  for(let i=0;i<2;i++){
+    ctx.fillStyle=i<F.p.cage?C.accent:'rgba(232,226,212,0.18)';
+    ctx.beginPath(); ctx.arc(W*0.075+i*10,cy,3,0,7); ctx.fill();
+    ctx.fillStyle=i<F.e.cage?'rgba(232,226,212,0.8)':'rgba(232,226,212,0.18)';
+    ctx.beginPath(); ctx.arc(W-W*0.075-i*10,cy,3,0,7); ctx.fill();
+  }
+  smallCaps('CAGE',W*0.075-4,cy-9,Math.round(W*0.019),C.inkFaint,'left','0.14em');
+
+  // ---- 判定表示 ----
+  const now=Clock.real;
+  F.floats.forEach((f,i)=>{
+    const k=clamp((now-f.t)/1100,0,1);
+    ctx.save();
+    ctx.globalAlpha=(1-easeIn(k))*0.98;
+    ctx.textAlign='center'; ctx.fillStyle=f.color;
+    const size=f.big?W*0.085:W*0.042;
+    ctx.font=`${f.big?800:600} ${Math.round(size)}px -apple-system,sans-serif`;
+    ctx.letterSpacing=f.big?'0.10em':'0.06em';
+    ctx.fillText(f.text,W*0.5,H*0.30-k*H*0.035-i*H*0.035);
+    ctx.letterSpacing='0px';
+    ctx.restore();
+  });
+}
+
+/* ============================================================
+   20. タイミング補正 (§9  ±200ms)
+   ============================================================ */
+const Calib = {
+  active:false, t0:0, taps:[], count:0, total:12, offset:0, done:false,
+  start(){ this.active=true; this.t0=Clock.real+900; this.taps=[]; this.count=0;
+           this.done=false; this.lastBeat=-1; },
+  update(){
+    const b=Math.floor((Clock.real-this.t0)/BEAT);
+    if(b>=0 && b!==this.lastBeat){ this.lastBeat=b; Audio_.step(b%4===0); this.pulse=Clock.real; }
+    if(this.count>=this.total && !this.done){
+      this.done=true;
+      const s=this.taps.slice().sort((a,b)=>a-b);
+      const med=s.length? s[Math.floor(s.length/2)] : 0;
+      this.offset=clamp(Math.round(-med),-200,200);
+      Fight.offsetMs=this.offset;
+      try{ localStorage.setItem('maai.offset',String(this.offset)); }catch(e){}
+      setTimeout(()=>{ this.active=false; go('title'); },1500);
+    }
+  },
+  tap(){
+    if(this.done||this.count>=this.total) return;
+    const t=Clock.real-this.t0;
+    if(t<-BEAT/2) return;
+    const b=Math.round(t/BEAT);
+    if(b<2) return;                       // 頭2拍はカウントイン
+    const d=t-b*BEAT;
+    if(Math.abs(d)>BEAT*0.45) return;
+    this.taps.push(d); this.count++;
+    Audio_.glove();
+  },
+  draw(){
+    const {W,H}=V;
+    ctx.fillStyle='rgba(7,9,16,0.86)'; ctx.fillRect(0,0,W,H);
+    ctx.save(); ctx.textAlign='center';
+    smallCaps('TIMING CALIBRATION',W/2,H*0.20,Math.round(W*0.030),C.inkFaint,'center','0.28em');
+    ctx.fillStyle=C.inkDim; ctx.font=`500 ${Math.round(W*0.036)}px -apple-system,sans-serif`;
+    ctx.fillText('足音に合わせて画面をタップ',W/2,H*0.26);
+
+    const k=clamp((Clock.real-(this.pulse||0))/BEAT,0,1);
+    const r=W*0.20*(1+0.25*(1-k));
+    ctx.strokeStyle=C.ink; ctx.globalAlpha=0.25+0.6*(1-k); ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(W/2,H*0.48,r,0,7); ctx.stroke();
+    ctx.globalAlpha=1;
+    ctx.fillStyle=C.accent;
+    ctx.beginPath(); ctx.arc(W/2,H*0.48,W*0.035*(1+0.5*(1-k)),0,7); ctx.fill();
+
+    ctx.fillStyle=C.ink; ctx.font=`700 ${Math.round(W*0.06)}px -apple-system,sans-serif`;
+    ctx.fillText(`${this.count} / ${this.total}`,W/2,H*0.68);
+    if(this.done){
+      ctx.fillStyle=C.accent; ctx.font=`700 ${Math.round(W*0.055)}px -apple-system,sans-serif`;
+      ctx.fillText(`補正 ${this.offset>0?'+':''}${this.offset} ms`,W/2,H*0.76);
+    }
+    ctx.restore();
+  },
+};
+
+/* ============================================================
+   21. シーン管理・メインループ
+   ============================================================ */
+let scene='title';
+let curDiff='NORMAL';
+const el=id=>document.getElementById(id);
+const OV={title:el('ovTitle'),howto:el('ovHowto'),result:el('ovResult')};
+
+function go(s){
+  scene=s;
+  OV.title.classList.toggle('hidden', s!=='title');
+  OV.howto.classList.toggle('hidden', s!=='howto');
+  OV.result.classList.toggle('hidden', s!=='result');
+}
+
+function startFight(mode){
+  Audio_.resume();
+  Fight.reset(mode, DIFF[curDiff], Fight.offsetMs);
+  Input.clear(); Clock.reset();
+  Arms.L.init=Arms.R.init=false;
+  go('fight');
+}
+
+function showResult(){
+  const F=Fight, s=F.stats;
+  const sc=F.score();
+  const win=F.win;
+  const reason={KO:'KO',TAKEDOWN:'TAKEDOWN',DECISION:'DECISION',SEQUENCE:'SEQUENCE'}[F.endReason]||'';
+  const acc = s.perfect+s.good+s.early+s.late+s.miss;
+  const rate = acc? Math.round((s.perfect+s.good)/acc*100):0;
+  el('resultBody').innerHTML=`
+    <div class="verdict ${win?'win':'lose'}">${win?'WIN':'LOSE'}</div>
+    <div class="sub">${reason}</div>
+    <div class="stats">
+      <div class="stat hl"><span>PERFECT</span><span>${s.perfect}</span></div>
+      <div class="stat"><span>GOOD</span><span>${s.good}</span></div>
+      <div class="stat"><span>EARLY / LATE</span><span>${s.early} / ${s.late}</span></div>
+      <div class="stat"><span>MISS</span><span>${s.miss}</span></div>
+      <div class="stat"><span>防御成功率</span><span>${rate}%</span></div>
+      <div class="stat"><span>ガード / スリップ</span><span>${s.guarded} / ${s.slipped}</span></div>
+      <div class="stat"><span>距離変更</span><span>${s.distChanges} 回</span></div>
+      <div class="stat"><span>残 HP</span><span>${Math.round(F.p.hp)} - ${Math.round(F.e.hp)}</span></div>
+      <div class="stat hl"><span>SCORE</span><span>${sc}</span></div>
+    </div>`;
+  go('result');
+}
+
+const HOWTO_ROWS=[
+  ['左タップ','左前蹴り / 左ジャブ / 左ショートフック'],
+  ['右タップ','右ローキック / 右ストレート / 右肘'],
+  ['内側スライド','ミドルキック / フック / 肘・膝'],
+  ['上スライド','ハイキック / アッパー / 膝　※タックルには迎撃'],
+  ['外側スライド','攻撃が来ていればスリップ、来ていなければ回り込み'],
+  ['長押し','左右ガード。接触の瞬間まで押し続ける'],
+  ['ガードを離す','クイックカウンター'],
+  ['両指 上スライド','1段階 前進'],
+  ['両指 下スライド','1段階 後退 / スウェー'],
+  ['両指 中央スライド','タックル'],
+  ['両指 長押し','スプロール / 低い構え'],
+];
+function buildHowto(){
+  el('howtoBody').innerHTML=`
+    <h2>CONTROLS</h2>
+    <div class="note">
+      画面を左右半分に分け、<b>開始した領域・方向・片指／両指</b>で技が決まります。
+      長さや速さでは技を分けません。
+    </div>
+    <h3>INPUT</h3>
+    ${HOWTO_ROWS.map(r=>`<div class="ctrl"><div class="k">${r[0]}</div><div class="v">${r[1]}</div></div>`).join('')}
+    <h3>間合 — 主観時間</h3>
+    <div class="note">
+      相手の<b>目線・肩・腰・足音</b>が動いたら攻撃の起こりです。
+      予備動作を検知すると世界が<b>0.25倍速</b>になり、防御・回避・迎撃を選べます。
+      入力を決めた瞬間に通常速度へ戻り、接触が一気に解決します。<br><br>
+      <b>PERFECT</b>で防いだ直後の 0.6 秒はカウンター受付。
+      その間の攻撃は 1.5 倍、拍に合った<b>PERFECTカウンター</b>は 1.8 倍で相手を後退させます。
+    </div>
+    <h3>距離</h3>
+    <div class="note">
+      遠距離・打撃距離・密着距離の3段階。両指の上下スライドで動かします。
+      遠距離でさらに下がると<b>金網圧力</b>が溜まり、2で後退不可になります。
+      PERFECT回避後の回り込みで解除できます。
+    </div>`;
+}
+
+// ---- ループ ----
+let last=0;
+function frame(ts){
+  requestAnimationFrame(frame);
+  const raw = last ? ts-last : 16; last=ts;
+  Clock.freeze = !!(Fight.hitstop && Clock.real<Fight.hitstop);
+  Clock.tick(raw);
+  Input.update();
+
+  if(scene==='fight'){
+    while(Input.queue.length) Fight.handleGesture(Input.queue.shift());
+    Fight.update();
+    if(Fight.over && Clock.real-Fight.overT>1700) showResult();
+  }else if(scene==='calib'){
+    while(Input.queue.length){ const g=Input.queue.shift(); if(g.type==='TAP') Calib.tap(); }
+    Calib.update();
+  }else{
+    Input.queue.length=0;
+    Fight.demoUpdate();
+  }
+
+  updateCamera(Fight);
+  Arms.update(Fight);
+  render();
+}
+
+function computeLayout(F){
+  const dv=F.distVisual;
+  V.scale=distScale(dv);
+  V.bh=V.H*0.90*V.scale;
+  V.groundY=V.H*distLerp(DIST_GROUND,dv);
+}
+
+function render(){
+  const F=Fight;
+  V.fist={x:0,y:0,r:0,active:false};
+  computeLayout(F);
+  drawBackground(F);
+  ctx.save();
+  ctx.translate(V.W/2 - F.p.camX, V.H/2 + F.p.camY);
+  ctx.rotate(F.p.camRot);
+  ctx.translate(-V.W/2, -V.H/2);
+  drawCage(F);
+  drawOpponent(F);
+  drawFx(F);
+  drawAssist(F,'world');
+  ctx.restore();
+
+  drawSlowLayer(F);
+  if(scene==='fight'||scene==='result') Arms.draw(F);
+  drawAssist(F,'screen');
+  if(scene==='fight'||scene==='result') drawHUD(F);
+  drawOverlayFx(F);
+  if(scene==='calib') Calib.draw();
+}
+
+function drawOverlayFx(F){
+  const {W,H}=V;
+  // 被弾フラッシュ
+  const ht=(Clock.real-F.p.hurtT)/260;
+  if(ht<1 && ht>=0){
+    ctx.save(); ctx.globalAlpha=0.30*(1-ht);
+    ctx.fillStyle=C.accent; ctx.fillRect(0,0,W,H); ctx.restore();
+  }
+  // ビネット
+  const g=ctx.createRadialGradient(W*0.5,H*0.45,H*0.28,W*0.5,H*0.45,H*0.78);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(3,5,10,0.55)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+}
+
+/* ============================================================
+   22. 起動
+   ============================================================ */
+Object.assign(Fight,{
+  demoUpdate(){
+    const e=this.e;
+    const bi=Math.floor(Clock.game/BEAT);
+    if(bi!==this.lastBeatIdx){ this.lastBeatIdx=bi; e.legStep=1; }
+    this.updateEnemyState();
+    this.updateFx();
+  },
+});
+
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-act],[data-diff]'); if(!b) return;
+  Audio_.resume(); Audio_.ui();
+  if(b.dataset.diff){
+    curDiff=b.dataset.diff;
+    document.querySelectorAll('[data-diff]').forEach(x=>x.dataset.on = x.dataset.diff===curDiff?'1':'0');
+    return;
+  }
+  switch(b.dataset.act){
+    case 'start-single': startFight('single'); break;
+    case 'start-match' : startFight('match');  break;
+    case 'howto': buildHowto(); go('howto'); break;
+    case 'close-howto': go('title'); break;
+    case 'calib': Calib.start(); go('calib'); break;
+    case 'retry': startFight(Fight.mode); break;
+    case 'title': go('title'); break;
+  }
+});
+
+Input.bind(cv);
+Input.onFirstTouch=()=>{ Audio_.resume(); Input.onFirstTouch=null; };
+resize();
+try{ const o=localStorage.getItem('maai.offset'); if(o!==null) Fight.offsetMs=parseInt(o,10)||0; }catch(e){}
+Fight.reset('match',DIFF[curDiff],Fight.offsetMs);
+document.querySelectorAll('[data-diff]').forEach(x=>x.dataset.on = x.dataset.diff===curDiff?'1':'0');
+go('title');
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
