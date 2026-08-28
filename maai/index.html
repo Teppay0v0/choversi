@@ -182,23 +182,34 @@ const DIST_NAME = ['遠距離', '打撃距離', '密着距離'];
 const STEP_MS = 300, STEP_MS_PERFECT = 240, STEP_STAMINA = 4;
 
 // --- 技データ (§10) ---
+// 両者ともオーソドックス（左構え）。左＝リード（前手／前脚）、右＝リア（後ろ手／後ろ脚）。
+// hand   : 'lead' 前手は距離が近く速いが軽い / 'rear' 後ろ手は溜めが要り遅いが重い
 // tell   : 予備動作の長さ
 // impact : 予備動作開始からインパクトまで
 // recover: インパクト後の硬直
 // arc    : 'straight' | 'hook' | 'upper' | 'kick' | 'tackle'
-// from   : 一人称で見た飛来方向 (-1=画面左から / +1=画面右から / 0=正面)
+// from   : 一人称で見た飛来方向 (-1=画面左から=相手の右手 / +1=画面右から=相手の左手 / 0=正面)
+// read   : 予備動作の読みやすさ。主観時間の長さと深さを決める（1.0 = 満額）
 // safe   : 有効な防御手段
 const MOVES = {
-  jab      :{ja:'左ジャブ',      dmg:6, stam:3, whiff:2, tell:190, impact:330, recover:250, arc:'straight', side:'L', from:+1, safe:['guard','slipL','sway'],           bad:['advance']},
-  straight :{ja:'右ストレート',  dmg:10,stam:6, whiff:4, tell:260, impact:440, recover:340, arc:'straight', side:'R', from:-1, safe:['guard','slipR','sway'],           bad:['slipL','advance']},
-  hook     :{ja:'左フック',      dmg:12,stam:8, whiff:5, tell:300, impact:520, recover:390, arc:'hook',     side:'L', from:+1, safe:['guard','sway','retreat'],         bad:['slipL','slipR']},
-  upper    :{ja:'右アッパー',    dmg:14,stam:10,whiff:6, tell:300, impact:520, recover:410, arc:'upper',    side:'R', from: 0, safe:['slipL','slipR','retreat'],        bad:['advance','sway']},
-  frontKick:{ja:'前蹴り',        dmg:7, stam:6, whiff:3, tell:260, impact:460, recover:340, arc:'kick',     side:'L', from: 0, safe:['guard','retreat'],                bad:['advance']},
-  lowKick  :{ja:'ローキック',    dmg:8, stam:7, whiff:4, tell:240, impact:430, recover:330, arc:'kick',     side:'R', from:-1, safe:['guard','retreat'],                bad:['slipL','slipR']},
-  midKick  :{ja:'ミドルキック',  dmg:12,stam:10,whiff:6, tell:320, impact:560, recover:430, arc:'kick',     side:'R', from:-1, safe:['guard','retreat'],                bad:['slipL','slipR']},
-  highKick :{ja:'ハイキック',    dmg:18,stam:16,whiff:10,tell:380, impact:640, recover:520, arc:'kick',     side:'R', from:-1, safe:['guard','retreat','sway'],         bad:['slipL','slipR','advance']},
-  tackle   :{ja:'タックル',      dmg:0, stam:18,whiff:12,tell:330, impact:560, recover:420, arc:'tackle',   side:'C', from: 0, safe:['sprawl','slipL','slipR','intercept'], bad:['retreat','guard']},
+  // リード（左）— 肩が既に前にあるので溜めがほとんど無い。差し合いの道具
+  jab      :{ja:'左ジャブ',      hand:'lead', dmg:5, stam:3, whiff:2, tell:110, impact:250, recover:180, arc:'straight', side:'L', from:+1, read:0.46, safe:['guard','slipL','sway'],    bad:['advance']},
+  hook     :{ja:'左フック',      hand:'lead', dmg:11,stam:8, whiff:5, tell:210, impact:430, recover:340, arc:'hook',     side:'L', from:+1, read:0.72, safe:['guard','sway','retreat'],  bad:['slipL','slipR']},
+  // リア（右）— 肩の溜め・腰の回転・後ろ足の返りが出る。読めるが重い
+  straight :{ja:'右ストレート',  hand:'rear', dmg:11,stam:6, whiff:4, tell:280, impact:480, recover:380, arc:'straight', side:'R', from:-1, read:1.00, safe:['guard','slipR','sway'],    bad:['slipL','advance']},
+  upper    :{ja:'右アッパー',    hand:'rear', dmg:14,stam:10,whiff:6, tell:280, impact:500, recover:400, arc:'upper',    side:'R', from: 0, read:0.88, safe:['slipL','slipR','retreat'], bad:['advance','sway']},
+  // 蹴り — 前蹴りは前脚、ロー／ミドル／ハイは後ろ脚
+  frontKick:{ja:'前蹴り',        hand:'lead', dmg:7, stam:6, whiff:3, tell:180, impact:400, recover:300, arc:'kick',     side:'L', from: 0, read:0.60, safe:['guard','retreat'],         bad:['advance']},
+  lowKick  :{ja:'ローキック',    hand:'rear', dmg:8, stam:7, whiff:4, tell:250, impact:450, recover:340, arc:'kick',     side:'R', from:-1, read:0.85, safe:['guard','retreat'],         bad:['slipL','slipR']},
+  midKick  :{ja:'ミドルキック',  hand:'rear', dmg:12,stam:10,whiff:6, tell:320, impact:560, recover:430, arc:'kick',     side:'R', from:-1, read:1.00, safe:['guard','retreat'],         bad:['slipL','slipR']},
+  highKick :{ja:'ハイキック',    hand:'rear', dmg:18,stam:16,whiff:10,tell:380, impact:640, recover:520, arc:'kick',     side:'R', from:-1, read:1.00, safe:['guard','retreat','sway'],  bad:['slipL','slipR','advance']},
+  tackle   :{ja:'タックル',      hand:'rear', dmg:0, stam:18,whiff:12,tell:330, impact:560, recover:420, arc:'tackle',   side:'C', from: 0, read:0.92, safe:['sprawl','slipL','slipR','intercept'], bad:['retreat','guard']},
 };
+
+// オーソドックス構え：相手の左（＝画面右）が前
+const LEAD = +1, REAR = -1;
+// 飛来方向から「受けるべき手」を決める。来る側の手でブロックし、来る側と逆へスリップする
+function blockSide(m){ return m.from>0 ? 'R' : (m.from<0 ? 'L' : null); }
 
 // プレイヤー側の技（距離ごとの割り当て §6）
 const PLAYER_MOVES = {
@@ -218,22 +229,28 @@ function pmove(id){ return MOVES[id] || PMOVE_DATA[id]; }
 // --- 敵パターン (§17.1) ---
 // s: 拍単位の相対開始位置 / a: 行動
 const PATTERNS = [
-  {id:'P01', dist:STRIKE, next:['P02','P03','P08'], steps:[{s:0,a:'jab'},{s:1.5,a:'straight'}]},
-  {id:'P02', dist:STRIKE, next:['P01','P05','P04'], steps:[{s:0,a:'jab'},{s:1,a:'jab'},{s:2,a:'retreat'}]},
-  {id:'P03', dist:STRIKE, next:['P04','P01'],       steps:[{s:0,a:'feint'},{s:1,a:'straight'}]},
-  {id:'P04', dist:STRIKE, next:['P08','P01'],       steps:[{s:0,a:'tackle'}]},
-  {id:'P05', dist:FAR,    next:['P06','P01'],       steps:[{s:0,a:'advance'},{s:1.5,a:'midKick'}]},
-  {id:'P06', dist:FAR,    next:['P01','P02'],       steps:[{s:0,a:'advance'},{s:1,a:'advance'}]},
+  // 1-2：ジャブで反応を引き出し、0.9拍後に本命の右を通す
+  {id:'P01', dist:STRIKE, next:['P02','P03','P08','P11'], steps:[{s:0,a:'jab'},{s:0.9,a:'straight'}]},
+  // ダブルジャブ：距離を測る差し合い
+  {id:'P02', dist:STRIKE, next:['P01','P05','P04','P11'], steps:[{s:0,a:'jab'},{s:0.75,a:'jab'},{s:1.9,a:'retreat'}]},
+  // ジャブ → 左フック：同じ前手から角度を変える
+  {id:'P11', dist:STRIKE, next:['P04','P10','P03'],       steps:[{s:0,a:'jab'},{s:1.1,a:'hook'}]},
+  {id:'P03', dist:STRIKE, next:['P04','P10','P11'],       steps:[{s:0,a:'feint'},{s:1,a:'straight'}]},
+  // ジャブでタックルに入る（打撃と組みの二択）
+  {id:'P12', dist:STRIKE, next:['P08','P02','P10'],       steps:[{s:0,a:'jab'},{s:1.0,a:'tackle'}]},
+  {id:'P04', dist:STRIKE, next:['P08','P01','P12'],       steps:[{s:0,a:'tackle'}]},
+  {id:'P05', dist:FAR,    next:['P06','P01','P09'],       steps:[{s:0,a:'advance'},{s:1.5,a:'midKick'}]},
+  {id:'P06', dist:FAR,    next:['P01','P02','P11'],       steps:[{s:0,a:'advance'},{s:1,a:'advance'}]},
   {id:'P07', dist:STRIKE, next:['P04','P08'],       steps:[{s:0,a:'hook'},{s:1.5,a:'jab'},{s:3,a:'tackle'}], cageOnly:true},
-  {id:'P08', dist:STRIKE, next:['P01','P05'],       steps:[{s:0,a:'block'},{s:1.5,a:'retreat'}]},
-  {id:'P09', dist:FAR,    next:['P05','P06'],       steps:[{s:0,a:'lowKick'},{s:2,a:'advance'}]},
-  {id:'P10', dist:STRIKE, next:['P01','P08'],       steps:[{s:0,a:'hook'},{s:1,a:'upper'}]},
+  {id:'P08', dist:STRIKE, next:['P01','P05','P10'],       steps:[{s:0,a:'block'},{s:1.5,a:'retreat'}]},
+  {id:'P09', dist:FAR,    next:['P05','P06','P01'],       steps:[{s:0,a:'lowKick'},{s:2,a:'advance'}]},
+  {id:'P10', dist:STRIKE, next:['P08','P12','P02'],       steps:[{s:0,a:'hook'},{s:1,a:'upper'}]},
 ];
 
 // --- 難易度 (§12) ---
 const DIFF = {
-  BEGINNER:{ja:'BEGINNER', judgeMul:1.5, showArrow:true, showRing:true, showIcon:true, fixedOrder:true,  tellMul:1.25, aiRest:1.6},
-  NORMAL  :{ja:'NORMAL',   judgeMul:1.0, showArrow:false,showRing:true, showIcon:false,fixedOrder:false, tellMul:1.0,  aiRest:1.15},
+  BEGINNER:{ja:'BEGINNER', judgeMul:1.5, showArrow:true, showRing:true, showIcon:true, fixedOrder:true,  tellMul:1.25, aiRest:1.6,  readMul:1.35},
+  NORMAL  :{ja:'NORMAL',   judgeMul:1.0, showArrow:false,showRing:true, showIcon:false,fixedOrder:false, tellMul:1.0,  aiRest:1.15, readMul:1.0},
 };
 
 // --- パレット (§4.1  基調2色 + アクセント1) ---
@@ -242,7 +259,7 @@ const C = {
   ink:'#e8e2d4', inkDim:'#8d93a6', inkFaint:'#5c6274',
   accent:'#ff3b30', accentSoft:'#ff6257',
   skin:'#c9a184', skinShade:'#8d6b55', skinLit:'#e6c4a6',
-  gloveP:'#ded5c2', glovePShade:'#918978',
+  gloveP:'#cec4ae', glovePShade:'#7d766a',
   gloveE:'#ff3b30', gloveEShade:'#a3241d',
   cage:'#39435c',
 };
@@ -578,7 +595,7 @@ const Fight = {
     this.elapsed=0;
 
     this.hitstop=0; this.lastMove=null; this.pending=null;
-    this.lastJudge=null; this.lastDiff=0;
+    this.lastJudge=null; this.lastDiff=0; this.readPenalty=false; this.clinchT=0;
     this.feintPenalty=false; this.heartT=0;
     this.p={hp:100,stam:100,cage:0,guard:null,guardSide:'L',guardT:0,swayT:-9999,
             advUntil:-1,advPerfect:false,
@@ -635,10 +652,16 @@ const Fight = {
     return true;
   },
   updateDist(){
-    if(this.distT<0) return;
-    if(Clock.game-this.distT>=this.distDur){
+    if(this.distT>=0 && Clock.game-this.distT>=this.distDur){
       this.dist=this.distTarget; this.distT=-1;
-      if(this.dist<this.p.cage*0) {}
+      if(this.dist===CLINCH){ this.clinchT=Clock.game; this.float('組み','#8d93a6'); Audio_.cage(); }
+    }
+    // 密着は自由攻防を実装しないため、短い演出のあと打撃距離へ戻す (§6)
+    if(this.dist===CLINCH && this.distT<0 && this.clinchT &&
+       Clock.game-this.clinchT>BEAT*1.6){
+      this.clinchT=0;
+      this.distTarget=STRIKE; this.distT=Clock.game; this.distDur=STEP_MS;
+      this.float('離れた','#5c6274');
     }
   },
   get stepping(){ return this.distT>=0; },
@@ -673,7 +696,7 @@ const Fight = {
    ============================================================ */
 const AI = {
   // BEGINNER：ほぼ固定順（§13 第2段階の譜面に対応）
-  fixedOrder:['P06','P01','P02','P10','P03','P04','P08','P05','P01','P07','P09','P04'],
+  fixedOrder:['P06','P02','P01','P10','P03','P11','P04','P08','P05','P01','P12','P09'],
 
   choose(F){
     const e=F.e;
@@ -682,10 +705,12 @@ const AI = {
       F.ai.order++;
       const p=PATTERNS.find(x=>x.id===id);
       if(this.usable(F,p)) return p;
+      F.ai.order--;                     // 使えない番はスキップせず次回に回す
     }
     const last=F.ai.pattern;
     let cands=PATTERNS.filter(p=>this.usable(F,p));
-    if(last && last.next){
+    // 18% は接続を無視して自由に選ぶ（同じ流れに閉じこもらないため）
+    if(last && last.next && Math.random()>0.18){
       const linked=cands.filter(p=>last.next.includes(p.id));
       if(linked.length) cands=linked;
     }
@@ -695,7 +720,11 @@ const AI = {
       const f=cands.filter(p=>p.id!==h[h.length-1]);
       if(f.length) cands=f;
     }
-    return cands.length?pick(cands):PATTERNS[0];
+    if(cands.length) return pick(cands);
+    // この距離に使えるパターンが無い（例：密着）→ 打撃距離へ戻る
+    F.ai.restUntil=Clock.game+BEAT*0.6;
+    Fight.enemyStep(F.dist<STRIKE ? +1 : -1);
+    return null;
   },
   usable(F,p){
     if(!p) return false;
@@ -713,6 +742,7 @@ const AI = {
 
     if(!ai.pattern || ai.step>=ai.pattern.steps.length){
       const p=this.choose(F);
+      if(!p){ ai.pattern=null; return; }
       ai.pattern=p; ai.step=0; ai.t0=Clock.game;
       ai.history.push(p.id); if(ai.history.length>6) ai.history.shift();
       // パターン間の休み
@@ -729,10 +759,8 @@ const AI = {
     const e=F.e;
     if(MOVES[a]){ Fight.startEnemyAttack(a); return; }
     switch(a){
-      case 'advance':
-        if(F.dist>FAR){ } // 既に近い
-        Fight.enemyStep(-1); break;
-      case 'retreat': Fight.enemyStep(+1); break;
+      case 'advance': Fight.enemyStep(+1); break;   // 近づく＝距離IDを上げる
+      case 'retreat': Fight.enemyStep(-1); break;
       case 'feint':   Fight.startEnemyFeint(); break;
       case 'block':   e.state='blocking'; e.stateT=Clock.game; e.guardUp=1;
                       F.ai.restUntil=Clock.game+BEAT*1.2; break;
@@ -765,13 +793,16 @@ Object.assign(Fight,{
       id, data:m, t0:Clock.game, tell, impact:Clock.game+impact,
       // 読み成立 → 主観時間へ（予備動作開始後に自動発動 §9.1）
       slowAt:Clock.game + tell*0.70,
-      slowScale:clamp((impact - tell*0.70)/TS.CHOICE_REAL, 0.12, 0.60),
+      // 読みやすい技ほど長く深く減速する。ジャブは溜めが無いので浅く短い
+      slowScale:clamp((impact - tell*0.70)/
+                 (TS.CHOICE_REAL*(m.read||1)*this.diff.readMul*(this.readPenalty?0.7:1)),
+                 0.12, 0.85),
       slowed:false, slowRealT:0, returning:false,
       choice:null, judge:null, choiceT:0, resolved:false, feint:false,
       pAtk:null,
     };
     this.hint = m;
-    this.feintPenalty=false;
+    this.feintPenalty=false; this.readPenalty=false;
   },
 
   // ---------- 敵：タックルフェイント (§11) ----------
@@ -797,7 +828,8 @@ Object.assign(Fight,{
     if(this.distT>0) return;
     const t=clamp(this.dist+delta,0,2);
     if(t===this.dist){
-      if(delta>0 && this.dist===FAR){ this.e.cage=Math.min(2,this.e.cage+1); Audio_.cage(); }
+      // これ以上下がれない＝自分の背中が金網につく
+      if(delta<0 && this.dist===FAR){ this.e.cage=Math.min(2,this.e.cage+1); Audio_.cage(); }
       return;
     }
     this.distTarget=t; this.distT=Clock.game; this.distDur=STEP_MS;
@@ -859,7 +891,7 @@ Object.assign(Fight,{
   // ---------- 攻防の解決 ----------
   resolveExchange(){
     const ex=this.exchange, m=ex.data, p=this.p, e=this.e;
-    const ch=ex.choice, j=ex.judge;
+    const ch=ex.choice; let j=ex.judge;
     let dmg=m.dmg, note='', color=C.accent, avoided=false;
 
     // 迎撃／相打ちが先に成立していた場合
@@ -878,6 +910,10 @@ Object.assign(Fight,{
     }else{
       const safe = m.safe.includes(ch);
       const bad  = m.bad.includes(ch);
+      // 来る側と逆の手で受けると肩越しになり、止め切れない
+      const want = (ch==='guard') ? blockSide(m) : null;
+      const wrongHand = !!want && p.guardSide!==want;
+      if(wrongHand && j==='PERFECT'){ j='GOOD'; this.lastJudge='GOOD'; }
       this.countJudge(j);
 
       if(ch==='guard'){
@@ -888,10 +924,11 @@ Object.assign(Fight,{
           this.hurt(dmg*0.35,m,'guard'); this.float('LATE','#8d93a6',true);
           Audio_.guardHit(); haptic('guard');
         }else{
-          const red=dmg*0.30;                    // 70%軽減 (§10)
-          p.stam=Math.max(0,p.stam-dmg*0.5*(j==='EARLY'?1.5:1));
+          const red=dmg*(wrongHand?0.48:0.30);   // 70%軽減 (§10)。逆の手なら軽減が落ちる
+          p.stam=Math.max(0,p.stam-dmg*0.5*(j==='EARLY'?1.5:1)*(wrongHand?1.4:1));
           this.hurt(red,m,'guard');
           this.stats.guarded++;
+          if(wrongHand) this.float('逆の手','#8d93a6');
           this.float(j,j==='PERFECT'?C.accent:C.ink,j==='PERFECT');
           this.burst(hitX,hitY,'guard',j==='PERFECT'?1:0.6);
           Audio_.guardHit(); haptic(j==='PERFECT'?'perfect':'guard');
@@ -937,6 +974,9 @@ Object.assign(Fight,{
     if(ex.id==='tackle' && !avoided){
       this.finish(false,'TAKEDOWN');
     }
+    // 差し（ジャブ）に防御を使わされると、続く本命の読みが浅くなる
+    this.readPenalty = (ex.id==='jab' && !!ch);
+
     this.exchange=null; this.hint=null;
     e.state='recover'; e.stateT=Clock.game;
     Clock.to(TS.OBSERVE, TS.EXIT_MS);
@@ -1508,42 +1548,61 @@ function drawOpponent(F){
   ctx.beginPath(); ctx.ellipse(cx,feet+bh*0.012,bh*0.20,bh*0.028,0,0,7); ctx.fill();
   ctx.globalAlpha=1;
 
+  // --- 半身（オーソドックス）の投影 ---
+  // 体幹を約35度ひねると肩線は foreshorten し、前の肩はカメラに近いぶん
+  // 外へ大きく、後ろの肩は中央寄りに小さく写る
+  const BLADE=0.84, NEAR=1.20, FAR=0.82;
+  const leadScale=1.16, rearScale=0.86;
+
   const lean = (wind*0.5+strike*0.5);
   const bodyDX = arc==='tackle' ? 0 : side*bh*0.020*wind - side*bh*0.014*strike;
   const bodyDY = (arc==='tackle'? bh*0.12*lean : 0) + (arc==='upper'? bh*0.030*wind : 0)
                + (arc!=='tackle' ? bh*0.010*wind : 0);
   // 腰の回転（打つ側が引かれる → 打ち出しで一気に返る）
-  e.hipRot = (side||0)*(0.55*wind - 0.75*strike);
-  const twL = 1 + ((side===-1)? (-0.30*wind+0.34*strike) : (0.12*wind-0.08*strike));
-  const twR = 1 + ((side=== 1)? (-0.30*wind+0.34*strike) : (0.12*wind-0.08*strike));
+  // 後ろ手の技ほど腰が大きく回る＝これがストレートの最大の予告になる
+  const rearMove = (m && m.hand==='rear');
+  const rotK = rearMove ? 1 : 0.35;
+  e.hipRot = (side||0)*(0.55*wind - 0.85*strike)*rotK;
+  // 半身のベースに、ひねりの増減を足す
+  const twL = BLADE*(-1===LEAD?NEAR:FAR)
+            + ((side===-1)? (-0.30*wind+0.40*strike) : (0.14*wind-0.10*strike));
+  const twR = BLADE*( 1===LEAD?NEAR:FAR)
+            + ((side=== 1)? (-0.30*wind+0.40*strike) : (0.14*wind-0.10*strike));
 
   // --- 脚（太腿→膝→脛→足を面で構成）---
   if(feet-bh*0.52 < V.H){
     const stepK=e.legStep;
-    const legs=[[-1,bh*0.105,-bh*0.010*stepK],[1,bh*0.115,bh*0.02*wind]];
+    // 前脚（画面右）は前へ出て手前、後ろ脚（画面左）は引いて奥・やや外
+    const legs=[[-1,bh*0.128,-bh*0.010*stepK],[1,bh*0.095,bh*0.02*wind]];
     for(const [sg,spread,off] of legs){
-      const hipX=cx+sg*bh*0.052, kneeX=cx+sg*spread*0.86+off*0.5;
-      const kneeY=feet-bh*0.255, ankX=cx+sg*spread+off, ankY=feet-bh*0.012;
+      const isLead = (sg===LEAD);
+      const depth  = isLead ? 1.14 : 0.86;        // 手前ほど大きく
+      const dy     = isLead ? bh*0.045 : -bh*0.055; // 手前ほど下に接地して見える
+      const hipX=cx+sg*bh*0.052*depth, kneeX=cx+sg*spread*0.86+off*0.5;
+      const kneeY=feet+dy-bh*0.255*depth, ankX=cx+sg*spread+off, ankY=feet+dy-bh*0.012;
+      const tw=bh*0.050*depth, kw=bh*0.040*depth, aw=bh*0.024*depth;
       ctx.beginPath();
-      ctx.moveTo(hipX-bh*0.050,hipY+bodyDY);
-      ctx.lineTo(hipX+bh*0.050,hipY+bodyDY);
-      ctx.quadraticCurveTo(kneeX+bh*0.040,(hipY+kneeY)/2,kneeX+bh*0.036,kneeY);
-      ctx.lineTo(ankX+bh*0.024,ankY);
-      ctx.lineTo(ankX-bh*0.024,ankY);
-      ctx.quadraticCurveTo(kneeX-bh*0.040,(hipY+kneeY)/2,hipX-bh*0.050,hipY+bodyDY);
+      ctx.moveTo(hipX-tw,hipY+bodyDY);
+      ctx.lineTo(hipX+tw,hipY+bodyDY);
+      ctx.quadraticCurveTo(kneeX+kw,(hipY+kneeY)/2,kneeX+kw*0.9,kneeY);
+      ctx.lineTo(ankX+aw,ankY);
+      ctx.lineTo(ankX-aw,ankY);
+      ctx.quadraticCurveTo(kneeX-kw,(hipY+kneeY)/2,hipX-tw,hipY+bodyDY);
       ctx.closePath();
       ctx.fillStyle=C.bg2; ctx.fill();
       ctx.strokeStyle='rgba(10,13,22,0.7)'; ctx.lineWidth=Math.max(1,bh*0.005); ctx.stroke();
       // 脛のハイライト面
-      ctx.fillStyle=sg<0?'rgba(232,226,212,0.10)':'rgba(0,0,0,0.16)';
+      ctx.fillStyle=isLead?'rgba(232,226,212,0.12)':'rgba(0,0,0,0.20)';
       ctx.beginPath();
       ctx.moveTo(kneeX-bh*0.030,kneeY); ctx.lineTo(kneeX-bh*0.006,kneeY);
       ctx.lineTo(ankX-bh*0.004,ankY); ctx.lineTo(ankX-bh*0.020,ankY);
       ctx.closePath(); ctx.fill();
-      // 足
+      // 足。後ろ足は踵が浮き、打ち出しで返る
+      const heel = isLead ? 0 : bh*0.030*(wind*0.4+strike*rotK);
       ctx.fillStyle='#0f1424';
       ctx.beginPath();
-      ctx.ellipse(ankX+sg*bh*0.012,feet,bh*0.045,bh*0.016,0,0,7); ctx.fill();
+      ctx.ellipse(ankX+sg*bh*0.014*depth, feet+dy-heel,
+                  bh*0.048*depth, bh*0.016*depth, isLead?0:sg*0.30, 0,7); ctx.fill();
     }
   }
 
@@ -1601,12 +1660,14 @@ function drawOpponent(F){
   ctx.globalAlpha=1;
 
   // --- 腕 ---
-  const armOpt={cx:sx,shY:sy,headY,headR,bh,hw,side,wind,strike,arc,m};
+  const armOpt={cx:sx,shY:sy,headY,headR,bh,hw,side,wind,strike,arc,m,
+                twL,twR,leadScale,rearScale};
   drawEnemyArm(F,-1,armOpt);
   drawEnemyArm(F,+1,armOpt);
 
   // --- 頭 ---
-  drawEnemyHead(F,{cx:sx+ (e.gaze.x*headR*0.10), headY,headR,bh,wind,strike,arc});
+  drawEnemyHead(F,{cx:sx + LEAD*headR*0.14 + (e.gaze.x*headR*0.10),
+                   headY:headY+headR*0.06, headR,bh,wind,strike,arc});
 
   // 手前へ来た拳は顔より前
   if(side!==0 && strike>0.28 && arc!=='kick' && arc!=='tackle') drawEnemyArm(F,side,armOpt);
@@ -1617,54 +1678,71 @@ function drawOpponent(F){
 // s: -1 = 画面左（相手の右手） / +1 = 画面右（相手の左手）
 function drawEnemyArm(F,s,o){
   const {cx,shY,headY,headR,bh,side,wind,strike,arc,m}=o;
-  // 打つ側の肩は引かれて中央へ寄り、打ち出すと前へ出る
-  const twist = (s===side) ? (-0.30*wind + 0.34*strike) : (0.12*wind - 0.08*strike);
-  const hw = o.hw*(1+twist);
+  const isLead = (s===LEAD);
+  // 半身の投影：前肩は外へ大きく、後ろ肩は中央寄りに小さく
+  const hw = o.hw*(s===-1 ? o.twL : o.twR);
+  const dep = isLead ? o.leadScale : o.rearScale;   // カメラからの距離による拡縮
   const striking = (side===s) && strike>0 && arc!=='kick' && arc!=='tackle';
-  const shx=cx+s*hw*0.92, shy=shY+bh*0.012 + (s===side? bh*0.010*wind : 0);
+  const shx=cx+s*hw*0.92, shy=shY+bh*0.012 + (s===side? bh*0.010*wind : 0)
+            + (isLead ? bh*0.014 : -bh*0.016);
+  if(s===LEAD) V.shL={x:shx,y:shy}; else V.shR={x:shx,y:shy};
 
-  // ガード位置（構え）
-  let gx=cx+s*hw*0.74, gy=headY+headR*0.62, r=bh*0.047;
-  let ex_=cx+s*hw*0.86, ey=shY+bh*0.095;     // 肘
+  // 構え：前手は顔より前へ差し出す（＝カメラに近く、低く、大きい）。
+  //       後ろ手は顎の横に置く（＝奥、高い位置、小さい）。
+  let gx, gy, r=bh*0.047*dep, ex_, ey;
+  if(isLead){
+    gx=cx+s*hw*0.56; gy=headY+headR*1.12;
+    ex_=cx+s*hw*0.94; ey=shY+bh*0.105;
+  }else{
+    gx=cx+s*hw*0.70; gy=headY+headR*0.34;
+    ex_=cx+s*hw*0.84; ey=shY+bh*0.085;
+  }
 
   if(wind>0 && strike===0){
     const w=easeOut(wind);
-    if(side===s){
+    if(side===s && isLead && arc==='straight'){
+      // 左ジャブ：肩が既に前にあるので、ほとんど溜めない（＝読ませない）
+      gx=lerp(gx, cx+s*hw*0.60, w);
+      gy=lerp(gy, gy-headR*0.06, w);
+      r*=1-0.05*w;
+    }else if(side===s){
       // 打つ側：引き手を後ろへ（画面上は中央寄り・小さく・下がる）
       if(arc==='hook'){
-        gx=lerp(cx+s*hw*0.74, cx+s*hw*1.62, w);
-        gy=lerp(headY+headR*0.62, headY+headR*0.05, w);
+        gx=lerp(gx, cx+s*hw*1.55, w);
+        gy=lerp(gy, headY+headR*0.10, w);
         r*=1+0.10*w;
         ex_=lerp(ex_, cx+s*hw*1.34, w); ey=lerp(ey, shY+bh*0.02, w);
       }else if(arc==='upper'){
-        gx=lerp(cx+s*hw*0.74, cx+s*hw*0.66, w);
-        gy=lerp(headY+headR*0.62, shY+bh*0.20, w);
+        gx=lerp(gx, cx+s*hw*0.64, w);
+        gy=lerp(gy, shY+bh*0.20, w);
         r*=1-0.10*w;
         ex_=lerp(ex_, cx+s*hw*0.96, w); ey=lerp(ey, shY+bh*0.19, w);
       }else if(arc==='tackle'){
-        gx=lerp(cx+s*hw*0.74, cx+s*hw*1.05, w);
-        gy=lerp(headY+headR*0.62, shY+bh*0.10, w);
+        gx=lerp(gx, cx+s*hw*1.02, w);
+        gy=lerp(gy, shY+bh*0.10, w);
         ex_=lerp(ex_, cx+s*hw*1.16, w);
       }else{
         // ジャブ／ストレート：顎の横へ引き、奥へ引く分だけ小さく見せる
-        gx=lerp(cx+s*hw*0.74, cx+s*hw*0.52, w);
-        gy=lerp(headY+headR*0.62, headY+headR*1.05, w);
-        r*=1-0.24*w;
+        gx=lerp(gx, cx+s*hw*0.50, w);
+        gy=lerp(gy, headY+headR*0.98, w);
+        r*=1-0.17*w;
         ex_=lerp(ex_, cx+s*hw*0.70, w); ey=lerp(ey, shY+bh*0.13, w);
       }
     }else{
-      // 反対の腕：わずかに前へ出る
-      gx=lerp(gx, cx+s*hw*0.86, w*0.8);
-      gy=lerp(gy, headY+headR*0.48, w*0.8);
-      r*=1+0.08*w;
+      // 反対の腕：わずかに前へ出て顔を守る
+      gx=lerp(gx, cx+s*hw*(isLead?0.62:0.78), w*0.5);
+      gy=lerp(gy, gy-headR*0.22, w*0.5);
+      r*=1+0.04*w;
     }
   }
   if(striking){
-    const u=Math.pow(strike,1.55);
-    const tx=V.W*0.5+s*bh*0.03, ty=V.H*0.44;
-    let sx0=cx+s*hw*0.98, sy0=headY+headR*0.55;
-    if(arc==='upper'){ sx0=cx+s*hw*0.75; sy0=shY+bh*0.14; }
-    if(arc==='hook'){ sx0=cx+s*hw*1.45; sy0=headY-headR*0.15; }
+    // 前手は伸びる距離が短いので速く到達し、拳も小さめ。後ろ手は中心線を越えて大きく届く
+    const u=Math.pow(strike, isLead?1.25:1.60);
+    const tx=V.W*0.5+s*bh*(isLead?0.055:0.02), ty=V.H*(isLead?0.455:0.44);
+    let sx0=isLead? cx+s*hw*0.62 : cx+s*hw*0.52,
+        sy0=isLead? headY+headR*1.02 : headY+headR*1.05;
+    if(arc==='upper'){ sx0=cx+s*hw*0.66; sy0=shY+bh*0.20; }
+    if(arc==='hook'){ sx0=cx+s*hw*1.62; sy0=headY+headR*0.05; }
     if(arc==='hook'){
       const c1x=cx+s*hw*2.6, c1y=headY+headR*0.1;
       gx=(1-u)*(1-u)*sx0+2*(1-u)*u*c1x+u*u*tx;
@@ -1676,7 +1754,7 @@ function drawEnemyArm(F,s,o){
     }else{
       gx=lerp(sx0,tx,u); gy=lerp(sy0,ty,u);
     }
-    r=lerp(bh*0.047,bh*0.23,Math.pow(u,1.8));
+    r=lerp(bh*0.047*dep, bh*(isLead?0.175:0.235), Math.pow(u,1.8));
     ex_=lerp(ex_,cx+s*hw*0.78,u*0.6);
     ey=lerp(ey,shY+bh*0.05,u*0.6);
     V.fist={x:gx,y:gy,r,active:true,s};
@@ -1707,7 +1785,7 @@ function drawEnemyArm(F,s,o){
     ctx.restore();
   }else{
     // 前腕
-    ctx.strokeStyle=C.bg2; ctx.lineWidth=bh*0.048;
+    ctx.strokeStyle=C.bg2; ctx.lineWidth=bh*0.048*dep;
     ctx.beginPath(); ctx.moveTo(shx,shy); ctx.lineTo(ex_,ey); ctx.lineTo(gx,gy); ctx.stroke();
     ctx.strokeStyle='rgba(232,226,212,0.08)'; ctx.lineWidth=bh*0.016;
     ctx.beginPath(); ctx.moveTo(shx,shy); ctx.lineTo(ex_,ey); ctx.stroke();
@@ -1871,9 +1949,12 @@ function drawEnemyHead(F,o){
    ============================================================ */
 const Arms = {
   L:{x:0,y:0,r:0,init:false}, R:{x:0,y:0,r:0,init:false},
+  // 左＝リード：顔より前へ差し出しているのでカメラから遠い＝小さく、高く、中央寄り。
+  // 右＝リア ：顎の横にあるのでカメラに近い＝大きく、低く、外側。
   base(side){
-    const s=side==='L'?-1:1;
-    return {x:V.W*0.5+s*V.W*0.315, y:V.H*0.965, r:V.W*0.190};
+    return side==='L'
+      ? {x:V.W*0.5-V.W*0.262, y:V.H*0.912, r:V.W*0.140}
+      : {x:V.W*0.5+V.W*0.318, y:V.H*0.984, r:V.W*0.184};
   },
   update(F){
     const p=F.p, dt=Clock.realDt;
@@ -1888,10 +1969,11 @@ const Arms = {
       if(holding||p.guard===side){
         // ガード：肘より先を画面中央へ入れ、視界を狭める (§4)
         const s=side==='L'?-1:1;
-        tx=V.W*0.5+s*V.W*0.196;
-        ty=V.H*0.620;
-        tr=V.W*0.168;
-        if(f){ ty=clamp(f.y-V.H*0.085, V.H*0.47, V.H*0.80); tx=lerp(tx,f.x,0.20); }
+        const lead=(side==='L');
+        tx=V.W*0.5+s*V.W*(lead?0.170:0.205);
+        ty=V.H*(lead?0.585:0.630);
+        tr=V.W*(lead?0.150:0.176);
+        if(f){ ty=clamp(f.y-V.H*0.085, V.H*(lead?0.44:0.47), V.H*0.80); tx=lerp(tx,f.x,0.20); }
         rate=22;                      // 入力への即時追従
       }else if(f){
         // 指に軽く追従（構えの微調整）
@@ -1914,7 +1996,7 @@ const Arms = {
         }else{
           tx=lerp(b.x,fx_,u); ty=lerp(b.y,fy_,u);
         }
-        tr=lerp(b.r,V.bh*0.10,u);
+        tr=lerp(b.r, V.bh*(act.m.hand==='lead'?0.085:0.105), u);
         rate=40;
       }
       a.x=damp(a.x,tx,rate,dt); a.y=damp(a.y,ty,rate,dt); a.r=damp(a.r,tr,rate,dt);
@@ -2184,8 +2266,9 @@ function drawAssist(F,phase){
     ctx.globalAlpha=0.5*(1-k*0.4);
     ctx.strokeStyle=C.accent; ctx.lineWidth=2;
     const s=m.side==='R'?-1:(m.side==='L'?1:0);
-    const x=V.cx+s*V.hw*1.0, y=V.shoulderY;
-    ctx.beginPath(); ctx.arc(x,y,V.bh*0.055*(1.6-k*0.6),0,7); ctx.stroke();
+    const sh = s===LEAD ? V.shL : V.shR;
+    const x = sh ? sh.x : V.cx+s*V.hw, y = sh ? sh.y : V.shoulderY;
+    ctx.beginPath(); ctx.arc(x,y,V.bh*0.050*(1.6-k*0.6),0,7); ctx.stroke();
     ctx.restore();
   }
   // BEGINNER：正しい移動方向と操作する腕を短時間表示 (§12)
@@ -2448,8 +2531,8 @@ function showResult(){
 }
 
 const HOWTO_ROWS=[
-  ['左タップ','左前蹴り / 左ジャブ / 左ショートフック'],
-  ['右タップ','右ローキック / 右ストレート / 右肘'],
+  ['左タップ','左前蹴り / 左ジャブ / 左ショートフック　※前手・速い・軽い'],
+  ['右タップ','右ローキック / 右ストレート / 右肘　※後ろ手・遅い・重い'],
   ['内側スライド','ミドルキック / フック / 肘・膝'],
   ['上スライド','ハイキック / アッパー / 膝　※タックルには迎撃'],
   ['外側スライド','攻撃が来ていればスリップ、来ていなければ回り込み'],
@@ -2462,6 +2545,29 @@ const HOWTO_ROWS=[
 ];
 function buildHowto(){
   el('howtoBody').innerHTML=`
+    <h2>STANCE</h2>
+    <div class="note">
+      両者とも<b>オーソドックス（左構え）</b>。左半身が前、右が後ろです。<br><br>
+      <b>左＝前手（リード）</b>　肩が既に前にあるので<b>溜めがほとんど無い</b>。
+      速いが軽い。距離を測り、本命を通すための差し合いの道具です。<br>
+      <b>右＝後ろ手（リア）</b>　肩を溜め、腰が回り、後ろ足が返ってから飛ぶ。
+      <b>予告が大きい</b>ので読めますが、当たれば重い。
+    </div>
+    <h3>読める技と、読めない技</h3>
+    <div class="note">
+      主観時間の深さと長さは<b>技ごとに違います</b>。
+      右ストレートは肩と腰が大きく動くので、世界が深く長く遅くなる。
+      左ジャブは溜めが無いので、<b>ほとんど遅くなりません</b>。<br><br>
+      ジャブは殴るためではなく<b>あなたに防御を使わせるため</b>に出てきます。
+      ジャブに深く反応すると、続く右ストレートの読みが浅くなります。これが 1-2 です。
+    </div>
+    <h3>受ける手を間違えない</h3>
+    <div class="note">
+      <b>来る側の手でブロックし、来る側と逆へスリップする。</b><br>
+      相手の右ストレートは<b>自分の左顔面</b>に来る → 左を長押し、または右へスリップ。<br>
+      相手の左ジャブは<b>自分の右顔面</b>に来る → 右を長押し、または左へスリップ。<br>
+      逆の手で受けると肩越しになり、軽減が落ちて PERFECT になりません。
+    </div>
     <h2>CONTROLS</h2>
     <div class="note">
       画面を左右半分に分け、<b>開始した領域・方向・片指／両指</b>で技が決まります。
@@ -2472,7 +2578,7 @@ function buildHowto(){
     <h3>間合 — 主観時間</h3>
     <div class="note">
       相手の<b>目線・肩・腰・足音</b>が動いたら攻撃の起こりです。
-      予備動作を検知すると世界が<b>0.25倍速</b>になり、防御・回避・迎撃を選べます。
+      予備動作を検知すると世界が遅くなり、防御・回避・迎撃を選べます。
       入力を決めた瞬間に通常速度へ戻り、接触が一気に解決します。<br><br>
       <b>PERFECT</b>で防いだ直後の 0.6 秒はカウンター受付。
       その間の攻撃は 1.5 倍、拍に合った<b>PERFECTカウンター</b>は 1.8 倍で相手を後退させます。
