@@ -80,6 +80,72 @@ FIGHTERS.gou = {
 
 ---
 
+## 打撃フォーム（文献に基づく実装）
+
+「実際のフォームを分析して反映させる」という要求に対し、
+バイオメカニクス研究とコーチング文献を調べ、**数値で裏を取ってから**実装しています。
+出典は本ファイル末尾に一覧。
+
+### 文献から確定した事実と、実装への反映
+
+| 文献の記述 | 実装 |
+|---|---|
+| 打撃は近位から遠位へ体節が順に加速・制動する（proximal-to-distal） | 部位ごとに時間差を持つ運動連鎖 |
+| クロスは「腰が先導し、肩が続き、腕が遅れ、拳が最後に弾ける」 | 腰 0.46→0.84、肩 0.66→0.94、腕 0.78→1.00 |
+| **腕の伸展そのものは 60〜100 ms**（接触時間は 10〜20 ms） | 右ストレート全体 480ms のうち腕は最後の 22% ＝ **106 ms** |
+| 拳速度：アマ 6〜9 m/s、エリート 9〜12 m/s | 到達距離 0.335×身長 ÷ 106ms ≒ **8.6 m/s** |
+| **クロスでは腰が開始位置から約90度回る**（最大の力源） | `hipRot` を後ろ手の技で最大化 |
+| 後ろ足は母趾球で押し込み、**踵が外へ回る** | 踵が浮き、爪先を軸に足が外向きへ回転 |
+| 接触時、後ろ肩が顎に密着する | 打ち出しで肩が上がり顎へ寄る |
+| **接触時に掌が下を向く**（回内）。人差し指・中指の拳頭で当てる | 伸展の最後の 1/3 でグローブが回内 |
+| クロスの肘は矢状面のピストン運動で、回旋はほとんど無い | 肘は下がったまま拳の真後ろを追う |
+| **フックは肘90度を保つ。**開くと遅い振り回しになる | 肩から拳までを `√(上腕²+前腕²)` に固定＝肘角90度が保たれる |
+| フックは**拳・肘・肩が水平に一直線**。前腕は床と平行に回る | 拳の高さを肩の高さに固定し、肘を水平に先行させる |
+| フックは前足を軸に回る（体重が前足へ乗る） | フックのときだけ軸足が前後入れ替わる |
+| ジャブでは**前肩が上がって顎を守る** | 伸展に合わせて肩が上がる |
+| アッパーは**肘90度**を保ち、膝のバネと腰で突き上げる。肘は体側に近い | 半径を固定した矢状面の円軌道＋沈み込みからの伸び上がり |
+
+### 実装の骨格
+
+腕は**上腕 0.172 ／ 前腕＋拳 0.185**（身長比、合計 0.357 ＝ 実際のリーチ）の2本の骨。
+長さは固定し、拳の位置から**肘を逆算**（2関節IK）します。
+肘の逃がし方が技ごとに違うので、同じIKでストレート・フック・アッパーが描き分けられます。
+
+奥行きを持たせ、**打撃は標的（＝カメラ＝こちらの顔）へ収束**します。
+拳が近づくほど中央へ寄って大きくなるのは透視投影の結果です。
+
+### まだ足りていないところ
+
+- 前足の踏み込み距離（ジャブで「前足が接地するのと拳の到達が同時」）
+- 肩甲骨の前方突出（パンチの最終伸展で肩がさらに前へ出る）
+- 打ち終わりの引き戻し速度（文献では伸展より速い）
+- 体重移動の可視化（前足に乗る量）
+
+---
+
+## 参考にした文献
+
+- Biomechanical Analysis of the Cross, Hook, and Uppercut in Junior vs. Elite Boxers
+  https://pubmed.ncbi.nlm.nih.gov/33345181/
+- Biomechanics of the lead straight punch of different level boxers (Frontiers in Physiology, 2022)
+  https://www.frontiersin.org/journals/physiology/articles/10.3389/fphys.2022.1015154/full
+- Dinu & Louis (2020) Frontiers in Sports and Active Living — boxing punch kinematics
+  https://researchonline.ljmu.ac.uk/id/eprint/14088/
+- A comparative analysis of punching in boxing and sanda: cross and uppercut
+  https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1441470/full
+- Kinematic and kinetic analysis of throwing a straight punch
+  https://efsupit.ro/images/stories/30dec2017/Art%20287.pdf
+- Expert amateur Irish boxing coaches' perceptions of the technical components of straight punches
+  https://www.tandfonline.com/doi/full/10.1080/24748668.2025.2481693
+- Hook (boxing) — 肘90度・拳肘肩の水平一直線
+  https://en.wikipedia.org/wiki/Hook_(boxing)
+- How To Throw A Stronger And More Powerful Cross（腰90度・踵の返り・回内）
+  https://evolve-mma.com/blog/how-to-throw-a-stronger-and-more-powerful-cross/
+- How To Throw A Stronger And More Powerful Uppercut（肘90度・脚のバネ）
+  https://evolve-university.com/blog/how-to-throw-a-stronger-and-more-powerful-uppercut/
+
+---
+
 ## 打撃フォーム（運動連鎖）
 
 本物の打撃は腕から始まりません。地面から順に力が伝わります。

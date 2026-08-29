@@ -1915,16 +1915,21 @@ function drawOpponent(F){
 
   const lean = (wind*0.5+strike*0.5);
   // 体重移動：打ち出しで前脚へ乗る
+  // 文献：打ち出しで体重が前足へ乗る。フックは前足が軸になる
+  const wshift = (arc==='hook') ? 0.036 : 0.026;
   const bodyDX = arc==='tackle' ? 0
-               : side*bh*0.022*CH.chamber - side*bh*0.026*CH.hip;
-  const bodyDY = (arc==='tackle'? bh*0.12*lean : 0) + (arc==='upper'? bh*0.030*wind : 0)
-               + (arc!=='tackle' ? bh*0.010*wind : 0)
+               : side*bh*0.022*CH.chamber - side*bh*wshift*CH.hip;
+  // 文献：アッパーは膝を曲げて脚をバネにし、そこから伸び上がる
+  const spring = (arc==='upper') ? (bh*0.050*CH.chamber - bh*0.030*CH.hip) : 0;
+  const bodyDY = (arc==='tackle'? bh*0.12*lean : 0) + spring
+               + (arc!=='tackle' ? bh*0.010*CH.chamber : 0)
                + bh*EB.crouch;                       // 低い構えの選手はここで沈む
   // 腰の回転。腕より先に回るのが本物の順序（§ 運動連鎖）
   // 後ろ手の技ほど大きく回る＝ストレート最大の予告
   const rearMove = (m && m.hand==='rear');
-  const rotK = rearMove ? 1 : 0.42;
-  e.hipRot = (side||0)*(0.50*CH.chamber - 0.95*CH.hip)*rotK;
+  // 文献：クロスでは腰が開始位置から約90度回る。パンチ最大の力源
+  const rotK = rearMove ? 1 : (arc==='hook' ? 0.85 : 0.42);
+  e.hipRot = (side||0)*(0.50*CH.chamber - 1.10*CH.hip)*rotK;
   // 半身のベースに、体幹のひねりを足す（肩は腰に遅れて回る）
   const twL = BLADE*(-1===LEAD?NEAR:FAR)
             + ((side===-1)? (-0.26*CH.chamber+0.34*CH.torso) : (0.12*CH.chamber-0.08*CH.torso));
@@ -1960,12 +1965,18 @@ function drawOpponent(F){
       ctx.lineTo(ankX-bh*0.004,ankY); ctx.lineTo(ankX-bh*0.020,ankY);
       ctx.closePath(); ctx.fill();
       // 足。後ろ足は踵が浮き、打ち出しで返る
-      // 後ろ足の踵が最初に返る。ここが運動連鎖の起点で、最も早い予告
-      const heel = isLead ? 0 : bh*0.042*CH.foot*(rearMove?1:0.5);
+      // 文献：母趾球で押し込み、踵が外へ回る。これが運動連鎖の起点＝最も早い予告。
+      // フックでは前足が軸になって回るので、前後が入れ替わる
+      const pivotLead = (arc==='hook');
+      const isPivot = pivotLead ? isLead : !isLead;
+      const pv = isPivot ? CH.foot*(rearMove||pivotLead?1:0.5) : 0;
+      const heel = bh*0.046*pv;                       // 踵が浮く
+      const toe  = sg*(0.30+1.05*pv);                 // 爪先を軸に外へ回る
       ctx.fillStyle='#0f1424';
       ctx.beginPath();
       ctx.ellipse(ankX+sg*bh*0.014*depth, feet+dy-heel,
-                  bh*0.048*depth, bh*0.016*depth, isLead?0:sg*0.30, 0,7); ctx.fill();
+                  bh*0.048*depth*(1-0.22*pv), bh*0.016*depth*(1+0.5*pv),
+                  isLead&&!pivotLead?0:toe, 0,7); ctx.fill();
     }
   }
 
@@ -1982,17 +1993,20 @@ function drawOpponent(F){
 
   // --- 胴（面で構成） ---
   const sx=cx+bodyDX, sy=shY+bodyDY, hy=hipY+bodyDY;
-  // 首
+  // 頭の位置。打つ瞬間は顎を引き、前肩の内側へ入れる
+  const hdX = sx + LEAD*headR*(0.10+0.07*CH.torso) + e.gaze.x*headR*0.10;
+  const hdY = headY + headR*(0.06+0.10*CH.torso) + bodyDY*0.6;
+  // 首（頭にぶら下げ、肩へ接続する）
   ctx.fillStyle=EC.skinShade;
   ctx.beginPath();
-  ctx.moveTo(sx-headR*0.34,headY+headR*0.62); ctx.lineTo(sx+headR*0.34,headY+headR*0.62);
+  ctx.moveTo(hdX-headR*0.34,hdY+headR*0.62); ctx.lineTo(hdX+headR*0.34,hdY+headR*0.62);
   ctx.lineTo(sx+headR*0.46,sy+bh*0.006); ctx.lineTo(sx-headR*0.46,sy+bh*0.006);
   ctx.closePath(); ctx.fill();
   // 顎の落ち影
   ctx.fillStyle='rgba(0,0,0,0.34)';
   ctx.beginPath();
-  ctx.moveTo(sx-headR*0.34,headY+headR*0.62); ctx.lineTo(sx+headR*0.34,headY+headR*0.62);
-  ctx.lineTo(sx+headR*0.26,headY+headR*0.96); ctx.lineTo(sx-headR*0.26,headY+headR*0.96);
+  ctx.moveTo(hdX-headR*0.34,hdY+headR*0.62); ctx.lineTo(hdX+headR*0.34,hdY+headR*0.62);
+  ctx.lineTo(hdX+headR*0.26,hdY+headR*0.96); ctx.lineTo(hdX-headR*0.26,hdY+headR*0.96);
   ctx.closePath(); ctx.fill();
 
   const hwL=hw*twL, hwR=hw*twR;
@@ -2030,9 +2044,7 @@ function drawOpponent(F){
   drawEnemyArm(F,+1,armOpt);
 
   // --- 頭 ---
-  // 打つ瞬間は顎を引き、前肩の内側へ入れる
-  drawEnemyHead(F,{cx:sx + LEAD*headR*(0.14+0.10*CH.torso) + (e.gaze.x*headR*0.10),
-                   headY:headY+headR*(0.06+0.10*CH.torso), headR,bh,wind,strike,arc});
+  drawEnemyHead(F,{cx:hdX, headY:hdY, headR,bh,wind,strike,arc});
 
   // 手前へ来た拳は顔より前
   if(side!==0 && CH.arm>0.30 && arc!=='kick' && arc!=='tackle') drawEnemyArm(F,side,armOpt);
@@ -2061,17 +2073,28 @@ const ARM = {
 };
 
 // 運動連鎖の時間差。a = 起こり開始(0) → 接触(1)
+//
+// 文献:
+//  ・近位から遠位へ、体節が順に加速と制動を繰り返して末端速度を上げる
+//    (proximal-to-distal sequencing)
+//  ・クロスは「腰が先導し、肩が続き、腕が遅れ、拳が最後に弾ける」
+//  ・腕そのものの伸展は 60〜100ms（接触時間は 10〜20ms）
+//    → 右ストレート全体 480ms のうち、腕は最後の約 22%（106ms）
 function chain(a){
   const sm=(x,s,e)=>clamp((x-s)/(e-s),0,1);
   return {
-    chamber: 1-sm(a,0.00,0.46),   // 引き手（先に完了する）
-    foot   : sm(a,0.30,0.70),     // 後ろ足の踵が返る
-    hip    : sm(a,0.42,0.82),     // 腰が回る
-    torso  : sm(a,0.50,0.88),     // 体幹が続く
-    shldr  : sm(a,0.58,0.92),     // 肩が出る
-    arm    : sm(a,0.68,1.00),     // 腕は最後
+    chamber: 1-sm(a,0.00,0.40),   // 引き手（先に完了する）
+    foot   : sm(a,0.34,0.66),     // 後ろ足の踵が外へ返る
+    hip    : sm(a,0.46,0.84),     // 腰が回る（最大の力源。約90度）
+    torso  : sm(a,0.56,0.90),     // 体幹が続く
+    shldr  : sm(a,0.66,0.94),     // 肩が出る
+    arm    : sm(a,0.78,1.00),     // 腕は最後（約106ms）
   };
 }
+
+// 肘が直角を保つときの、肩から拳までの距離。
+// フックとアッパーは肘角90度を保つのが正しいフォームなので、この距離が一定になる
+const R90 = Math.sqrt(0.172*0.172 + 0.185*0.185);
 
 // カメラ軸（画面中央）へ向かう透視投影
 function projArm(ax,ay,dx,dy,dz,bh){
@@ -2106,17 +2129,23 @@ function fistPath(arc, s, u, lead){
   // u: 腕の伸展 0→1
   const e=easeOut(u);
   if(arc==='hook'){
-    // フック：腕は伸びない。肘角を保ったまま体幹の回転で振る
-    const R=0.255, th=(-0.10+1.15*e)*Math.PI*0.5;
-    return { p:[ s*R*Math.cos(th), -0.085-0.015*e, R*Math.sin(th)*1.45 ],
-             hint:[ 0, -1.00, 0.50 ] };              // 肘は肩の高さで先行する
+    // フック：肘は90度を保つ。開くと「遅い振り回し」になる。
+    // 拳・肘・肩が水平に一直線に並び、前腕は床と平行に回る。
+    const th=(-0.08+1.12*e)*Math.PI*0.5;
+    return { p:[ s*R90*Math.cos(th), -0.030, R90*Math.sin(th)*1.30 ],
+             hint:[ s*0.85, -0.28, -0.60 ] };        // 肘は肩の高さで外へ、拳より先行
   }
   if(arc==='upper'){
-    // アッパー：肘の角度を保ったまま、脚と体幹で下から突き上げる
-    return { p:[ s*(0.070-0.040*e), 0.105-0.175*e, 0.04+0.255*e ],
-             hint:[ 0, 1.00, 0.60 ] };               // 肘は体の前で下
+    // アッパー：肘は90度のまま体側に近く、脚のバネと腰で下から突き上げる。
+    // 肩が主働で、矢状面の円軌道を描く。
+    const ph=(0.62+0.96*e);                          // 下から上への回転
+    return { p:[ s*(0.052-0.026*e),
+                 R90*Math.cos(ph)*0.92,
+                 R90*Math.sin(ph)*0.86 ],
+             hint:[ -s*0.30, 0.85, 0.45 ] };         // 肘は体側の前で下
   }
-  // ストレート／ジャブ：肘が拳の真後ろを追い、最短距離で伸びる
+  // ストレート／ジャブ：肘はピストンのように矢状面で伸展し、回旋はほとんど無い。
+  // 拳は顎の横から標的まで最短距離で進む。
   const reach = lead ? 0.300 : 0.335;              // 肩からの到達距離（骨の長さ以内）
   return { p:[ s*(0.040-0.150*e), -0.048-0.030*e, -0.03+ (reach+0.03)*e ],
            hint:[ 0, 1.00, -0.35 ] };                // 肘は下がったまま拳の真後ろ
@@ -2136,8 +2165,10 @@ function drawEnemyArm(F,s,o){
   const hw  = o.hw*((s===-1?o.twL:o.twR)+twist);
   const dep = isLead ? o.leadScale : o.rearScale;
   const shx = cx+s*hw*0.92;
+  // 文献：ジャブでは前肩が上がって顎を守る／クロスでは接触時に後ろ肩が顎に密着する
+  const guardShrug = punching ? bh*0.052*CH.arm : 0;
   const shy = shY+bh*0.012+(isLead?bh*0.014:-bh*0.016)
-            + (punching? bh*0.012*CH.chamber : 0);
+            + (punching? bh*0.012*CH.chamber - guardShrug : 0);
   if(s===LEAD) V.shL={x:shx,y:shy}; else V.shR={x:shx,y:shy};
 
   // ---- 拳の3D位置を決める ----
@@ -2153,8 +2184,15 @@ function drawEnemyArm(F,s,o){
     const chP=[ -s*0.004, -0.062+gh, -0.032 ];
     const base=[ lerp(rest[0],chP[0],ch), lerp(rest[1],chP[1],ch), lerp(rest[2],chP[2],ch) ];
     const u=CH.arm;
-    P={ p:[ lerp(base[0],g.p[0],u), lerp(base[1],g.p[1],u), lerp(base[2],g.p[2],u) ],
-        hint:g.hint };
+    let px=lerp(base[0],g.p[0],u), py=lerp(base[1],g.p[1],u), pz=lerp(base[2],g.p[2],u);
+    // 打撃は標的（＝カメラ＝こちらの顔）へ収束する。
+    // 肩の延長線ではなく、狙点へ向かって伸びるのが正しい
+    if(arc!=='hook'){
+      const aimX=(V.W*0.5-shx)/bh, aimY=(V.H*0.44-shy)/bh;
+      const w=easeOut(u)*0.80;
+      px=lerp(px,aimX,w); py=lerp(py,aimY,w);
+    }
+    P={ p:[px,py,pz], hint:g.hint };
   }else{
     // 構え：前手は前へ低く、後ろ手は顎の横
     const gh=(EB.guardHigh-0.62)*0.10;
@@ -2175,7 +2213,11 @@ function drawEnemyArm(F,s,o){
   if(punching && CH.arm>0.25) V.fist={x:Fp.x,y:Fp.y,r:gr,active:true,s};
 
   // 拳の回転（インパクトへ向けて手の甲が下を向く）
-  const pron = punching ? (arc==='hook'? 0.35 : easeOut(clamp((CH.arm-0.55)/0.45,0,1))) : 0;
+  // 文献：ストレートは最後の1/3で前腕が回内し、接触時に掌が下を向く。
+  // フックは掌が自分を向いたまま（前腕は床と平行）
+  const pron = punching
+    ? (arc==='hook' ? 0.12 : easeOut(clamp((CH.arm-0.62)/0.38,0,1)))
+    : 0;
 
   ctx.save();
   ctx.lineCap='round'; ctx.lineJoin='round';
@@ -2216,7 +2258,7 @@ function tube(x1,y1,w1,x2,y2,w2,fill,bh){
 
 function drawEnemyGlove(gx,gy,gr,pron,s,bh){
   ctx.save();
-  ctx.translate(gx,gy); ctx.rotate(s*pron*0.5);
+  ctx.translate(gx,gy); ctx.rotate(s*pron*1.45);
   ctx.beginPath(); ctx.arc(0,0,gr,0,7);
   ctx.fillStyle=EC.glove; ctx.fill();
   ctx.save(); ctx.beginPath(); ctx.arc(0,0,gr,0,7); ctx.clip();
