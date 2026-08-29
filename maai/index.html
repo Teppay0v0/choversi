@@ -191,6 +191,9 @@ const BPM  = 100;
 const BEAT = 60000 / BPM;          // 600 ms
 
 // --- ジェスチャー認識 (§7) 画面短辺比 ---
+// 画面を上下に分ける。上＝ガード帯（触れた瞬間に構える）／下＝打撃帯
+const BAND_Y = 0.66;
+
 const G = {
   TAP_MAX_MS   : 180,
   TAP_MAX_MOVE : 0.03,
@@ -526,8 +529,9 @@ const Input = {
     if(this.onFirstTouch){ this.onFirstTouch(); }
     const W = window.innerWidth;
     const side = e.clientX < W/2 ? 'L' : 'R';
+    const band = e.clientY < window.innerHeight*BAND_Y ? 'G' : 'S';
     const p = {
-      id:e.pointerId, side,
+      id:e.pointerId, side, band,
       x0:e.clientX, y0:e.clientY, x:e.clientX, y:e.clientY,
       t0:Clock.real, moved:0, maxMove:0,
       gesture:null, holding:false, dual:false, consumed:false,
@@ -540,7 +544,7 @@ const Input = {
     }
     this.pts.set(e.pointerId,p);
     this[side]=p;
-    this.emit(side==='L'?'LEFT_PRESS':'RIGHT_PRESS',{x:p.x0,y:p.y0});
+    this.emit(side==='L'?'LEFT_PRESS':'RIGHT_PRESS',{side,x:p.x0,y:p.y0,band});
   },
 
   move(e){
@@ -563,12 +567,15 @@ const Input = {
     this.pts.delete(e.pointerId);
     if(this[p.side]===p) this[p.side]=null;
     const dur=Clock.real-p.t0;
-    if(p.holding){
-      this.emit(p.side==='L'?'LEFT_RELEASE':'RIGHT_RELEASE',{held:dur});
+    if(p.band==='G' && !p.gesture){
+      // ガード帯：離した＝構えを解いただけ。決して打撃にはならない
+      this.emit(p.side==='L'?'LEFT_RELEASE':'RIGHT_RELEASE',{held:dur,band:'G'});
+    }else if(p.holding){
+      this.emit(p.side==='L'?'LEFT_RELEASE':'RIGHT_RELEASE',{held:dur,band:p.band});
     }else if(!p.gesture && !p.consumed){
       // 180ms 以内 かつ 移動量 3% 未満 → タップ (§7 優先順位 4)
       if(dur<=G.TAP_MAX_MS && p.maxMove<G.TAP_MAX_MOVE){
-        this.emit('TAP',{side:p.side,x:p.x,y:p.y});
+        this.emit('TAP',{side:p.side,x:p.x,y:p.y,band:p.band});
       }else{
         this.emit('INVALID',{side:p.side});
       }
@@ -628,12 +635,13 @@ const Input = {
             const inward = (p.side==='L') ? (dir==='RIGHT') : (dir==='LEFT');
             kind = inward ? 'IN' : 'OUT';
           }
-          this.emit('SWIPE',{side:p.side,dir:kind,raw:dir});
+          this.emit('SWIPE',{side:p.side,dir:kind,raw:dir,band:p.band});
         }
-      }else if(!p.holding && Clock.real-p.t0>=G.HOLD_MS && p.maxMove<G.GUARD_IGNORE){
-        // 220ms 静止 → 長押し (§7 優先順位 3)
-        p.holding=true; 
-        this.emit('HOLD',{side:p.side});
+      }else if(!p.holding && p.band==='S' &&
+               Clock.real-p.t0>=G.HOLD_MS && p.maxMove<G.GUARD_IGNORE){
+        // 打撃帯で 220ms 静止 → 長押しガード (§7 優先順位 3)
+        p.holding=true;
+        this.emit('HOLD',{side:p.side,band:'S'});
       }
     }
   },
@@ -645,8 +653,10 @@ const Input = {
     for(const q of this.pts.values()) if(q.side===side) return q;
     return null;
   },
+  // ガード帯に触れている間は、長押し判定を待たずに構えている
   isHolding(side){
-    for(const q of this.pts.values()) if(q.side===side && q.holding) return true;
+    for(const q of this.pts.values())
+      if(q.side===side && (q.holding || (q.band==='G' && !q.gesture))) return true;
     return false;
   },
   isDualHolding(){
@@ -674,6 +684,7 @@ const Fight = {
 
     this.hitstop=0; this.lastMove=null; this.pending=null; this._takenBefore=0;
     this.lastJudge=null; this.lastDiff=0; this.readPenalty=false; this.clinchT=0;
+    this.streak=0; this.streakBest=0;
     this.feintPenalty=false; this.heartT=0;
     this.p={hp:100,stam:100,cage:0,guard:null,guardSide:'L',guardT:0,swayT:-9999,
             punchLock:0, handReady:{L:0,R:0}, buffer:null, flinchUntil:0,
@@ -1124,6 +1135,10 @@ Object.assign(Fight,{
 
     // 何が起きたのかを一行で残す
     const okDef = avoided || (ch==='guard' && j!=='MISS');
+    // 連続して捌けていることを見せる
+    if(okDef){ this.streak=(this.streak||0)+1; this.streakBest=Math.max(this.streakBest||0,this.streak);
+               if(this.streak>=2){ this.float('連続 '+this.streak, C.good, false, 'info'); } }
+    else this.streak=0;
     this.log.push({mv:m.ja, read:ex.read, ch, judge:j, ok:okDef,
                    dmg:Math.round((this.stats.taken-(this._takenBefore||0))*10)/10});
     this._takenBefore=this.stats.taken;
@@ -1153,6 +1168,8 @@ Object.assign(Fight,{
     dmg=Math.round(dmg*10)/10;
     p.hp=Math.max(0,p.hp-dmg);
     p.hurtT=Clock.real;
+    // 失った量を数字で出す。成功と取り違えようがないように
+    if(kind==='clean' && dmg>0) this.float('− '+dmg, '#ff3b30', true, 'judge');
     p.shake=kind==='guard'?0.35:1;
     this.stats.taken+=dmg; this.sitStats.damage+=dmg;
     this.burst(this.oppFaceX(),this.oppFaceY(),kind==='guard'?'guard':'hurt',
@@ -1367,11 +1384,19 @@ Object.assign(Fight,{
     switch(g.type){
 
       // 指を置いた瞬間＝初動を見切った瞬間。対峙中なら開始の合図
-      case 'LEFT_PRESS': case 'RIGHT_PRESS':
-        if(!this.skipIntro()) this.tryRead();
+      case 'LEFT_PRESS': case 'RIGHT_PRESS': {
+        if(this.skipIntro()) break;
+        this.tryRead();
+        // ガード帯は触れた瞬間から構える。打撃には決してならない
+        if(g.band==='G'){
+          p.guard=g.side; p.guardSide=g.side; p.guardT=Clock.game;
+          if(this.exchange) this.setChoice('guard', g.game, true);
+          Audio_.glove();
+        }
         break;
+      }
 
-      case 'HOLD': {                       // 長押し = 左右ガード (§6)
+      case 'HOLD': {                       // 打撃帯での長押しもガードになる (§6)
         p.guard=g.side; p.guardSide=g.side; p.guardT=Clock.game;
         if(ex) this.setChoice('guard', g.game, true);   // 構えただけ。まだ確定しない
         Audio_.glove();
@@ -1382,8 +1407,8 @@ Object.assign(Fight,{
         const side=g.type[0]==='L'?'L':'R';
         if(p.guard===side){
           p.guard=null;
-          // ガード後に離す = クイックカウンター (§6)
-          if(this.advantage || Clock.game-p.guardT<900){
+          // 有利を取れているときだけ、離し際がクイックカウンターになる (§6)
+          if(this.advantage){
             const id=PLAYER_MOVES[side==='L'?'tapL':'tapR'][d];
             this.playerAttack(id,'quick');
           }
@@ -1392,6 +1417,7 @@ Object.assign(Fight,{
       }
 
       case 'TAP': {
+        if(g.band==='G') break;            // ガード帯からは打たない
         const id=PLAYER_MOVES[g.side==='L'?'tapL':'tapR'][d];
         if(ex) this.setChoice('attack', g.game);
         this.playerAttack(id,'tap');
@@ -1399,6 +1425,14 @@ Object.assign(Fight,{
       }
 
       case 'SWIPE': {
+        // ガード帯から下へ滑らせる＝構えていた手をそのまま振り下ろす
+        if(g.band==='G' && g.dir==='DOWN'){
+          if(p.guard===g.side) p.guard=null;
+          const id=PLAYER_MOVES[g.side==='L'?'tapL':'tapR'][d];
+          if(ex) this.setChoice('attack', g.game);
+          this.playerAttack(id,'drop');
+          break;
+        }
         if(g.dir==='OUT'){
           // 文脈型回避：攻撃が接近中ならスリップ、なければ回り込み (§8)
           const sideDir = (g.side==='L') ? 'slipL' : 'slipR';
@@ -2801,10 +2835,11 @@ function drawAssist(F,phase){
   if(phase==='screen' && D.showArrow && !ex.read && !ex.resolved){
     const el=Clock.game-ex.t0;
     if(el <= ex.tell*D.readWindow + D.readGrace){
+      const early = el <= ex.tell*0.35;
       const pulse=0.55+0.45*Math.sin(Clock.real/90);
       ctx.save();
       ctx.globalAlpha=0.9*pulse;
-      ctx.textAlign='center'; ctx.fillStyle=rel<=0.35?C.accent:C.ink;
+      ctx.textAlign='center'; ctx.fillStyle=early?C.good:C.ink;
       ctx.font=`700 ${Math.round(V.W*0.048)}px -apple-system,sans-serif`;
       ctx.letterSpacing='0.20em';
       ctx.fillText('押 す',V.W*0.5,V.H*0.70);
@@ -2858,6 +2893,31 @@ function drawAssist(F,phase){
     if(Input.finger('R')) ctx.fillRect(V.W/2,0,V.W/2,V.H);
     ctx.restore();
   }
+}
+
+// ガード帯と打撃帯の境界。触れている間と、BEGINNER では常に示す
+function drawBands(F){
+  const D=F.diff, y=V.H*BAND_Y;
+  const touching=Input.pts.size>0;
+  const a = D.showIcon ? (touching?0.30:0.14) : (touching?0.20:0);
+  if(a<=0) return;
+  ctx.save();
+  ctx.globalAlpha=a;
+  ctx.strokeStyle=C.ink; ctx.lineWidth=1; ctx.setLineDash([7,7]);
+  ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(V.W,y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha=a*0.9;
+  smallCaps('ガード',V.W*0.045,y-8,Math.round(V.W*0.026),C.ink,'left','0.20em');
+  smallCaps('打撃',V.W*0.045,y+Math.round(V.W*0.055),Math.round(V.W*0.026),C.ink,'left','0.20em');
+  if(touching){
+    ctx.globalAlpha=a*0.22; ctx.fillStyle=C.ink;
+    for(const q of Input.pts.values()){
+      const x=q.side==='L'?0:V.W/2;
+      if(q.band==='G') ctx.fillRect(x,0,V.W/2,y);
+      else             ctx.fillRect(x,y,V.W/2,V.H-y);
+    }
+  }
+  ctx.restore();
 }
 
 /* ============================================================
@@ -3043,7 +3103,7 @@ function drawHUD(F){
   // 顔に文字が重なると読めないので、出ている間だけ薄い帯を敷く
   if(F.floats.length){
     let a=0;
-    for(const f of F.floats) a=Math.max(a, 1-clamp((now-f.t)/1100,0,1));
+    for(const f of F.floats) a=Math.max(a, 1-clamp((now-f.t)/(f.big?1600:1100),0,1));
     const mg=ctx.createLinearGradient(0,H*0.165,0,H*0.390);
     mg.addColorStop(0,'rgba(7,9,16,0)');
     mg.addColorStop(0.42,`rgba(7,9,16,${0.68*a})`);
@@ -3051,7 +3111,8 @@ function drawHUD(F){
     ctx.fillStyle=mg; ctx.fillRect(0,H*0.165,W,H*0.225);
   }
   for(const f of F.floats){
-    const k=clamp((now-f.t)/1100,0,1);
+    const life = f.big ? 1600 : 1100;
+    const k=clamp((now-f.t)/life,0,1);
     ctx.save();
     ctx.globalAlpha=(1-easeIn(k))*0.98;
     ctx.textAlign='center'; ctx.fillStyle=f.color;
@@ -3373,6 +3434,7 @@ function showResult(){
       <div class="stat"><span>防御成功率</span><span>${rate}%</span></div>
       <div class="stat hl"><span>見切り成功</span><span>${s.reads} / ${s.reads+s.noRead}</span></div>
       <div class="stat"><span>完全な見切り</span><span>${s.readPerfect}</span></div>
+      <div class="stat"><span>最大連続</span><span>${F.streakBest||0}</span></div>
       <div class="stat"><span>ガード / スリップ</span><span>${s.guarded} / ${s.slipped}</span></div>
       <div class="stat"><span>距離変更</span><span>${s.distChanges} 回</span></div>
       <div class="stat"><span>残 HP</span><span>${Math.round(F.p.hp)} - ${Math.round(F.e.hp)}</span></div>
@@ -3425,17 +3487,24 @@ function buildLog(F){
 }
 
 const HOWTO_ROWS=[
-  ['左タップ','左前蹴り / 左ジャブ / 左ショートフック　※前手・速い・軽い'],
-  ['右タップ','右ローキック / 右ストレート / 右肘　※後ろ手・遅い・重い'],
-  ['内側スライド','ミドルキック / フック / 肘・膝'],
-  ['上スライド','ハイキック / アッパー / 膝　※タックルには迎撃'],
-  ['外側スライド','攻撃が来ていればスリップ、来ていなければ回り込み'],
-  ['長押し','左右ガード。接触の瞬間まで押し続ける'],
-  ['ガードを離す','クイックカウンター'],
-  ['両指 上スライド','1段階 前進'],
-  ['両指 下スライド','1段階 後退 / スウェー'],
-  ['両指 中央スライド','タックル'],
-  ['両指 長押し','スプロール / 低い構え'],
+  ['上 ＝ ガード帯',''],
+  ['　触れる','その側のガード。触れた瞬間から構える。打撃には決してならない'],
+  ['　下へスライド','構えていた手をそのまま振り下ろして打つ'],
+  ['　外へスライド','スリップ / 回り込み'],
+  ['　内へスライド','フック'],
+  ['　離す','構えを解く。有利中ならクイックカウンター'],
+  ['下 ＝ 打撃帯',''],
+  ['　左タップ','左前蹴り / 左ジャブ / 左ショートフック　※前手・速い・軽い'],
+  ['　右タップ','右ローキック / 右ストレート / 右肘　※後ろ手・遅い・重い'],
+  ['　内へスライド','ミドルキック / フック / 肘・膝'],
+  ['　上へスライド','ハイキック / アッパー / 膝　※タックルには迎撃'],
+  ['　外へスライド','スリップ / 回り込み'],
+  ['　長押し','ガード'],
+  ['両指（どこでも）',''],
+  ['　上スライド','1段階 前進'],
+  ['　下スライド','1段階 後退 / スウェー'],
+  ['　中央スライド','タックル'],
+  ['　長押し','スプロール / 低い構え'],
 ];
 function buildHowto(){
   el('howtoBody').innerHTML=`
@@ -3490,8 +3559,12 @@ function buildHowto(){
     </div>
     <h2>CONTROLS</h2>
     <div class="note">
-      画面を左右半分に分け、<b>開始した領域・方向・片指／両指</b>で技が決まります。
-      長さや速さでは技を分けません。
+      画面を<b>左右</b>で手を、<b>上下</b>で構えるか打つかを分けます。<br><br>
+      <b>上はガード帯</b>。触れた瞬間から構えます。ここからは何をしても打撃になりません。
+      「守りたいだけなのに打ってしまう」ことが起きません。<br>
+      <b>下は打撃帯</b>。タップとスライドで技を出します。<br><br>
+      構えた手を<b>下へ滑らせる</b>と、その手をそのまま振り下ろして打てます。
+      守りから攻めへ、指を止めずに繋がります。
     </div>
     <h3>INPUT</h3>
     ${HOWTO_ROWS.map(r=>`<div class="ctrl"><div class="k">${r[0]}</div><div class="v">${r[1]}</div></div>`).join('')}
@@ -3582,6 +3655,7 @@ function render(){
 
   if(scene==='fight'||scene==='result') Arms.draw(F);
   drawAssist(F,'screen');
+  if(scene==='fight') drawBands(F);
   if(scene==='fight'||scene==='result') drawHUD(F);
   SlowFx.drawScreen(F);                     // フラッシュ・レターボックス・残り時間
   drawOverlayFx(F);
