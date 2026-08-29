@@ -284,8 +284,10 @@ const PATTERNS = [
 
 // --- 難易度 (§12) ---
 const DIFF = {
-  BEGINNER:{ja:'BEGINNER', judgeMul:1.5, showArrow:true, showRing:true, showIcon:true, fixedOrder:true,  tellMul:1.25, aiRest:1.6,  readMul:1.35},
-  NORMAL  :{ja:'NORMAL',   judgeMul:1.0, showArrow:false,showRing:true, showIcon:false,fixedOrder:false, tellMul:1.0,  aiRest:1.15, readMul:1.0},
+  // readWindow: 予備動作の長さの何倍まで「見切り」を受け付けるか。
+  //   1.0 = 予備動作の間だけ / 2.4 = 拳が伸び始めてからでも間に合う
+  BEGINNER:{ja:'BEGINNER', judgeMul:1.5, showArrow:true, showRing:true, showIcon:true, fixedOrder:true,  tellMul:1.25, aiRest:1.6,  readMul:1.35, readWindow:2.4, readGrace:210},
+  NORMAL  :{ja:'NORMAL',   judgeMul:1.0, showArrow:false,showRing:true, showIcon:false,fixedOrder:false, tellMul:1.0,  aiRest:1.15, readMul:1.0,  readWindow:1.15, readGrace:90},
 };
 
 // --- パレット (§4.1  基調2色 + アクセント1) ---
@@ -647,7 +649,7 @@ const Fight = {
     this.lastJudge=null; this.lastDiff=0; this.readPenalty=false; this.clinchT=0;
     this.feintPenalty=false; this.heartT=0;
     this.p={hp:100,stam:100,cage:0,guard:null,guardSide:'L',guardT:0,swayT:-9999,
-            punchLock:0, handReady:{L:0,R:0}, buffer:null,
+            punchLock:0, handReady:{L:0,R:0}, buffer:null, flinchUntil:0,
             advUntil:-1,advPerfect:false,
             stunUntil:-1,action:null,anim:null,slip:0,slipT:0,sway:0,lean:0,
             crouch:0,camX:0,camY:0,camRot:0,shake:0,hurtT:-9999};
@@ -661,7 +663,8 @@ const Fight = {
 
     this.beat=0; this.lastBeatIdx=-1;
     this.exchange=null;         // 進行中の攻防 {move, t0, impact, phase, choice, judge}
-    this.stats={perfect:0,good:0,early:0,late:0,miss:0,hits:0,taken:0,
+    this.stats={reads:0,readPerfect:0,noRead:0,
+                perfect:0,good:0,early:0,late:0,miss:0,hits:0,taken:0,
                 guarded:0,slipped:0,distChanges:0,favSec:0,cageOnSec:0,cageMySec:0,
                 inputs:0,intent:0};
     this.fx=[];  this.floats=[];
@@ -843,12 +846,8 @@ Object.assign(Fight,{
 
     this.exchange={
       id, data:m, t0:Clock.game, tell, impact:Clock.game+impact,
-      // 読み成立 → 主観時間へ（予備動作開始後に自動発動 §9.1）
-      slowAt:Clock.game + tell*0.70,
-      // 読みやすい技ほど長く深く減速する。ジャブは溜めが無いので浅く短い
-      slowScale:clamp((impact - tell*0.70)/
-                 (TS.CHOICE_REAL*(m.read||1)*this.diff.readMul*(this.readPenalty?0.7:1)),
-                 0.12, 0.85),
+      // 主観時間は自動では発動しない。予備動作の間に指を置けた時だけ開く (§9.1)
+      read:null, readRel:0, slowAt:0, slowScale:TS.CHOICE,
       slowed:false, slowRealT:0, returning:false,
       choice:null, judge:null, choiceT:0, resolved:false, feint:false,
       pAtk:null,
@@ -867,8 +866,7 @@ Object.assign(Fight,{
     this.exchange={
       id:'feint', data:{ja:'タックルフェイント',arc:'tackle',from:0,dmg:0,safe:[],bad:[]},
       t0:Clock.game, tell, impact:Clock.game+tell+120,
-      slowAt:Clock.game+tell*0.4,
-      slowScale:clamp((tell*0.6+120)/TS.CHOICE_REAL,0.12,0.60),
+      read:null, readRel:0, slowAt:0, slowScale:TS.CHOICE,
       slowed:false, slowRealT:0, returning:false,
       choice:null, judge:null, choiceT:0, resolved:false, feint:true, pAtk:null,
     };
@@ -890,14 +888,50 @@ Object.assign(Fight,{
     Audio_.step(delta<0);
   },
 
+  // ---------- 見切り (§9.1 発動条件) ----------
+  // 指を置いた瞬間が「初動を見切った」瞬間。既存の操作はすべてここから始まる。
+  // 早く見抜くほど、拳が遠い段階から深く長く減速する。
+  tryRead(){
+    const p=this.p, ex=this.exchange;
+    if(this.over) return;
+    // 先走った直後は目が置いていかれる。連打では見切れない
+    if(Clock.game < p.flinchUntil) return;
+
+    const el = ex ? Clock.game-ex.t0 : 0;
+    const readable = ex && !ex.read && !ex.resolved &&
+                     el <= ex.tell*this.diff.readWindow + this.diff.readGrace;
+    if(!readable){
+      // 読むものが無いのに手が出た＝過剰反応。しばらく読めなくなる (§9.1「間」)
+      p.flinchUntil = Clock.game + 300;
+      return;
+    }
+    const rel = el/ex.tell;
+
+    let q, mul;
+    if(rel<=0.35)      { q='PERFECT'; mul=1.45; }     // 起こりの瞬間を捉えた
+    else if(rel<=1.0)  { q='GOOD';    mul=1.00; }     // 予備動作のうちに反応した
+    else               { q='LATE';    mul=0.45; }     // 拳が出てから気づいた
+
+    const m=ex.data;
+    const remain=Math.max(60, ex.impact-Clock.game);
+    const real=TS.CHOICE_REAL*(m.read||1)*this.diff.readMul*mul*(this.readPenalty?0.7:1);
+    ex.read=q; ex.readRel=rel;
+    ex.slowScale=clamp(remain/real, 0.10, 0.90);
+    ex.slowAt=Clock.game;
+    this.stats.reads++;
+    if(q==='PERFECT') this.stats.readPerfect++;
+    this.float(q==='PERFECT'?'見切った':(q==='GOOD'?'読んだ':'遅い'),
+               q==='PERFECT'?C.accent:(q==='GOOD'?C.ink:'#8d93a6'), q==='PERFECT');
+  },
+
   // ---------- 主観時間の進行 ----------
   updateExchange(){
     const ex=this.exchange; if(!ex) return;
 
-    // 読み成立 → 減速 (§9.1)
-    if(!ex.slowed && Clock.game>=ex.slowAt){
+    // 見切りが成立していたら減速する (§9.1)
+    if(!ex.slowed && ex.read && Clock.game>=ex.slowAt){
       ex.slowed=true; ex.slowRealT=Clock.real;
-      Clock.to(ex.slowScale||TS.CHOICE, TS.ENTER_MS);
+      Clock.to(ex.slowScale, TS.ENTER_MS);
       Audio_.slowIn();
       if(this.diff.showIcon) this.beginnerFlash=Clock.real;
     }
@@ -920,7 +954,7 @@ Object.assign(Fight,{
   // ---------- フェイントの解決 ----------
   resolveFeint(){
     const ex=this.exchange;
-    if(ex.choice){
+    if(ex.choice || ex.read){
       // フェイントに反応 → 主観時間を消費し、本命の受付が短くなる (§9.1)
       this.p.stam=Math.max(0,this.p.stam-6);
       this.feintPenalty=true;
@@ -954,9 +988,11 @@ Object.assign(Fight,{
 
     const hitX=this.oppFaceX(), hitY=this.oppFaceY();
 
+    if(!ex.read) this.stats.noRead++;
+
     if(!ch){                                    // 無入力 → 被弾
       this.hurt(dmg, m, 'clean');
-      this.float('MISS','#5c6274',true); this.stats.miss++;
+      this.float(ex.read?'MISS':'見えなかった','#5c6274',true); this.stats.miss++;
     }else if(j==='MISS'){
       this.hurt(dmg, m, 'clean');
       this.float('MISS','#5c6274',true); this.stats.miss++;
@@ -1245,7 +1281,13 @@ Object.assign(Fight,{
     const ex=this.exchange;
     if(!ex || ex.choice || ex.resolved) return null;
     const diff=(gtime + this.offsetMs) - ex.impact;
-    ex.choice=kind; ex.choiceT=gtime; ex.judge=this.judgeOf(diff); ex.diff=diff;
+    let j=this.judgeOf(diff);
+    // 構えっぱなしの防御は「早すぎ」にはならない。上げ続けている限り止まる。
+    // 接触に合わせて出したときだけキャッチ／完全防御になる。
+    if((kind==='guard'||kind==='sprawl') && diff<0 && j!=='PERFECT' && j!=='GOOD'){
+      j='GOOD'; ex.heldEarly=true;
+    }
+    ex.choice=kind; ex.choiceT=gtime; ex.judge=j; ex.diff=diff;
     this.lastJudge=ex.judge; this.lastDiff=Math.round(diff);
     return ex.judge;
   },
@@ -1257,6 +1299,9 @@ Object.assign(Fight,{
     if(Clock.game<p.stunUntil) return;
 
     switch(g.type){
+
+      // 指を置いた瞬間＝初動を見切った瞬間
+      case 'LEFT_PRESS': case 'RIGHT_PRESS': this.tryRead(); break;
 
       case 'HOLD': {                       // 長押し = 左右ガード (§6)
         p.guard=g.side; p.guardSide=g.side; p.guardT=Clock.game;
@@ -1380,7 +1425,8 @@ Object.assign(Fight,{
     }
 
     // --- スタミナ (§10) ---
-    const regen = (p.guard?2:6)/1000*gdt;
+    // ガードを上げ続けると回復が止まり、じわじわ削れる
+    const regen = (p.guard? -3 : 6)/1000*gdt;
     p.stam=clamp(p.stam+regen,0,100);
     e.stam=clamp(e.stam+6/1000*gdt,0,100);
     e.fatigue=clamp(1-e.stam/100,0,1);
@@ -2660,6 +2706,24 @@ function drawAssist(F,phase){
     ctx.beginPath(); ctx.arc(V.fist.x,V.fist.y,r,0,7); ctx.stroke();
     ctx.restore();
   }
+  // 見切りの受付（BEGINNER のみ）：ここで指を置く
+  if(phase==='screen' && D.showArrow && !ex.read && !ex.resolved){
+    const el=Clock.game-ex.t0;
+    if(el <= ex.tell*D.readWindow + D.readGrace){
+      const pulse=0.55+0.45*Math.sin(Clock.real/90);
+      ctx.save();
+      ctx.globalAlpha=0.9*pulse;
+      ctx.textAlign='center'; ctx.fillStyle=rel<=0.35?C.accent:C.ink;
+      ctx.font=`700 ${Math.round(V.W*0.048)}px -apple-system,sans-serif`;
+      ctx.letterSpacing='0.20em';
+      ctx.fillText('押 す',V.W*0.5,V.H*0.70);
+      ctx.letterSpacing='0px';
+      ctx.globalAlpha=0.5*pulse;
+      ctx.strokeStyle=C.accent; ctx.lineWidth=2;
+      ctx.strokeRect(V.W*0.06,V.H*0.62,V.W*0.88,V.H*0.13);
+      ctx.restore();
+    }
+  }
   // 予備動作の部位マーカー（HARD 相当は非表示）
   if(phase==='world' && D.showRing && Clock.game<tellEnd){
     const k=clamp((Clock.game-ex.t0)/ex.tell,0,1);
@@ -2877,18 +2941,18 @@ const CHAPTERS = [
 //   escape  : 金網圧力を 0 に戻す
 //   reach   : 打撃距離まで入る
 const SITUATIONS = [
-  {id:'S01', ch:1, title:'右を止める', hint:'左を長押し、または右へスライド',
-   brief:'相手の右ストレートだけが飛んでくる。肩の溜めと腰の回転を見てから動く。',
+  {id:'S01', ch:1, title:'起こりを見切る', hint:'肩が動いた瞬間に画面へ指を置く',
+   brief:'肩が溜まり腰が回った瞬間に、画面へ指を置く。そこで世界が遅くなる。置いてから、どちらの手で受けるか決める。押さなければ遅くならない。',
    dist:STRIKE, waves:[{pool:['straight'],n:3,gap:[1.6,2.2]}],
    goal:{kind:'defend',n:3}, star3:{perfect:2}},
 
   {id:'S02', ch:1, title:'外へ抜ける', hint:'右半分を外側（右）へスライド',
-   brief:'ガードは使わない。右ストレートの外側へ頭を外す。',
+   brief:'見切ってから、置いた指をそのまま外側へ滑らせる。ガードは使わない。',
    dist:STRIKE, waves:[{pool:['straight'],n:3,gap:[1.6,2.2]}],
    goal:{kind:'defend',n:3,only:['slipL','slipR']}, star3:{perfect:2}},
 
-  {id:'S03', ch:1, title:'差しを捌く', hint:'来る側の手＝右を長押し',
-   brief:'左ジャブは溜めが無い。世界はほとんど遅くならない。反射で受ける。',
+  {id:'S03', ch:1, title:'差しは見切れない', hint:'右手を先に上げて置いておく',
+   brief:'左ジャブは溜めが無く、見切る時間が無い。読むのではなく、来る側の手を先に上げておく。ガードは接触の瞬間に上がっていれば止まる。',
    dist:STRIKE, waves:[{pool:['jab'],n:4,gap:[1.1,1.6]}],
    goal:{kind:'defend',n:4}, star3:{perfect:2}},
 
@@ -3166,6 +3230,8 @@ function showResult(){
       <div class="stat"><span>EARLY / LATE</span><span>${s.early} / ${s.late}</span></div>
       <div class="stat"><span>MISS</span><span>${s.miss}</span></div>
       <div class="stat"><span>防御成功率</span><span>${rate}%</span></div>
+      <div class="stat hl"><span>見切り成功</span><span>${s.reads} / ${s.reads+s.noRead}</span></div>
+      <div class="stat"><span>完全な見切り</span><span>${s.readPerfect}</span></div>
       <div class="stat"><span>ガード / スリップ</span><span>${s.guarded} / ${s.slipped}</span></div>
       <div class="stat"><span>距離変更</span><span>${s.distChanges} 回</span></div>
       <div class="stat"><span>残 HP</span><span>${Math.round(F.p.hp)} - ${Math.round(F.e.hp)}</span></div>
@@ -3183,6 +3249,7 @@ function showSitResult(){
     <div class="stars">${STAR(F.sitStars)}</div>
     <div class="stats">
       <div class="stat hl"><span>${goalText(sit)}</span><span>${Math.min(cur,need)} / ${need}</span></div>
+      <div class="stat"><span>見切り</span><span>${F.stats.reads} / ${F.stats.reads+F.stats.noRead}</span></div>
       <div class="stat"><span>PERFECT</span><span>${F.stats.perfect}</span></div>
       <div class="stat"><span>GOOD</span><span>${F.stats.good}</span></div>
       <div class="stat"><span>被弾</span><span>${Math.round(F.sitStats.damage)}</span></div>
@@ -3210,6 +3277,24 @@ const HOWTO_ROWS=[
 ];
 function buildHowto(){
   el('howtoBody').innerHTML=`
+    <h2>見　切　り</h2>
+    <div class="note">
+      <b>主観時間は勝手には始まりません。</b>相手の起こりを見て<b>画面に指を置いた瞬間</b>だけ、
+      世界が遅くなります。指を置くのは技を出すことではありません。
+      置いてから、スローの中で<b>どこへ動かすか</b>を決めます。<br><br>
+      早く見抜くほど、拳が遠い段階から深く長く遅くなります。
+    </div>
+    <div class="ctrl"><div class="k">起こりの前半で押す</div><div class="v">見切った — 最も深く、最も長い</div></div>
+    <div class="ctrl"><div class="k">起こりの後半で押す</div><div class="v">読んだ — 通常</div></div>
+    <div class="ctrl"><div class="k">拳が出てから押す</div><div class="v">遅い — 浅く、短い</div></div>
+    <div class="ctrl"><div class="k">押さない</div><div class="v">スローなし。通常速度で捌くしかない</div></div>
+    <div class="note">
+      指を置きっぱなしでは見切れません。<b>置き直した瞬間</b>が見切りです。
+      ただしガードは、接触の瞬間に上がってさえいれば止まります
+      （早く構えても損はしませんが、スタミナは減り続けます）。
+      接触に合わせて出したときだけ<b>キャッチ</b>になり、有利を取れます。
+    </div>
+
     <h2>STANCE</h2>
     <div class="note">
       両者とも<b>オーソドックス（左構え）</b>。左半身が前、右が後ろです。<br><br>
