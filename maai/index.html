@@ -99,6 +99,17 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .stars{font-size:clamp(26px,8vw,38px);letter-spacing:.18em;color:#ff3b30;margin:14px 0 4px}
 .stars i{font-style:normal;color:rgba(232,226,212,.18)}
 .goal{font-size:12px;color:#8d93a6;letter-spacing:.06em;margin-top:6px}
+.log{margin:18px 0 0;text-align:left;border-top:1px solid rgba(232,226,212,.12)}
+.log .lh{font-size:10px;letter-spacing:.24em;color:#5c6274;padding:10px 2px 6px}
+.lr{display:flex;align-items:center;gap:8px;padding:7px 2px;
+  border-bottom:1px solid rgba(232,226,212,.07);font-size:12px}
+.lr .n{color:#5c6274;min-width:18px;font-variant-numeric:tabular-nums}
+.lr .mv{flex:1;color:#e8e2d4}
+.lr .rd{min-width:62px;text-align:right;font-size:11px}
+.lr .rs{min-width:56px;text-align:right;font-weight:600}
+.lr .ok{color:#e8e2d4}
+.lr .ng{color:#ff3b30}
+.lr .dim{color:#5c6274}
 .result .verdict.win{color:#ff3b30}
 .result .verdict.lose{color:#5c6274}
 .result .sub{font-size:12px;letter-spacing:.24em;color:#8d93a6;margin-top:8px}
@@ -286,8 +297,8 @@ const PATTERNS = [
 const DIFF = {
   // readWindow: 予備動作の長さの何倍まで「見切り」を受け付けるか。
   //   1.0 = 予備動作の間だけ / 2.4 = 拳が伸び始めてからでも間に合う
-  BEGINNER:{ja:'BEGINNER', judgeMul:1.5, showArrow:true, showRing:true, showIcon:true, fixedOrder:true,  tellMul:1.25, aiRest:1.6,  readMul:1.35, readWindow:2.4, readGrace:210},
-  NORMAL  :{ja:'NORMAL',   judgeMul:1.0, showArrow:false,showRing:true, showIcon:false,fixedOrder:false, tellMul:1.0,  aiRest:1.15, readMul:1.0,  readWindow:1.15, readGrace:90},
+  BEGINNER:{ja:'BEGINNER', judgeMul:1.5, showArrow:true, showRing:true, showIcon:true, fixedOrder:true,  tellMul:1.25, aiRest:1.6,  readMul:1.35, readWindow:2.4, readGrace:400},
+  NORMAL  :{ja:'NORMAL',   judgeMul:1.0, showArrow:false,showRing:true, showIcon:false,fixedOrder:false, tellMul:1.0,  aiRest:1.15, readMul:1.0,  readWindow:1.15, readGrace:260},
 };
 
 // --- パレット (§4.1  基調2色 + アクセント1) ---
@@ -299,6 +310,8 @@ const C = {
   gloveP:'#cec4ae', glovePShade:'#7d766a',
   gloveE:'#ff3b30', gloveEShade:'#a3241d',
   cage:'#39435c',
+  // 攻防中の意味色：赤は被弾にだけ使う
+  good:'#cfe4ff', goodDim:'#7f93b5',
 };
 
 /* ============================================================
@@ -430,6 +443,17 @@ const Audio_ = {
     this.hit({f0:900,f1:400,dur:0.5,gain:0.05+0.10*level,type:'bandpass',q:0.5});
   },
   ui(){ this.tone({f:660,f2:880,dur:0.06,gain:0.10,type:'square'}); },
+  // 見切りの成否は耳でも分かるようにする
+  readOk(q){
+    if(q==='PERFECT'){
+      this.tone({f:880,f2:1320,dur:0.10,gain:0.24,type:'triangle'});
+      this.tone({f:1320,f2:1760,dur:0.12,gain:0.18,type:'sine',delay:0.07});
+    }else if(q==='GOOD'){
+      this.tone({f:740,f2:990,dur:0.10,gain:0.20,type:'triangle'});
+    }else{
+      this.tone({f:300,f2:210,dur:0.14,gain:0.18,type:'triangle'});
+    }
+  },
 };
 
 // 触覚 (§14)
@@ -645,7 +669,7 @@ const Fight = {
     this.sitStars=0; this.qIdx=0; this.qDone=0;
     this.queue = this.sit ? this.buildQueue(this.sit) : [];
 
-    this.hitstop=0; this.lastMove=null; this.pending=null;
+    this.hitstop=0; this.lastMove=null; this.pending=null; this._takenBefore=0;
     this.lastJudge=null; this.lastDiff=0; this.readPenalty=false; this.clinchT=0;
     this.feintPenalty=false; this.heartT=0;
     this.p={hp:100,stam:100,cage:0,guard:null,guardSide:'L',guardT:0,swayT:-9999,
@@ -670,7 +694,7 @@ const Fight = {
                 perfect:0,good:0,early:0,late:0,miss:0,hits:0,taken:0,
                 guarded:0,slipped:0,distChanges:0,favSec:0,cageOnSec:0,cageMySec:0,
                 inputs:0,intent:0};
-    this.fx=[];  this.floats=[];
+    this.fx=[]; this.floats=[]; this.log=[]; this.edgeT=-9999; this.edgeKind='';
     this.ai={pattern:null,step:0,t0:0,restUntil:0,order:0,history:[]};
     this.script = mode==='single' ? this.buildSingleScript() : null;
     this.scriptIdx=0;
@@ -739,7 +763,14 @@ const Fight = {
   },
 
   // ---------- 演出ヘルパ ----------
-  float(text,color,big){ this.floats.push({text,color:color||C.ink,t:Clock.real,big:!!big}); },
+  // 表示は位置ごとのスロットに入れ、重ねない（同じスロットは上書き）
+  float(text,color,big,slot){
+    const k=slot||'judge';
+    this.floats=this.floats.filter(f=>f.slot!==k);
+    this.floats.push({text,color:color||C.ink,t:Clock.real,big:!!big,slot:k});
+  },
+  // 画面の縁を光らせる。成功と被弾が一目で分かるように
+  edge(kind){ this.edgeT=Clock.real; this.edgeKind=kind; },
   burst(x,y,kind,power){ this.fx.push({x,y,kind,t:Clock.real,power:power||1}); },
 
   // ---------- 判定 (§9) ----------
@@ -933,8 +964,10 @@ Object.assign(Fight,{
     ex.slowAt=Clock.game;
     this.stats.reads++;
     if(q==='PERFECT') this.stats.readPerfect++;
-    this.float(q==='PERFECT'?'見切った':(q==='GOOD'?'読んだ':'遅い'),
-               q==='PERFECT'?C.accent:(q==='GOOD'?C.ink:'#8d93a6'), q==='PERFECT');
+    this.float(q==='PERFECT'?'見 切 っ た':(q==='GOOD'?'読 ん だ':'遅 い'),
+               q==='PERFECT'?C.good:(q==='GOOD'?C.ink:C.goodDim), q==='PERFECT', 'read');
+    Audio_.readOk(q);
+    this.edge(q==='LATE'?'dim':'read');
   },
 
   // ---------- 主観時間の進行 ----------
@@ -1032,7 +1065,7 @@ Object.assign(Fight,{
           this.stats.guarded++;
           if(!this.sit || !this.sit.goal.only || this.sit.goal.only.includes('guard')) this.sitStats.defended++;
           if(wrongHand) this.float('逆の手','#8d93a6');
-          this.float(j,j==='PERFECT'?C.accent:C.ink,j==='PERFECT');
+          this.float(j,j==='PERFECT'?C.good:C.ink,j==='PERFECT');
           this.burst(hitX,hitY,'guard',j==='PERFECT'?1:0.6);
           Audio_.guardHit(); haptic(j==='PERFECT'?'perfect':'guard');
           if(j==='PERFECT') this.grantAdvantage(true);
@@ -1045,7 +1078,7 @@ Object.assign(Fight,{
           p.stam=Math.max(0,p.stam-(j==='PERFECT'?2:4)*(j==='EARLY'?1.5:1));
           this.stats.slipped++;
           if(!this.sit || !this.sit.goal.only || this.sit.goal.only.includes(ch)) this.sitStats.defended++;
-          this.float(j,j==='PERFECT'?C.accent:C.ink,j==='PERFECT');
+          this.float(j,j==='PERFECT'?C.good:C.ink,j==='PERFECT');
           Audio_.whoosh(); haptic(j==='PERFECT'?'perfect':'good');
           if(j==='PERFECT'){
             this.grantAdvantage(true);
@@ -1081,6 +1114,15 @@ Object.assign(Fight,{
     }
     // 差し（ジャブ）に防御を使わされると、続く本命の読みが浅くなる
     this.readPenalty = (ex.id==='jab' && !!ch);
+
+    // 何が起きたのかを一行で残す
+    const okDef = avoided || (ch==='guard' && j!=='MISS');
+    this.log.push({mv:m.ja, read:ex.read, ch, judge:j, ok:okDef,
+                   dmg:Math.round((this.stats.taken-(this._takenBefore||0))*10)/10});
+    this._takenBefore=this.stats.taken;
+    if(this.log.length>16) this.log.shift();
+    this.edge(okDef?'ok':'hurt');
+    this.float((okDef?'':'被弾　')+m.ja, okDef?'rgba(232,226,212,0.7)':'rgba(255,59,48,0.9)', false, 'what');
 
     this.exchange=null; this.hint=null;
     e.state='recover'; e.stateT=Clock.game;
@@ -2726,6 +2768,25 @@ function drawAssist(F,phase){
     ctx.beginPath(); ctx.arc(V.fist.x,V.fist.y,r,0,7); ctx.stroke();
     ctx.restore();
   }
+  // 起こりの一撃：溜めが始まった部位が一瞬だけ光る。
+  // ここが「押していい合図」であることを難易度によらず示す
+  if(phase==='world' && !ex.read){
+    const el=Clock.game-ex.t0;
+    const k=clamp(el/170,0,1);
+    if(k<1){
+      const sg=m.side==='R'?-1:(m.side==='L'?1:0);
+      const sh = sg===LEAD ? V.shL : V.shR;
+      const x = sh?sh.x:V.cx, y = sh?sh.y:V.shoulderY;
+      ctx.save();
+      ctx.globalAlpha=(1-k)*0.95;
+      ctx.strokeStyle=C.accent; ctx.lineWidth=Math.max(2,V.bh*0.014*(1-k));
+      ctx.beginPath(); ctx.arc(x,y,V.bh*(0.03+0.14*k),0,7); ctx.stroke();
+      ctx.globalAlpha=(1-k)*0.55; ctx.fillStyle=C.accent;
+      ctx.beginPath(); ctx.arc(x,y,V.bh*0.035*(1-k),0,7); ctx.fill();
+      ctx.restore();
+    }
+  }
+
   // 見切りの受付（BEGINNER のみ）：ここで指を置く
   if(phase==='screen' && D.showArrow && !ex.read && !ex.resolved){
     const el=Clock.game-ex.t0;
@@ -2966,20 +3027,31 @@ function drawHUD(F){
     ctx.restore();
   }
 
-  // ---- 判定表示 ----
+  // ---- 判定表示：位置を固定して重ねない ----
   const now=Clock.real;
-  F.floats.forEach((f,i)=>{
+  const SLOT={ read:H*0.205, what:H*0.256, judge:H*0.310, info:H*0.352 };
+  // 顔に文字が重なると読めないので、出ている間だけ薄い帯を敷く
+  if(F.floats.length){
+    let a=0;
+    for(const f of F.floats) a=Math.max(a, 1-clamp((now-f.t)/1100,0,1));
+    const mg=ctx.createLinearGradient(0,H*0.165,0,H*0.390);
+    mg.addColorStop(0,'rgba(7,9,16,0)');
+    mg.addColorStop(0.42,`rgba(7,9,16,${0.68*a})`);
+    mg.addColorStop(1,'rgba(7,9,16,0)');
+    ctx.fillStyle=mg; ctx.fillRect(0,H*0.165,W,H*0.225);
+  }
+  for(const f of F.floats){
     const k=clamp((now-f.t)/1100,0,1);
     ctx.save();
     ctx.globalAlpha=(1-easeIn(k))*0.98;
     ctx.textAlign='center'; ctx.fillStyle=f.color;
-    const size=f.big?W*0.085:W*0.042;
+    const size=f.big?W*0.078:(f.slot==='what'?W*0.036:W*0.046);
     ctx.font=`${f.big?800:600} ${Math.round(size)}px -apple-system,sans-serif`;
-    ctx.letterSpacing=f.big?'0.10em':'0.06em';
-    ctx.fillText(f.text,W*0.5,H*0.30-k*H*0.035-i*H*0.035);
+    ctx.letterSpacing=f.big?'0.14em':(f.slot==='what'?'0.12em':'0.06em');
+    ctx.fillText(f.text, W*0.5, (SLOT[f.slot]||SLOT.judge) - k*H*0.014);
     ctx.letterSpacing='0px';
     ctx.restore();
-  });
+  }
 }
 
 /* ============================================================
@@ -3295,7 +3367,8 @@ function showResult(){
       <div class="stat"><span>距離変更</span><span>${s.distChanges} 回</span></div>
       <div class="stat"><span>残 HP</span><span>${Math.round(F.p.hp)} - ${Math.round(F.e.hp)}</span></div>
       <div class="stat hl"><span>SCORE</span><span>${sc}</span></div>
-    </div>`;
+    </div>
+    ${buildLog(F)}`;
   go('result');
 }
 
@@ -3313,12 +3386,32 @@ function showSitResult(){
       <div class="stat"><span>GOOD</span><span>${F.stats.good}</span></div>
       <div class="stat"><span>被弾</span><span>${Math.round(F.sitStats.damage)}</span></div>
     </div>
-    <div class="goal">${ok?'':sit.hint}</div>`;
+    <div class="goal">${ok?'':sit.hint}</div>
+    ${buildLog(F)}`;
   const next=SITUATIONS[SITUATIONS.indexOf(sit)+1];
   const btn=el('ovResult').querySelectorAll('.btn')[1];
   btn.textContent = (ok && next) ? '次の局面へ' : '局面を選ぶ';
   btn.dataset.act = (ok && next) ? 'next-sit' : 'situations';
   go('result');
+}
+
+const CH_JA={guard:'ガード',slipL:'左へ',slipR:'右へ',sway:'スウェー',sprawl:'スプロール',
+             advance:'前進',intercept:'迎撃',attack:'攻撃'};
+const READ_JA={PERFECT:'見切った',GOOD:'読んだ',LATE:'遅い'};
+// 攻防を1行ずつ振り返れるようにする（§16 計測）
+function buildLog(F){
+  if(!F.log || !F.log.length) return '';
+  const rows=F.log.map((r,i)=>{
+    const rd = r.read ? `<span class="${r.read==='PERFECT'?'ok':'dim'}">${READ_JA[r.read]}</span>`
+                      : '<span class="ng">押せず</span>';
+    const res= r.ok ? `<span class="ok">${r.judge||'防いだ'}</span>`
+                    : `<span class="ng">被弾 ${r.dmg||''}</span>`;
+    return `<div class="lr"><span class="n">${i+1}</span>
+      <span class="mv">${r.mv}</span>
+      <span class="rd">${rd}</span>
+      <span class="rs">${res}</span></div>`;
+  }).join('');
+  return `<div class="log"><div class="lh">攻防の内訳　　技 / 見切り / 結果</div>${rows}</div>`;
 }
 
 const HOWTO_ROWS=[
@@ -3486,6 +3579,28 @@ function drawOverlayFx(F){
     ctx.save(); ctx.globalAlpha=0.30*(1-ht);
     ctx.fillStyle=C.accent; ctx.fillRect(0,0,W,H); ctx.restore();
   }
+  // ---- 縁の発光：成功／被弾／見切りを一目で ----
+  const et=(Clock.real-(F.edgeT||-9999))/420;
+  if(et>=0 && et<1){
+    const col={read:'207,228,255', ok:'232,226,212', hurt:'255,59,48', dim:'127,147,181'}[F.edgeKind]||'232,226,212';
+    const a=(1-easeOut(et))*(F.edgeKind==='hurt'?0.85:0.6);
+    ctx.save();
+    const th=Math.min(W,H)*0.085;
+    const eg=ctx.createLinearGradient(0,0,0,th);
+    eg.addColorStop(0,`rgba(${col},${a})`); eg.addColorStop(1,`rgba(${col},0)`);
+    ctx.fillStyle=eg; ctx.fillRect(0,0,W,th);
+    const eg2=ctx.createLinearGradient(0,H,0,H-th);
+    eg2.addColorStop(0,`rgba(${col},${a})`); eg2.addColorStop(1,`rgba(${col},0)`);
+    ctx.fillStyle=eg2; ctx.fillRect(0,H-th,W,th);
+    const eg3=ctx.createLinearGradient(0,0,th,0);
+    eg3.addColorStop(0,`rgba(${col},${a*0.8})`); eg3.addColorStop(1,`rgba(${col},0)`);
+    ctx.fillStyle=eg3; ctx.fillRect(0,0,th,H);
+    const eg4=ctx.createLinearGradient(W,0,W-th,0);
+    eg4.addColorStop(0,`rgba(${col},${a*0.8})`); eg4.addColorStop(1,`rgba(${col},0)`);
+    ctx.fillStyle=eg4; ctx.fillRect(W-th,0,th,H);
+    ctx.restore();
+  }
+
   // ビネット（毎フレーム作り直さない）
   const key=W+'x'+H;
   if(vignetteKey!==key){
