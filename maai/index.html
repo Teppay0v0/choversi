@@ -80,6 +80,25 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 /* ---- リザルト ---- */
 .result{width:100%;max-width:420px;text-align:center}
 .result .verdict{font-size:clamp(34px,11vw,58px);font-weight:800;letter-spacing:.08em;line-height:1.1}
+.btn em{font-style:normal;font-size:11px;color:rgba(10,13,22,.65);margin-left:10px;letter-spacing:.1em}
+.chgrp{margin:0 0 22px}
+.chgrp h3{display:flex;align-items:baseline;gap:10px;font-size:11px;letter-spacing:.28em;
+  color:#5c6274;margin:0 0 10px;font-weight:600}
+.chgrp h3 b{color:#e8e2d4;font-size:15px;letter-spacing:.22em;font-weight:700}
+.sit{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  border:1px solid rgba(232,226,212,.16);background:rgba(232,226,212,.04);
+  color:#e8e2d4;font-family:inherit;padding:12px 14px;margin-bottom:6px;border-radius:2px;cursor:pointer}
+.sit:active{background:rgba(232,226,212,.12)}
+.sit[disabled]{opacity:.34;cursor:default}
+.sit .no{font-size:11px;color:#5c6274;letter-spacing:.1em;font-variant-numeric:tabular-nums;min-width:26px}
+.sit .tx{flex:1}
+.sit .tx b{display:block;font-size:14px;font-weight:600;letter-spacing:.04em}
+.sit .tx span{display:block;font-size:11px;color:#8d93a6;margin-top:3px}
+.sit .st{font-size:12px;letter-spacing:.12em;color:#ff3b30;white-space:nowrap}
+.sit .st i{font-style:normal;color:rgba(232,226,212,.2)}
+.stars{font-size:clamp(26px,8vw,38px);letter-spacing:.18em;color:#ff3b30;margin:14px 0 4px}
+.stars i{font-style:normal;color:rgba(232,226,212,.18)}
+.goal{font-size:12px;color:#8d93a6;letter-spacing:.06em;margin-top:6px}
 .result .verdict.win{color:#ff3b30}
 .result .verdict.lose{color:#5c6274}
 .result .sub{font-size:12px;letter-spacing:.24em;color:#8d93a6;margin-top:8px}
@@ -106,7 +125,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
     </div>
     <div class="menu">
       <div class="label">MODE</div>
-      <button class="btn primary" data-act="start-single">単一攻防　10秒</button>
+      <button class="btn primary" data-act="situations">シチュエーション<em id="sitCount"></em></button>
+      <button class="btn" data-act="start-single">単一攻防　10秒</button>
       <button class="btn" data-act="start-match">試　合　60秒</button>
       <div class="label">DIFFICULTY</div>
       <div class="row">
@@ -117,6 +137,21 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
         <button class="btn sub" data-act="howto">操作を確認</button>
         <button class="btn sub" data-act="calib">タイミング補正</button>
       </div>
+    </div>
+  </div>
+
+  <!-- シチュエーション選択 -->
+  <div class="overlay hidden" id="ovSit">
+    <div class="sheet" id="sitBody"></div>
+    <div class="menu"><button class="btn" data-act="title">タイトルへ</button></div>
+  </div>
+
+  <!-- ブリーフィング -->
+  <div class="overlay hidden" id="ovBrief">
+    <div class="result" id="briefBody"></div>
+    <div class="menu">
+      <button class="btn primary" data-act="brief-go">はじめる</button>
+      <button class="btn sub" data-act="situations">戻る</button>
     </div>
   </div>
 
@@ -588,16 +623,21 @@ const Input = {
 const Fight = {
   mode:'single', diff:DIFF.NORMAL, offsetMs:0,
 
-  reset(mode,diff,offset){
+  reset(mode,diff,offset,sit){
     this.mode=mode; this.diff=diff; this.offsetMs=offset|0;
     this.over=false; this.endReason=''; this.win=false;
-    this.timeLimit = mode==='single' ? 12000 : 60000;
+    this.sit = mode==='situation' ? sit : null;
+    this.timeLimit = mode==='single' ? 12000 : (mode==='situation' ? 999000 : 60000);
     this.elapsed=0;
+    this.sitStats={defended:0,countered:0,perfectCounter:0,sprawled:0,damage:0};
+    this.sitStars=0; this.qIdx=0; this.qDone=0;
+    this.queue = this.sit ? this.buildQueue(this.sit) : [];
 
     this.hitstop=0; this.lastMove=null; this.pending=null;
     this.lastJudge=null; this.lastDiff=0; this.readPenalty=false; this.clinchT=0;
     this.feintPenalty=false; this.heartT=0;
     this.p={hp:100,stam:100,cage:0,guard:null,guardSide:'L',guardT:0,swayT:-9999,
+            punchLock:0, handReady:{L:0,R:0}, buffer:null,
             advUntil:-1,advPerfect:false,
             stunUntil:-1,action:null,anim:null,slip:0,slipT:0,sway:0,lean:0,
             crouch:0,camX:0,camY:0,camRot:0,shake:0,hurtT:-9999};
@@ -605,8 +645,9 @@ const Fight = {
             gaze:{x:0,y:0},breath:0,stagger:0,guardUp:0.78,leanZ:0,hipRot:0,
             shoulderL:0,shoulderR:0,armL:0,armR:0,legStep:0,downT:-1,
             fatigue:0,lastMoves:[]};
-    this.dist=STRIKE;
-    this.distTarget=STRIKE; this.distT=-1; this.distDur=STEP_MS;
+    this.dist = this.sit ? this.sit.dist : STRIKE;
+    if(this.sit){ this.p.cage=this.sit.pCage||0; this.e.cage=this.sit.eCage||0; }
+    this.distTarget=this.dist; this.distT=-1; this.distDur=STEP_MS;
 
     this.beat=0; this.lastBeatIdx=-1;
     this.exchange=null;         // 進行中の攻防 {move, t0, impact, phase, choice, judge}
@@ -877,6 +918,7 @@ Object.assign(Fight,{
       haptic('guard');
     }else{
       this.p.stam=Math.min(100,this.p.stam+4);
+      this.sitStats.defended++;
       this.float('見切った','#e8e2d4');
     }
     this.exchange=null; this.hint=null;
@@ -928,6 +970,7 @@ Object.assign(Fight,{
           p.stam=Math.max(0,p.stam-dmg*0.5*(j==='EARLY'?1.5:1)*(wrongHand?1.4:1));
           this.hurt(red,m,'guard');
           this.stats.guarded++;
+          if(!this.sit || !this.sit.goal.only || this.sit.goal.only.includes('guard')) this.sitStats.defended++;
           if(wrongHand) this.float('逆の手','#8d93a6');
           this.float(j,j==='PERFECT'?C.accent:C.ink,j==='PERFECT');
           this.burst(hitX,hitY,'guard',j==='PERFECT'?1:0.6);
@@ -941,6 +984,7 @@ Object.assign(Fight,{
         }else{
           p.stam=Math.max(0,p.stam-(j==='PERFECT'?2:4)*(j==='EARLY'?1.5:1));
           this.stats.slipped++;
+          if(!this.sit || !this.sit.goal.only || this.sit.goal.only.includes(ch)) this.sitStats.defended++;
           this.float(j,j==='PERFECT'?C.accent:C.ink,j==='PERFECT');
           Audio_.whoosh(); haptic(j==='PERFECT'?'perfect':'good');
           if(j==='PERFECT'){
@@ -952,6 +996,7 @@ Object.assign(Fight,{
             e.state='stagger'; e.stateT=Clock.game; e.stagger=0.4;
           }
           avoided=true;
+          if(ch==='sprawl'){ this.sitStats.sprawled++; }
           if(ch==='sprawl'){                     // スプロール結果 (§11)
             e.stam=Math.max(0,e.stam-(j==='PERFECT'?15:8));
             if(j==='PERFECT') this.float('タックル阻止',C.accent);
@@ -1000,7 +1045,7 @@ Object.assign(Fight,{
     p.hp=Math.max(0,p.hp-dmg);
     p.hurtT=Clock.real;
     p.shake=kind==='guard'?0.35:1;
-    this.stats.taken+=dmg;
+    this.stats.taken+=dmg; this.sitStats.damage+=dmg;
     this.burst(this.oppFaceX(),this.oppFaceY(),kind==='guard'?'guard':'hurt',
                clamp(dmg/14,0.3,1));
     if(kind==='guard') Audio_.guardHit(); else { Audio_.punchHit(clamp(dmg/14,0.2,1)); haptic('hurt'); }
@@ -1014,15 +1059,36 @@ Object.assign(Fight,{
   },
 
   // ---------- プレイヤー攻撃 ----------
-  playerAttack(id, gestureName){
+  // 打撃は「溜め → 伸展 → 接触 → 引き戻し」の1サイクル。
+  // 人は同時に2発は打てず、同じ手は引き戻しが終わるまで次を打てない。
+  playerAttack(id, gestureName, buffered){
     const p=this.p, e=this.e;
     const m=pmove(id); if(!m) return;
     if(Clock.game<p.stunUntil) return;
+    // 両手を組み防御に使っている間は打てない
+    if(Input.isDualHolding()) return;
+
+    const side = m.side==='C' ? 'R' : m.side;
+    const travel = (MOVES[id]?MOVES[id].impact:420)*0.72;
+    const recover = travel*0.9;
+
+    // 体幹が前の打撃に使われている間は次を出せない。
+    // 入力は 220ms だけ保持し、空いた瞬間に出す（1-2 が繋がるように）
+    if(Clock.game < p.punchLock || Clock.game < (p.handReady[side]||0)){
+      if(!buffered) p.buffer={id, gesture:gestureName, t:Clock.game};
+      return;
+    }
     if(p.stam<=0){ p.stunUntil=Clock.game+900; this.float('スタミナ切れ','#5c6274'); return; }
 
-    const travel = (MOVES[id]?MOVES[id].impact:420)*0.72;
+    // その手でガードしていたなら、打つために構えが解ける
+    if(p.guard===side) p.guard=null;
+
+    p.punchLock = Clock.game + travel*0.62;      // 体幹が空くまで
+    p.handReady[side] = Clock.game + travel + recover;  // その手は1サイクル塞がる
+    p.buffer=null;
+
     const impactT = Clock.game+travel;
-    p.action={id,m,t0:Clock.game,impact:impactT,dur:travel,recover:travel*0.9,gesture:gestureName};
+    p.action={id,m,side,t0:Clock.game,impact:impactT,dur:travel,recover,gesture:gestureName};
     p.stam=Math.max(0,p.stam-m.stam);
     this.stats.inputs++;
     Audio_.glove();
@@ -1038,7 +1104,16 @@ Object.assign(Fight,{
   },
 
   updatePlayerAttack(){
-    const p=this.p; if(!p.action) return;
+    const p=this.p;
+    // 保持した入力を、体幹が空いた瞬間に出す
+    if(p.buffer){
+      if(Clock.game-p.buffer.t>220) p.buffer=null;
+      else if(Clock.game>=p.punchLock &&
+              Clock.game>=(p.handReady[pmove(p.buffer.id).side==='C'?'R':pmove(p.buffer.id).side]||0)){
+        const b=p.buffer; p.buffer=null; this.playerAttack(b.id,b.gesture,true);
+      }
+    }
+    if(!p.action) return;
     const a=p.action;
     if(!a.landed && Clock.game>=a.impact){
       a.landed=true;
@@ -1079,7 +1154,7 @@ Object.assign(Fight,{
       // 構えたガードへ打ち込むのは割に合わない：スタミナを余分に失い、
       // 相手に差し返しの機会を与える
       p.stam=Math.max(0,p.stam-((action&&action.m.whiff)||3));
-      if(!this.exchange && !this.over && e.state==='idle' && Math.random()<0.38){
+      if(!this.exchange && !this.over && !this.sit && e.state==='idle' && Math.random()<0.38){
         this.pending={t:Clock.game+rnd(120,260), move:Math.random()<0.6?'straight':'hook'};
       }
     }
@@ -1087,7 +1162,9 @@ Object.assign(Fight,{
     if(p.stam<20) dmg*=0.8;                      // §10
 
     if(isCounter){
-      if(judge==='PERFECT'){ dmg*=1.8; tag='PERFECT COUNTER'; color=C.accent; perfect=true; }
+      this.sitStats.countered++;
+      if(judge==='PERFECT'){ dmg*=1.8; tag='PERFECT COUNTER'; color=C.accent; perfect=true;
+                             this.sitStats.perfectCounter++; }
       else { dmg*=1.5; tag='COUNTER'; color=C.accentSoft; }
     }else{
       if(judge==='PERFECT'){ dmg*=1.25; tag='PERFECT'; color=C.accent; perfect=true; }
@@ -1310,7 +1387,9 @@ Object.assign(Fight,{
     }
 
     // --- 敵の行動選択 ---
-    if(this.mode==='single') this.runScript(); else AI.update(this);
+    if(this.mode==='single')          this.runScript();
+    else if(this.mode==='situation')  this.sitUpdate();
+    else                              AI.update(this);
 
     // --- 有利状態を使わなかった場合はスタミナ回復 (§9) ---
     if(p.advUntil>0 && Clock.game>=p.advUntil){
@@ -1324,6 +1403,7 @@ Object.assign(Fight,{
     if(p.cage>=2) this.stats.cageMySec+=sec;
 
     // --- 時間 ---
+    if(this.mode==='situation' && this.p.hp<=0){ this.judgeSituation(); }
     if(this.mode==='match' && this.elapsed>=this.timeLimit){
       const s=this.score();
       this.finish(s>=0,'DECISION');
@@ -1980,24 +2060,33 @@ const Arms = {
         tx=lerp(b.x,f.x,0.30); ty=lerp(b.y,f.y+V.H*0.10,0.32); rate=18;
       }
 
-      // 攻撃中：拳が相手へ届く (§4 §14)
+      // ---- 攻撃中の腕 (§4 §14) ----
       const act=p.action;
-      if(act && (act.m.side===side || (act.m.side==='C'&&side==='R'))){
+      const s=side==='L'?-1:1;
+      if(act && act.side===side){
         const tt=Clock.game-act.t0;
         const out=clamp(tt/act.dur,0,1);
         const back=clamp((tt-act.dur)/Math.max(1,act.recover),0,1);
-        const u = back>0 ? 1-easeOut(back) : easeIn(out)*0.35+easeOut(out)*0.65;
-        const fx_=V.faceX, fy_=(act.m.arc==='kick'||act.m.arc==='upper')?V.bodyY:V.faceY;
-        if(act.m.arc==='hook'){
-          const s=side==='L'?-1:1;
-          const cx1=V.W*0.5+s*V.W*0.62, cy1=V.H*0.60;
-          tx=(1-u)*(1-u)*b.x+2*(1-u)*u*cx1+u*u*fx_;
-          ty=(1-u)*(1-u)*b.y+2*(1-u)*u*cy1+u*u*fy_;
-        }else{
-          tx=lerp(b.x,fx_,u); ty=lerp(b.y,fy_,u);
-        }
-        tr=lerp(b.r, V.bh*(act.m.hand==='lead'?0.085:0.105), u);
-        rate=40;
+        // 溜め(0-18%) → 伸展 → 接触 → 引き戻し
+        const u = back>0 ? 1-easeIn(back)
+                         : (out<0.18 ? 0 : easeOut((out-0.18)/0.82));
+        const chamber = back>0 ? 0 : (out<0.18 ? Math.sin(out/0.18*Math.PI) : 0);
+
+        // 発射点は顎の横。そこから相手へ伸ばす
+        const lx = V.W*0.5 + s*V.W*(act.m.arc==='hook'?0.50:0.165);
+        const ly = V.H*(act.m.arc==='hook'?0.615:0.665);
+        const fx_= V.faceX + s*V.bh*0.010;
+        const fy_= (act.m.arc==='kick'||act.m.arc==='upper') ? V.bodyY : V.faceY;
+        // 構え → 顎の横 → 相手 の2次ベジェ
+        const p0x=b.x - s*V.W*0.02*chamber, p0y=b.y + V.H*0.012*chamber;
+        tx=(1-u)*(1-u)*p0x + 2*(1-u)*u*lx + u*u*fx_;
+        ty=(1-u)*(1-u)*p0y + 2*(1-u)*u*ly + u*u*fy_;
+        // 遠ざかるほど小さくなる。溜めの一瞬だけカメラへ寄って大きくなる
+        tr = lerp(b.r*(1+0.12*chamber), V.bh*0.052, easeOut(u));
+        rate=42;
+      }else if(act){
+        // 打っていない側の手は動かさず、わずかに締めて顎を守る
+        tx=b.x+s*V.W*0.012; ty=b.y-V.H*0.028; tr=b.r; rate=16;
       }
       a.x=damp(a.x,tx,rate,dt); a.y=damp(a.y,ty,rate,dt); a.r=damp(a.r,tr,rate,dt);
     }
@@ -2023,12 +2112,16 @@ function drawPlayerGlove(x,y,r,side,guarding){
   // ---- 前腕（画面下から伸びる。手前ほど太い）----
   const wx=x + s*r*0.08, wy=y + r*0.72;
   const bx=lerp(x, V.W*0.5+s*V.W*0.40, 0.55), byy=V.H + r*0.9;
+  const baseR=V.W*(side==='L'?0.140:0.184);
   const fore=new Path2D();
   fore.moveTo(wx - r*0.46, wy);
   fore.lineTo(wx + r*0.46, wy);
-  fore.quadraticCurveTo(bx + r*0.62, (wy+byy)/2, bx + r*0.70, byy);
-  fore.lineTo(bx - r*0.70, byy);
-  fore.quadraticCurveTo(bx - r*0.62, (wy+byy)/2, wx - r*0.46, wy);
+  // 前腕は肩側（画面下＝カメラに近い）が太く、手首側が細い。
+  // 拳が遠ざかっても肩の太さは変わらないので、根元は一定に保つ
+  const bw=baseR*0.74;
+  fore.quadraticCurveTo(bx + bw*0.9, (wy+byy)/2, bx + bw, byy);
+  fore.lineTo(bx - bw, byy);
+  fore.quadraticCurveTo(bx - bw*0.9, (wy+byy)/2, wx - r*0.46, wy);
   fore.closePath();
   ctx.fillStyle=C.skin; ctx.fill(fore);
   ctx.save(); ctx.clip(fore);
@@ -2343,16 +2436,38 @@ function drawHUD(F){
   tg.addColorStop(0,'rgba(7,9,16,0.85)'); tg.addColorStop(1,'rgba(7,9,16,0)');
   ctx.fillStyle=tg; ctx.fillRect(0,0,W,V.topH*1.35);
 
-  // 残り時間
-  const remain=Math.max(0,F.timeLimit-F.elapsed);
-  const sec=Math.floor(remain/1000), cs=Math.floor((remain%1000)/10);
   ctx.save();
-  ctx.textAlign='center'; ctx.fillStyle=C.ink;
-  ctx.font=`700 ${Math.round(W*0.072)}px -apple-system,sans-serif`;
-  ctx.fillText(String(sec).padStart(2,'0'),W*0.5,top+W*0.062);
-  ctx.font=`600 ${Math.round(W*0.028)}px -apple-system,sans-serif`;
-  ctx.fillStyle=C.inkFaint;
-  ctx.fillText('.'+String(cs).padStart(2,'0'),W*0.5+W*0.062,top+W*0.062);
+  ctx.textAlign='center';
+  if(F.mode==='situation'){
+    // 目標の進捗（残り時間ではなく、達成数を見せる）
+    const [cur,need]=F.goalProgress();
+    smallCaps(goalText(F.sit).toUpperCase(),W*0.5,top+W*0.030,Math.round(W*0.024),C.inkFaint,'center','0.20em');
+    ctx.fillStyle=C.ink;
+    ctx.font=`700 ${Math.round(W*0.062)}px -apple-system,sans-serif`;
+    ctx.fillText(`${Math.min(cur,need)}`,W*0.5-W*0.028,top+W*0.088);
+    ctx.fillStyle=C.inkFaint;
+    ctx.font=`600 ${Math.round(W*0.032)}px -apple-system,sans-serif`;
+    ctx.fillText(`/ ${need}`,W*0.5+W*0.042,top+W*0.088);
+    // 残りの出題数
+    const left=F.queue.length-F.qIdx;
+    if(left>0){
+      ctx.fillStyle='rgba(232,226,212,0.28)';
+      for(let i=0;i<F.queue.length;i++){
+        ctx.fillRect(W*0.5-(F.queue.length*5)/2+i*5, top+W*0.104, 3, 3);
+      }
+      ctx.fillStyle=C.accent;
+      for(let i=0;i<F.qIdx;i++) ctx.fillRect(W*0.5-(F.queue.length*5)/2+i*5, top+W*0.104, 3, 3);
+    }
+  }else{
+    const remain=Math.max(0,F.timeLimit-F.elapsed);
+    const sec=Math.floor(remain/1000), cs=Math.floor((remain%1000)/10);
+    ctx.fillStyle=C.ink;
+    ctx.font=`700 ${Math.round(W*0.072)}px -apple-system,sans-serif`;
+    ctx.fillText(String(sec).padStart(2,'0'),W*0.5,top+W*0.062);
+    ctx.font=`600 ${Math.round(W*0.028)}px -apple-system,sans-serif`;
+    ctx.fillStyle=C.inkFaint;
+    ctx.fillText('.'+String(cs).padStart(2,'0'),W*0.5+W*0.062,top+W*0.062);
+  }
   ctx.restore();
 
   // RIVAL
@@ -2410,6 +2525,16 @@ function drawHUD(F){
   }
   smallCaps('CAGE',W*0.075-4,cy-9,Math.round(W*0.019),C.inkFaint,'left','0.14em');
 
+  // シチュエーションの操作ヒント（開始 3 秒）
+  if(F.mode==='situation' && F.elapsed<3000){
+    ctx.save();
+    ctx.globalAlpha=clamp((3000-F.elapsed)/900,0,1)*0.9;
+    ctx.textAlign='center'; ctx.fillStyle=C.accent;
+    ctx.font=`600 ${Math.round(W*0.034)}px -apple-system,sans-serif`;
+    ctx.fillText(F.sit.hint,W*0.5,H*0.755);
+    ctx.restore();
+  }
+
   // ---- 判定表示 ----
   const now=Clock.real;
   F.floats.forEach((f,i)=>{
@@ -2425,6 +2550,165 @@ function drawHUD(F){
     ctx.restore();
   });
 }
+
+/* ============================================================
+   19.5 シチュエーション  —  1つの局面を切り取って繰り返す
+   状況は固定、相手の技はプールから抽選。「覚える」ではなく「読む」ため
+   ============================================================ */
+const CHAPTERS = [
+  {n:1, ja:'見　る',  sub:'READ'},
+  {n:2, ja:'返　す',  sub:'COUNTER'},
+  {n:3, ja:'間　合',  sub:'DISTANCE'},
+  {n:4, ja:'組　み',  sub:'GRAPPLE'},
+];
+
+// goal.kind
+//   defend  : 飛んできた攻撃を n 回捌く（被弾したら未達）
+//   counter : 有利状態からカウンターを n 回当てる
+//   sprawl  : タックルを n 回切る
+//   escape  : 金網圧力を 0 に戻す
+//   reach   : 打撃距離まで入る
+const SITUATIONS = [
+  {id:'S01', ch:1, title:'右を止める', hint:'左を長押し、または右へスライド',
+   brief:'相手の右ストレートだけが飛んでくる。肩の溜めと腰の回転を見てから動く。',
+   dist:STRIKE, waves:[{pool:['straight'],n:3,gap:[1.6,2.2]}],
+   goal:{kind:'defend',n:3}, star3:{perfect:2}},
+
+  {id:'S02', ch:1, title:'外へ抜ける', hint:'右半分を外側（右）へスライド',
+   brief:'ガードは使わない。右ストレートの外側へ頭を外す。',
+   dist:STRIKE, waves:[{pool:['straight'],n:3,gap:[1.6,2.2]}],
+   goal:{kind:'defend',n:3,only:['slipL','slipR']}, star3:{perfect:2}},
+
+  {id:'S03', ch:1, title:'差しを捌く', hint:'来る側の手＝右を長押し',
+   brief:'左ジャブは溜めが無い。世界はほとんど遅くならない。反射で受ける。',
+   dist:STRIKE, waves:[{pool:['jab'],n:4,gap:[1.1,1.6]}],
+   goal:{kind:'defend',n:4}, star3:{perfect:2}},
+
+  {id:'S04', ch:1, title:'1-2 を読む', hint:'ジャブに深く反応しない',
+   brief:'ジャブは殴るためではなく、あなたに防御を使わせるために出てくる。本命は後ろ手。',
+   dist:STRIKE, combo:[['jab','straight']], waves:[{pool:['jab','straight'],n:6,gap:[0.9,0.9]}],
+   goal:{kind:'defend',n:6}, star3:{perfect:3}},
+
+  {id:'S05', ch:2, title:'隙を突く', hint:'PERFECT回避のあと 0.6 秒以内にタップ',
+   brief:'完全に見切ると相手の姿勢が崩れる。その 0.6 秒だけ、こちらの手が届く。',
+   dist:STRIKE, waves:[{pool:['straight','hook'],n:5,gap:[1.8,2.4]}],
+   goal:{kind:'counter',n:2}, star3:{perfect:3}},
+
+  {id:'S06', ch:2, title:'拍に乗せる', hint:'足音の拍に拳を着地させる',
+   brief:'カウンターが拍に乗ると 1.8 倍。相手は一段下がる。',
+   dist:STRIKE, waves:[{pool:['straight','upper'],n:6,gap:[1.8,2.4]}],
+   goal:{kind:'counter',n:2,perfectOnly:true}, star3:{perfect:3}},
+
+  {id:'S07', ch:3, title:'蹴りの間合い', hint:'長押しでチェック、または両指下で下がる',
+   brief:'遠距離は後ろ脚の蹴りの距離。腰の切り返しが起こり。',
+   dist:FAR, waves:[{pool:['lowKick','midKick'],n:4,gap:[1.8,2.4]}],
+   goal:{kind:'defend',n:4}, star3:{perfect:2}},
+
+  {id:'S08', ch:3, title:'中に入る', hint:'蹴りを捌いて両指を上へ',
+   brief:'蹴りをもらわずに、自分から打撃距離まで詰める。',
+   dist:FAR, waves:[{pool:['lowKick','midKick','frontKick'],n:4,gap:[2.0,2.6]}],
+   goal:{kind:'reach'}, star3:{perfect:2}},
+
+  {id:'S09', ch:3, title:'金網を背負う', hint:'PERFECT回避で回り込む',
+   brief:'背中が金網。下がれない。完全に見切って角度を取り直す。',
+   dist:STRIKE, pCage:2, waves:[{pool:['hook','straight','jab'],n:6,gap:[1.4,2.0]}],
+   goal:{kind:'escape'}, star3:{perfect:3}},
+
+  {id:'S10', ch:4, title:'タックルを切る', hint:'両指長押しでスプロール',
+   brief:'腰が落ち、目線は上に残る。それがタックルの起こり。',
+   dist:STRIKE, waves:[{pool:['tackle'],n:3,gap:[2.2,2.8]}],
+   goal:{kind:'sprawl',n:3}, star3:{perfect:2}},
+
+  {id:'S11', ch:4, title:'二択を見抜く', hint:'腰が落ちたら組み、肩が溜まったら打撃',
+   brief:'同じ構えから、打撃とタックルの二択が来る。腰を見る。',
+   dist:STRIKE, waves:[{pool:['tackle','straight','hook'],n:5,gap:[1.8,2.4]}],
+   goal:{kind:'defend',n:5}, star3:{perfect:3}},
+
+  {id:'S12', ch:4, title:'フェイントを置く', hint:'腰が落ちても、150ms で戻ったら本命ではない',
+   brief:'偽の組みに反応すると、続く本命の読みが浅くなる。',
+   dist:STRIKE, waves:[{pool:['feint','tackle','straight'],n:6,gap:[1.6,2.2]}],
+   goal:{kind:'defend',n:6}, star3:{perfect:3}},
+];
+
+const Progress = {
+  data:{},
+  load(){ try{ this.data=JSON.parse(localStorage.getItem('maai.progress')||'{}'); }catch(e){ this.data={}; } },
+  save(){ try{ localStorage.setItem('maai.progress',JSON.stringify(this.data)); }catch(e){} },
+  stars(id){ return this.data[id]||0; },
+  set(id,st){ if(st>this.stars(id)){ this.data[id]=st; this.save(); } },
+  unlocked(i){
+    if(i===0) return true;
+    return this.stars(SITUATIONS[i-1].id)>0;
+  },
+  cleared(){ return SITUATIONS.filter(s=>this.stars(s.id)>0).length; },
+};
+
+Object.assign(Fight,{
+  // 出題順を組み立てる。プールから抽選するので、答えは毎回同じにならない
+  buildQueue(sit){
+    const q=[];
+    for(const w of sit.waves){
+      if(sit.combo){
+        // 決まった連係をそのまま並べる
+        for(let i=0;i<w.n;i++) q.push(sit.combo[0][i%sit.combo[0].length]);
+      }else{
+        let prev=null;
+        for(let i=0;i<w.n;i++){
+          let pool=w.pool;
+          if(pool.length>1 && prev) pool=pool.filter(x=>x!==prev);
+          const mv=pick(pool.length?pool:w.pool);
+          q.push(mv); prev=mv;
+        }
+      }
+      q.gap=w.gap;
+    }
+    this.queueGap=sit.waves[0].gap;
+    return q;
+  },
+
+  sitUpdate(){
+    const sit=this.sit; if(!sit) return;
+    if(this.exchange || this.pending) return;
+    if(Clock.game < this.ai.restUntil) return;
+
+    if(this.qIdx>=this.queue.length){
+      // 出題が尽きた → 少し待って判定
+      if(!this.qDone) this.qDone=Clock.game;
+      else if(Clock.game-this.qDone>700) this.judgeSituation();
+      return;
+    }
+    const mv=this.queue[this.qIdx++];
+    if(mv==='feint') this.startEnemyFeint(); else this.startEnemyAttack(mv);
+    const g=this.queueGap;
+    this.ai.restUntil=Clock.game + BEAT*rnd(g[0],g[1]);
+  },
+
+  goalProgress(){
+    const sit=this.sit, g=sit.goal, st=this.sitStats;
+    switch(g.kind){
+      case 'defend' : return [st.defended, g.n];
+      case 'counter': return [g.perfectOnly?st.perfectCounter:st.countered, g.n];
+      case 'sprawl' : return [st.sprawled, g.n];
+      case 'escape' : return [2-this.p.cage, 2];
+      case 'reach'  : return [this.dist>=STRIKE?1:0, 1];
+    }
+    return [0,1];
+  },
+
+  judgeSituation(){
+    const [cur,need]=this.goalProgress();
+    const ok = cur>=need;
+    let stars=0;
+    if(ok){
+      stars=1;
+      if(this.sitStats.damage<=0) stars=2;
+      if(stars===2 && this.stats.perfect>=(this.sit.star3?this.sit.star3.perfect:99)) stars=3;
+      Progress.set(this.sit.id,stars);
+    }
+    this.sitStars=stars;
+    this.finish(ok, ok?'CLEAR':'FAILED');
+  },
+});
 
 /* ============================================================
    20. タイミング補正 (§9  ±200ms)
@@ -2489,25 +2773,77 @@ const Calib = {
 let scene='title';
 let curDiff='NORMAL';
 const el=id=>document.getElementById(id);
-const OV={title:el('ovTitle'),howto:el('ovHowto'),result:el('ovResult')};
+const OV={title:el('ovTitle'),howto:el('ovHowto'),result:el('ovResult'),
+          sit:el('ovSit'),brief:el('ovBrief')};
 
 function go(s){
   scene=s;
-  OV.title.classList.toggle('hidden', s!=='title');
-  OV.howto.classList.toggle('hidden', s!=='howto');
-  OV.result.classList.toggle('hidden', s!=='result');
+  for(const k in OV) OV[k].classList.toggle('hidden', s!==k);
+  if(s==='title') el('sitCount').textContent=`${Progress.cleared()} / ${SITUATIONS.length}`;
 }
 
-function startFight(mode){
+const STAR=(n)=>'★★★'.slice(0,n)+'<i>'+'★★★'.slice(0,3-n)+'</i>';
+const GOAL_JA={defend:'捌く',counter:'カウンター',sprawl:'タックルを切る',
+               escape:'金網から脱出',reach:'打撃距離まで入る'};
+function goalText(sit){
+  const g=sit.goal;
+  if(g.kind==='escape'||g.kind==='reach') return GOAL_JA[g.kind];
+  return `${GOAL_JA[g.kind]} × ${g.n}${g.perfectOnly?'（拍に乗せる）':''}`;
+}
+
+function buildSituations(){
+  let h='<h2>SITUATIONS</h2>';
+  for(const ch of CHAPTERS){
+    const list=SITUATIONS.filter(x=>x.ch===ch.n);
+    h+=`<div class="chgrp"><h3>CHAPTER ${ch.n}<b>${ch.ja}</b>${ch.sub}</h3>`;
+    for(const sit of list){
+      const i=SITUATIONS.indexOf(sit);
+      const open=Progress.unlocked(i), st=Progress.stars(sit.id);
+      h+=`<button class="sit" data-sit="${sit.id}" ${open?'':'disabled'}>
+        <span class="no">${String(i+1).padStart(2,'0')}</span>
+        <span class="tx"><b>${open?sit.title:'- - -'}</b><span>${open?goalText(sit):'前の局面をクリアで解放'}</span></span>
+        <span class="st">${open?STAR(st):''}</span></button>`;
+    }
+    h+='</div>';
+  }
+  h+=`<div class="note">状況は固定ですが、<b>相手が何を出すかは毎回変わります</b>。
+      順番を覚えるのではなく、肩と腰を見て決めてください。</div>`;
+  el('sitBody').innerHTML=h;
+}
+
+let curSit=null;
+function buildBrief(sit){
+  curSit=sit;
+  const i=SITUATIONS.indexOf(sit);
+  el('briefBody').innerHTML=`
+    <div class="sub">SITUATION ${String(i+1).padStart(2,'0')}　${DIST_NAME[sit.dist]}</div>
+    <div class="verdict" style="font-size:clamp(26px,8vw,40px)">${sit.title}</div>
+    <div class="stars">${STAR(Progress.stars(sit.id))}</div>
+    <div class="note" style="margin-top:20px;text-align:left">${sit.brief}</div>
+    <div class="stats" style="margin:22px 0 0">
+      <div class="stat"><span>目標</span><span>${goalText(sit)}</span></div>
+      <div class="stat"><span>操作</span><span>${sit.hint}</span></div>
+      <div class="stat"><span>★★</span><span>被弾なし</span></div>
+      <div class="stat"><span>★★★</span><span>PERFECT ${sit.star3?sit.star3.perfect:'-'} 回以上</span></div>
+    </div>`;
+  go('brief');
+}
+
+function startFight(mode,sit){
   Audio_.resume();
-  Fight.reset(mode, DIFF[curDiff], Fight.offsetMs);
+  Fight.reset(mode, DIFF[curDiff], Fight.offsetMs, sit);
   Input.clear(); Clock.reset();
   Arms.L.init=Arms.R.init=false;
   go('fight');
 }
 
+function resultBtn(){ return el('ovResult').querySelector('[data-act],[data-act="situations"],[data-act="next-sit"]'); }
+
 function showResult(){
   const F=Fight, s=F.stats;
+  if(F.mode==='situation'){ showSitResult(); return; }
+  const btn=el('ovResult').querySelectorAll('.btn')[1];
+  btn.textContent='タイトルへ'; btn.dataset.act='title';
   const sc=F.score();
   const win=F.win;
   const reason={KO:'KO',TAKEDOWN:'TAKEDOWN',DECISION:'DECISION',SEQUENCE:'SEQUENCE'}[F.endReason]||'';
@@ -2527,6 +2863,27 @@ function showResult(){
       <div class="stat"><span>残 HP</span><span>${Math.round(F.p.hp)} - ${Math.round(F.e.hp)}</span></div>
       <div class="stat hl"><span>SCORE</span><span>${sc}</span></div>
     </div>`;
+  go('result');
+}
+
+function showSitResult(){
+  const F=Fight, sit=F.sit, [cur,need]=F.goalProgress();
+  const ok=F.sitStars>0;
+  el('resultBody').innerHTML=`
+    <div class="verdict ${ok?'win':'lose'}" style="font-size:clamp(30px,10vw,50px)">${ok?'CLEAR':'FAILED'}</div>
+    <div class="sub">${sit.title}</div>
+    <div class="stars">${STAR(F.sitStars)}</div>
+    <div class="stats">
+      <div class="stat hl"><span>${goalText(sit)}</span><span>${Math.min(cur,need)} / ${need}</span></div>
+      <div class="stat"><span>PERFECT</span><span>${F.stats.perfect}</span></div>
+      <div class="stat"><span>GOOD</span><span>${F.stats.good}</span></div>
+      <div class="stat"><span>被弾</span><span>${Math.round(F.sitStats.damage)}</span></div>
+    </div>
+    <div class="goal">${ok?'':sit.hint}</div>`;
+  const next=SITUATIONS[SITUATIONS.indexOf(sit)+1];
+  const btn=el('ovResult').querySelectorAll('.btn')[1];
+  btn.textContent = (ok && next) ? '次の局面へ' : '局面を選ぶ';
+  btn.dataset.act = (ok && next) ? 'next-sit' : 'situations';
   go('result');
 }
 
@@ -2603,7 +2960,7 @@ function frame(ts){
   if(scene==='fight'){
     while(Input.queue.length) Fight.handleGesture(Input.queue.shift());
     Fight.update();
-    if(Fight.over && Clock.real-Fight.overT>1700) showResult();
+    if(Fight.over && Clock.real-Fight.overT>(Fight.mode==='situation'?1100:1700)) showResult();
   }else if(scene==='calib'){
     while(Input.queue.length){ const g=Input.queue.shift(); if(g.type==='TAP') Calib.tap(); }
     Calib.update();
@@ -2675,6 +3032,9 @@ Object.assign(Fight,{
 });
 
 document.addEventListener('click',ev=>{
+  const sb=ev.target.closest('[data-sit]');
+  if(sb && !sb.disabled){ Audio_.resume(); Audio_.ui();
+    buildBrief(SITUATIONS.find(x=>x.id===sb.dataset.sit)); return; }
   const b=ev.target.closest('[data-act],[data-diff]'); if(!b) return;
   Audio_.resume(); Audio_.ui();
   if(b.dataset.diff){
@@ -2685,10 +3045,16 @@ document.addEventListener('click',ev=>{
   switch(b.dataset.act){
     case 'start-single': startFight('single'); break;
     case 'start-match' : startFight('match');  break;
+    case 'situations'  : buildSituations(); go('sit'); break;
+    case 'brief-go'    : startFight('situation', curSit); break;
+    case 'next-sit'    : {
+      const n=SITUATIONS[SITUATIONS.indexOf(curSit)+1];
+      if(n) buildBrief(n); else { buildSituations(); go('sit'); }
+      break; }
     case 'howto': buildHowto(); go('howto'); break;
     case 'close-howto': go('title'); break;
     case 'calib': Calib.start(); go('calib'); break;
-    case 'retry': startFight(Fight.mode); break;
+    case 'retry': startFight(Fight.mode, Fight.sit); break;
     case 'title': go('title'); break;
   }
 });
@@ -2697,6 +3063,7 @@ Input.bind(cv);
 Input.onFirstTouch=()=>{ Audio_.resume(); Input.onFirstTouch=null; };
 resize();
 try{ const o=localStorage.getItem('maai.offset'); if(o!==null) Fight.offsetMs=parseInt(o,10)||0; }catch(e){}
+Progress.load();
 Fight.reset('match',DIFF[curDiff],Fight.offsetMs);
 document.querySelectorAll('[data-diff]').forEach(x=>x.dataset.on = x.dataset.diff===curDiff?'1':'0');
 go('title');
