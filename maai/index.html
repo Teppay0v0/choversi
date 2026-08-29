@@ -62,6 +62,15 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .btn.primary:active{background:#ff6257}
 .btn.sub{font-size:12px;padding:11px 8px;font-weight:500;color:#8d93a6}
 .btn[data-on="1"]{border-color:#ff3b30;color:#ff3b30;background:rgba(255,59,48,.08)}
+.fbtn{flex:1;display:flex;flex-direction:column;gap:3px;align-items:flex-start;
+  border:1px solid rgba(232,226,212,.22);background:rgba(232,226,212,.05);
+  color:#e8e2d4;font-family:inherit;padding:10px 11px;border-radius:2px;cursor:pointer}
+.fbtn:active{background:rgba(232,226,212,.14)}
+.fbtn b{font-size:14px;font-weight:700;letter-spacing:.10em}
+.fbtn span{font-size:10px;color:#8d93a6;letter-spacing:.06em}
+.fbtn i{display:block;width:16px;height:3px;margin-top:3px;border-radius:2px}
+.fbtn[data-on="1"]{border-color:#ff3b30;background:rgba(255,59,48,.08)}
+.fbtn[data-on="1"] b{color:#ff3b30}
 .label{font-size:10px;letter-spacing:.24em;color:#5c6274;margin:14px 0 -2px 2px}
 
 /* ---- 操作説明 ---- */
@@ -139,6 +148,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
       <button class="btn primary" data-act="situations">シチュエーション<em id="sitCount"></em></button>
       <button class="btn" data-act="start-single">単一攻防　10秒</button>
       <button class="btn" data-act="start-match">試　合　60秒</button>
+      <div class="label">OPPONENT</div>
+      <div class="row" id="ftrRow"></div>
       <div class="label">DIFFICULTY</div>
       <div class="row">
         <button class="btn sub" data-diff="BEGINNER">BEGINNER</button>
@@ -275,6 +286,77 @@ const PMOVE_DATA = {
   kneeC     :{ja:'膝',              dmg:15,stam:11,whiff:6, arc:'upper', side:'C'},
 };
 function pmove(id){ return MOVES[id] || PMOVE_DATA[id]; }
+
+/* ============================================================
+   選手定義 (§4.2 キャラクター定義項目)
+   体格・構え・打ち方・癖・リズムを1つのデータにまとめる。
+   敵ごとの違いはコードではなくここで作る。
+   ============================================================ */
+const FIGHTERS = {
+
+  // 最初のライバル：基準となる打撃型。肩と目線で読みやすく、フェイントを一つ持つ
+  arata:{
+    id:'arata', name:'アラタ', style:'打撃型', tag:'ORTHODOX STRIKER',
+    note:'肩の溜めが大きく、目線が素直。基準になる相手。',
+    build:{ height:0.90, head:0.090, shoulder:0.136, blade:0.84,
+            near:1.20, far:0.82, leadScale:1.16, rearScale:0.86,
+            guardHigh:0.62, leadGuard:0.56, crouch:0, reach:1.00 },
+    face:{ eye:1.00, brow:0.00, jaw:1.00, hairDip:0.66 },
+    color:{ skin:'#d6ac8b', skinShade:'#a37c62', skinLit:'#f0ceae',
+            hair:'#1a1e2b', brow:'#252734',
+            glove:'#ff3b30', gloveShade:'#a3241d', trunks:'#ff3b30' },
+    habit:{ breath:760, gazeTruth:0.85, guardUp:0.78, step:1.00 },
+    move :{ tell:1.15, speed:1.00, tellBy:{} },          // 予告が大きい＝読みやすい
+    ai   :{ patterns:['P01','P02','P03','P08','P10','P11','P05','P06'],
+            rest:1.00, readMul:1.10 },
+  },
+
+  // 次の強敵：レスリング型。目線を上に残したまま腰を落とす (§4.2)
+  gou:{
+    id:'gou', name:'ゴウ', style:'レスリング型', tag:'WRESTLER',
+    note:'低く構え、目線を上に残したまま腰が落ちる。打撃と組みの二択。',
+    build:{ height:0.855, head:0.096, shoulder:0.153, blade:0.91,
+            near:1.13, far:0.88, leadScale:1.10, rearScale:0.92,
+            guardHigh:0.86, leadGuard:0.68, crouch:0.10, reach:0.92 },
+    face:{ eye:0.92, brow:0.35, jaw:1.14, hairDip:0.80 },
+    color:{ skin:'#c79a78', skinShade:'#8f6a52', skinLit:'#e6bd97',
+            hair:'#20202a', brow:'#22242e',
+            glove:'#e8a13c', gloveShade:'#9b6417', trunks:'#e8a13c' },
+    habit:{ breath:880, gazeTruth:0.52, guardUp:0.70, step:1.15 },
+    move :{ tell:0.92, speed:0.94, tellBy:{tackle:0.68, straight:1.05} },  // 組みが読みにくい
+    ai   :{ patterns:['P01','P03','P04','P07','P08','P12','P09','P06'],
+            rest:0.92, readMul:0.90 },
+  },
+
+  // 三人目：スピード型。細く長く、差しが速い
+  ren:{
+    id:'ren', name:'レン', style:'スピード型', tag:'OUT-FIGHTER',
+    note:'細く長い。差しが速く小さい。フックが鋭い。',
+    build:{ height:0.945, head:0.086, shoulder:0.124, blade:0.78,
+            near:1.26, far:0.78, leadScale:1.22, rearScale:0.82,
+            guardHigh:0.50, leadGuard:0.48, crouch:-0.04, reach:1.10 },
+    face:{ eye:1.06, brow:-0.25, jaw:0.88, hairDip:0.58 },
+    color:{ skin:'#e0b795', skinShade:'#ab8264', skinLit:'#f7dabb',
+            hair:'#141822', brow:'#1e202b',
+            glove:'#cfe4ff', gloveShade:'#7f93b5', trunks:'#cfe4ff' },
+    habit:{ breath:700, gazeTruth:0.70, guardUp:0.72, step:0.88 },
+    move :{ tell:0.86, speed:1.16, tellBy:{jab:0.72, hook:0.90} },
+    ai   :{ patterns:['P01','P02','P11','P08','P10','P05','P06','P09'],
+            rest:1.10, readMul:0.95 },
+  },
+};
+const FIGHTER_ORDER=['arata','gou','ren'];
+
+// 相手の色。プレイヤー側の色（C）とは分ける
+const EC = Object.assign({}, FIGHTERS.arata.color);
+// 相手の体格。描画はすべてここを参照する
+const EB = Object.assign({}, FIGHTERS.arata.build);
+function setFighter(id){
+  const f=FIGHTERS[id]||FIGHTERS.arata;
+  Object.assign(EC, f.color);
+  Object.assign(EB, f.build);
+  return f;
+}
 
 // --- 敵パターン (§17.1) ---
 // s: 拍単位の相対開始位置 / a: 行動
@@ -672,8 +754,10 @@ const Input = {
 const Fight = {
   mode:'single', diff:DIFF.NORMAL, offsetMs:0,
 
-  reset(mode,diff,offset,sit){
+  reset(mode,diff,offset,sit,fighterId){
     this.mode=mode; this.diff=diff; this.offsetMs=offset|0;
+    // 相手を切り替える。体格・顔・色・打ち方・癖・リズムがすべて入れ替わる (§4.2)
+    this.ftr = setFighter((sit&&sit.fighter) || fighterId || 'arata');
     this.over=false; this.endReason=''; this.win=false;
     this.sit = mode==='situation' ? sit : null;
     this.timeLimit = mode==='single' ? 12000 : (mode==='situation' ? 999000 : 60000);
@@ -840,6 +924,7 @@ const AI = {
   },
   usable(F,p){
     if(!p) return false;
+    if(F.ftr && F.ftr.ai.patterns.indexOf(p.id)<0) return false;   // その選手が使わない型
     if(p.cageOnly && F.p.cage<2) return false;
     if(p.dist!==F.dist) return false;
     if(F.e.stam<20 && p.steps.some(s=>MOVES[s.a]&&MOVES[s.a].stam>10)) return false;
@@ -858,7 +943,7 @@ const AI = {
       ai.pattern=p; ai.step=0; ai.t0=Clock.game;
       ai.history.push(p.id); if(ai.history.length>6) ai.history.shift();
       // パターン間の休み
-      ai.restUntil=Clock.game + BEAT*rnd(0.4,1.0)*F.diff.aiRest;
+      ai.restUntil=Clock.game + BEAT*rnd(0.4,1.0)*F.diff.aiRest*F.ftr.ai.rest;
       return;
     }
     const st=ai.pattern.steps[ai.step];
@@ -889,13 +974,15 @@ Object.assign(Fight,{
   startEnemyAttack(id){
     const m=MOVES[id]; if(!m) return;
     const e=this.e;
-    const tellMul=this.diff.tellMul * (this.feintPenalty?0.8:1);
-    const tell   = m.tell*tellMul;
-    const impact = m.impact*tellMul;
+    const st=this.ftr.move;
+    // 予告の大きさと速さは選手ごとに違う
+    const tellMul=this.diff.tellMul * st.tell * (st.tellBy[id]||1) * (this.feintPenalty?0.8:1);
+    const tell   = m.tell*tellMul / st.speed;
+    const impact = m.impact*tellMul / st.speed;
     e.state='windup'; e.stateT=Clock.game; e.stam=Math.max(0,e.stam-m.stam);
     this.lastMove=m;
     // 攻撃方向のヒントとして目線を動かす（必ずしも一致させない §4.2）
-    const truth = Math.random()<0.78;
+    const truth = Math.random()<this.ftr.habit.gazeTruth;   // 目線が正直かどうか
     e.gaze.x = truth ? (m.from*-0.6) : (m.from*0.55);
     e.gaze.y = m.arc==='kick' ? 0.2 : (m.arc==='upper' ? 0.35 : -0.1);
     Audio_.breath(true, 0.5+e.fatigue*0.5);
@@ -972,7 +1059,7 @@ Object.assign(Fight,{
 
     const m=ex.data;
     const remain=Math.max(60, ex.impact-Clock.game);
-    const real=TS.CHOICE_REAL*(m.read||1)*this.diff.readMul*mul*(this.readPenalty?0.7:1);
+    const real=TS.CHOICE_REAL*(m.read||1)*this.diff.readMul*this.ftr.ai.readMul*mul*(this.readPenalty?0.7:1);
     ex.read=q; ex.readRel=rel;
     ex.slowScale=clamp(remain/real, 0.10, 0.90);
     ex.slowAt=Clock.game;
@@ -1149,7 +1236,7 @@ Object.assign(Fight,{
     this.exchange=null; this.hint=null;
     e.state='recover'; e.stateT=Clock.game;
     Clock.to(TS.OBSERVE, TS.EXIT_MS);
-    this.ai.restUntil=Clock.game+BEAT*rnd(0.5,1.1)*this.diff.aiRest;
+    this.ai.restUntil=Clock.game+BEAT*rnd(0.5,1.1)*this.diff.aiRest*this.ftr.ai.rest;
   },
 
   // ---------- 有利状態 (§9) ----------
@@ -1589,7 +1676,7 @@ Object.assign(Fight,{
     const e=this.e, ex=this.exchange;
     const el=Clock.game-e.stateT;
     // ガードの開き具合（隙の大きさ）
-    let target=0.78;
+    let target=this.ftr.habit.guardUp;
     if(e.state==='windup')      target=0.15;
     else if(e.state==='recover')target=0.06;
     else if(e.state==='stagger')target=0.0;
@@ -1606,7 +1693,7 @@ Object.assign(Fight,{
     }
     if(e.state==='idle'){ e.gaze.x=damp(e.gaze.x,Math.sin(Clock.game/1400)*0.12,3,Clock.realDt);
                           e.gaze.y=damp(e.gaze.y,0,3,Clock.realDt); }
-    e.breath=Math.sin(Clock.game/(760-260*e.fatigue))*(0.5+0.5*e.fatigue);
+    e.breath=Math.sin(Clock.game/(this.ftr.habit.breath-260*e.fatigue))*(0.5+0.5*e.fatigue);
     e.legStep=damp(e.legStep,0,9,Clock.realDt);
   },
 
@@ -1789,25 +1876,29 @@ function drawOpponent(F){
 
   V.scale=sc; V.bh=bh; V.cx=cx;
   const headY=feet-bh*0.895+breath;
-  const headR=bh*0.090;
+  const headR=bh*EB.head;
   const shY  =feet-bh*0.774+breath;   // 首が伸びて見えないよう肩をやや上げる
   const hipY =feet-bh*0.520;
-  const hw   =bh*0.178;                        // 肩半幅
+  const hw   =bh*EB.shoulder;                  // 肩半幅
   V.faceX=cx; V.faceY=headY; V.bodyY=(shY+hipY)/2; V.shoulderY=shY; V.hw=hw;
 
   // --- 攻撃の進行度 ---
   const ex=F.exchange;
-  let wind=0, strike=0, m=null, side=0, arc='straight';
+  let wind=0, strike=0, prog=0, m=null, side=0, arc='straight';
   if(ex && !ex.resolved){
     m=ex.data; arc=m.arc||'straight';
     side = m.side==='R' ? -1 : (m.side==='L' ? 1 : 0);   // 画面上の左右
     const tellEnd=ex.t0+ex.tell;
+    prog=clamp((Clock.game-ex.t0)/Math.max(1,ex.impact-ex.t0),0,1);
     if(Clock.game<tellEnd) wind=clamp((Clock.game-ex.t0)/ex.tell,0,1);
     else { wind=1; strike=clamp((Clock.game-tellEnd)/Math.max(1,ex.impact-tellEnd),0,1); }
   }else if(e.state==='recover'){
-    strike=1-clamp((Clock.game-e.stateT)/320,0,1);
+    // 引き戻しは伸展より速い
+    const back=clamp((Clock.game-e.stateT)/260,0,1);
+    prog=1-easeOut(back); strike=prog; wind=prog>0?1:0;
     const lm=F.lastMove; if(lm){ m=lm; side=lm.side==='R'?-1:(lm.side==='L'?1:0); arc=lm.arc; }
   }
+  const CH=chain(prog);
 
   ctx.save();
 
@@ -1819,23 +1910,26 @@ function drawOpponent(F){
   // --- 半身（オーソドックス）の投影 ---
   // 体幹を約35度ひねると肩線は foreshorten し、前の肩はカメラに近いぶん
   // 外へ大きく、後ろの肩は中央寄りに小さく写る
-  const BLADE=0.84, NEAR=1.20, FAR=0.82;
-  const leadScale=1.16, rearScale=0.86;
+  const BLADE=EB.blade, NEAR=EB.near, FAR=EB.far;
+  const leadScale=EB.leadScale, rearScale=EB.rearScale;
 
   const lean = (wind*0.5+strike*0.5);
-  const bodyDX = arc==='tackle' ? 0 : side*bh*0.020*wind - side*bh*0.014*strike;
+  // 体重移動：打ち出しで前脚へ乗る
+  const bodyDX = arc==='tackle' ? 0
+               : side*bh*0.022*CH.chamber - side*bh*0.026*CH.hip;
   const bodyDY = (arc==='tackle'? bh*0.12*lean : 0) + (arc==='upper'? bh*0.030*wind : 0)
-               + (arc!=='tackle' ? bh*0.010*wind : 0);
-  // 腰の回転（打つ側が引かれる → 打ち出しで一気に返る）
-  // 後ろ手の技ほど腰が大きく回る＝これがストレートの最大の予告になる
+               + (arc!=='tackle' ? bh*0.010*wind : 0)
+               + bh*EB.crouch;                       // 低い構えの選手はここで沈む
+  // 腰の回転。腕より先に回るのが本物の順序（§ 運動連鎖）
+  // 後ろ手の技ほど大きく回る＝ストレート最大の予告
   const rearMove = (m && m.hand==='rear');
-  const rotK = rearMove ? 1 : 0.35;
-  e.hipRot = (side||0)*(0.55*wind - 0.85*strike)*rotK;
-  // 半身のベースに、ひねりの増減を足す
+  const rotK = rearMove ? 1 : 0.42;
+  e.hipRot = (side||0)*(0.50*CH.chamber - 0.95*CH.hip)*rotK;
+  // 半身のベースに、体幹のひねりを足す（肩は腰に遅れて回る）
   const twL = BLADE*(-1===LEAD?NEAR:FAR)
-            + ((side===-1)? (-0.30*wind+0.40*strike) : (0.14*wind-0.10*strike));
+            + ((side===-1)? (-0.26*CH.chamber+0.34*CH.torso) : (0.12*CH.chamber-0.08*CH.torso));
   const twR = BLADE*( 1===LEAD?NEAR:FAR)
-            + ((side=== 1)? (-0.30*wind+0.40*strike) : (0.14*wind-0.10*strike));
+            + ((side=== 1)? (-0.26*CH.chamber+0.34*CH.torso) : (0.12*CH.chamber-0.08*CH.torso));
 
   // --- 脚（太腿→膝→脛→足を面で構成）---
   if(feet-bh*0.52 < V.H){
@@ -1866,7 +1960,8 @@ function drawOpponent(F){
       ctx.lineTo(ankX-bh*0.004,ankY); ctx.lineTo(ankX-bh*0.020,ankY);
       ctx.closePath(); ctx.fill();
       // 足。後ろ足は踵が浮き、打ち出しで返る
-      const heel = isLead ? 0 : bh*0.030*(wind*0.4+strike*rotK);
+      // 後ろ足の踵が最初に返る。ここが運動連鎖の起点で、最も早い予告
+      const heel = isLead ? 0 : bh*0.042*CH.foot*(rearMove?1:0.5);
       ctx.fillStyle='#0f1424';
       ctx.beginPath();
       ctx.ellipse(ankX+sg*bh*0.014*depth, feet+dy-heel,
@@ -1888,15 +1983,16 @@ function drawOpponent(F){
   // --- 胴（面で構成） ---
   const sx=cx+bodyDX, sy=shY+bodyDY, hy=hipY+bodyDY;
   // 首
-  ctx.fillStyle=C.skinShade;
+  ctx.fillStyle=EC.skinShade;
   ctx.beginPath();
-  ctx.moveTo(sx-headR*0.42,headY+headR*0.55); ctx.lineTo(sx+headR*0.42,headY+headR*0.55);
-  ctx.lineTo(sx+headR*0.52,sy+bh*0.006); ctx.lineTo(sx-headR*0.52,sy+bh*0.006);
+  ctx.moveTo(sx-headR*0.34,headY+headR*0.62); ctx.lineTo(sx+headR*0.34,headY+headR*0.62);
+  ctx.lineTo(sx+headR*0.46,sy+bh*0.006); ctx.lineTo(sx-headR*0.46,sy+bh*0.006);
   ctx.closePath(); ctx.fill();
-  ctx.fillStyle='rgba(0,0,0,0.30)';
+  // 顎の落ち影
+  ctx.fillStyle='rgba(0,0,0,0.34)';
   ctx.beginPath();
-  ctx.moveTo(sx-headR*0.42,headY+headR*0.55); ctx.lineTo(sx+headR*0.42,headY+headR*0.55);
-  ctx.lineTo(sx+headR*0.30,headY+headR*0.95); ctx.lineTo(sx-headR*0.30,headY+headR*0.95);
+  ctx.moveTo(sx-headR*0.34,headY+headR*0.62); ctx.lineTo(sx+headR*0.34,headY+headR*0.62);
+  ctx.lineTo(sx+headR*0.26,headY+headR*0.96); ctx.lineTo(sx-headR*0.26,headY+headR*0.96);
   ctx.closePath(); ctx.fill();
 
   const hwL=hw*twL, hwR=hw*twR;
@@ -1923,168 +2019,227 @@ function drawOpponent(F){
   ctx.strokeStyle='rgba(10,13,22,0.85)'; ctx.lineWidth=Math.max(1,bh*0.006);
   ctx.stroke(torso);
   // ショーツのアクセント
-  ctx.fillStyle=C.accent; ctx.globalAlpha=0.85;
+  ctx.fillStyle=EC.trunks; ctx.globalAlpha=0.85;
   ctx.fillRect(sx-hw*0.64+hipDX,hy-bh*0.012,hw*1.28,bh*0.026);
   ctx.globalAlpha=1;
 
   // --- 腕 ---
-  const armOpt={cx:sx,shY:sy,headY,headR,bh,hw,side,wind,strike,arc,m,
+  const armOpt={cx:sx,shY:sy,headY,headR,bh,hw,side,wind,strike,arc,m,prog,
                 twL,twR,leadScale,rearScale};
   drawEnemyArm(F,-1,armOpt);
   drawEnemyArm(F,+1,armOpt);
 
   // --- 頭 ---
-  drawEnemyHead(F,{cx:sx + LEAD*headR*0.14 + (e.gaze.x*headR*0.10),
-                   headY:headY+headR*0.06, headR,bh,wind,strike,arc});
+  // 打つ瞬間は顎を引き、前肩の内側へ入れる
+  drawEnemyHead(F,{cx:sx + LEAD*headR*(0.14+0.10*CH.torso) + (e.gaze.x*headR*0.10),
+                   headY:headY+headR*(0.06+0.10*CH.torso), headR,bh,wind,strike,arc});
 
   // 手前へ来た拳は顔より前
-  if(side!==0 && strike>0.28 && arc!=='kick' && arc!=='tackle') drawEnemyArm(F,side,armOpt);
+  if(side!==0 && CH.arm>0.30 && arc!=='kick' && arc!=='tackle') drawEnemyArm(F,side,armOpt);
 
   ctx.restore();
 }
 
+/* ============================================================
+   打撃フォーム  —  実際の運動連鎖を再現する
+   ------------------------------------------------------------
+   本物の打撃は「腕から」始まらない。地面から順に力が伝わる。
+
+     後ろ足の踵が返る → 腰が回る → 体幹が回る → 肩が出る → 腕は最後
+
+   腕は上腕と前腕の2本の骨で、長さは変わらない。
+   拳の位置を決めてから肘を逆算する（2関節IK）ので、
+   ストレートでは肘が拳の真後ろを追い、フックでは肘が先行する。
+
+   奥行き(z)を持たせ、カメラ軸（画面中央）へ向かう透視で投影する。
+   拳が近づくほど中央へ寄って大きくなるのは、この投影の結果であって
+   位置を直接描いているのではない。
+   ============================================================ */
+const ARM = {
+  upper:0.172, fore:0.185,      // 骨の長さ（身長比）。合計 0.357 ＝ 実際のリーチ
+  camD :0.44,                   // カメラから肩までの距離（身長比）
+};
+
+// 運動連鎖の時間差。a = 起こり開始(0) → 接触(1)
+function chain(a){
+  const sm=(x,s,e)=>clamp((x-s)/(e-s),0,1);
+  return {
+    chamber: 1-sm(a,0.00,0.46),   // 引き手（先に完了する）
+    foot   : sm(a,0.30,0.70),     // 後ろ足の踵が返る
+    hip    : sm(a,0.42,0.82),     // 腰が回る
+    torso  : sm(a,0.50,0.88),     // 体幹が続く
+    shldr  : sm(a,0.58,0.92),     // 肩が出る
+    arm    : sm(a,0.68,1.00),     // 腕は最後
+  };
+}
+
+// カメラ軸（画面中央）へ向かう透視投影
+function projArm(ax,ay,dx,dy,dz,bh){
+  const k=clamp(ARM.camD/Math.max(0.085, ARM.camD-dz), 0.70, 5.0);
+  const vx=V.W*0.5, vy=V.H*0.44;
+  const x0=ax+dx*bh, y0=ay+dy*bh;
+  return { x:vx+(x0-vx)*k, y:vy+(y0-vy)*k, k };
+}
+
+// 2関節IK：肩から拳までの距離に合わせて肘の位置を解く。
+// hint は肘をどちら側へ逃がすか（ストレートは下、フックは上）
+function solveElbow(px,py,pz,hx,hy,hz){
+  const L1=ARM.upper, L2=ARM.fore;
+  let d=Math.hypot(px,py,pz);
+  const dmax=L1+L2-0.004;
+  if(d>dmax){ const k=dmax/d; px*=k; py*=k; pz*=k; d=dmax; }
+  if(d<0.02) d=0.02;
+  const ux=px/d, uy=py/d, uz=pz/d;
+  const a=(L1*L1-L2*L2+d*d)/(2*d);
+  const h=Math.sqrt(Math.max(0,L1*L1-a*a));
+  // hint から、肩→拳の軸に垂直な成分を作る
+  let hd=hx*ux+hy*uy+hz*uz;
+  let nx=hx-ux*hd, ny=hy-uy*hd, nz=hz-uz*hd;
+  let nl=Math.hypot(nx,ny,nz);
+  if(nl<1e-4){ nx=0; ny=1; nz=0; nl=1; }
+  nx/=nl; ny/=nl; nz/=nl;
+  return { ex:ux*a+nx*h, ey:uy*a+ny*h, ez:uz*a+nz*h, fx:px, fy:py, fz:pz };
+}
+
+// 技ごとの拳の軌道（肩を原点とした身長比の3D座標）と、肘の逃がし方
+function fistPath(arc, s, u, lead){
+  // u: 腕の伸展 0→1
+  const e=easeOut(u);
+  if(arc==='hook'){
+    // フック：腕は伸びない。肘角を保ったまま体幹の回転で振る
+    const R=0.255, th=(-0.10+1.15*e)*Math.PI*0.5;
+    return { p:[ s*R*Math.cos(th), -0.085-0.015*e, R*Math.sin(th)*1.45 ],
+             hint:[ 0, -1.00, 0.50 ] };              // 肘は肩の高さで先行する
+  }
+  if(arc==='upper'){
+    // アッパー：肘の角度を保ったまま、脚と体幹で下から突き上げる
+    return { p:[ s*(0.070-0.040*e), 0.105-0.175*e, 0.04+0.255*e ],
+             hint:[ 0, 1.00, 0.60 ] };               // 肘は体の前で下
+  }
+  // ストレート／ジャブ：肘が拳の真後ろを追い、最短距離で伸びる
+  const reach = lead ? 0.300 : 0.335;              // 肩からの到達距離（骨の長さ以内）
+  return { p:[ s*(0.040-0.150*e), -0.048-0.030*e, -0.03+ (reach+0.03)*e ],
+           hint:[ 0, 1.00, -0.35 ] };                // 肘は下がったまま拳の真後ろ
+}
+
 // s: -1 = 画面左（相手の右手） / +1 = 画面右（相手の左手）
 function drawEnemyArm(F,s,o){
-  const {cx,shY,headY,headR,bh,side,wind,strike,arc,m}=o;
-  const isLead = (s===LEAD);
-  // 半身の投影：前肩は外へ大きく、後ろ肩は中央寄りに小さく
-  const hw = o.hw*(s===-1 ? o.twL : o.twR);
-  const dep = isLead ? o.leadScale : o.rearScale;   // カメラからの距離による拡縮
-  const striking = (side===s) && strike>0 && arc!=='kick' && arc!=='tackle';
-  const shx=cx+s*hw*0.92, shy=shY+bh*0.012 + (s===side? bh*0.010*wind : 0)
-            + (isLead ? bh*0.014 : -bh*0.016);
+  const {cx,shY,headY,headR,bh,side,arc,m}=o;
+  const wind=o.wind, strike=o.strike, a=o.prog;         // a: 起こり(0)→接触(1)
+  const isLead=(s===LEAD);
+  const CH=chain(a);
+  const punching=(side===s)&&arc!=='kick'&&arc!=='tackle'&&a>0;
+
+  // 肩：体幹の回転に押されて前へ出る（＝腕より先に動く）
+  const twist = punching ? (-0.26*CH.chamber + 0.34*CH.shldr)
+                         : ((s===side)?0:(0.10*CH.torso));
+  const hw  = o.hw*((s===-1?o.twL:o.twR)+twist);
+  const dep = isLead ? o.leadScale : o.rearScale;
+  const shx = cx+s*hw*0.92;
+  const shy = shY+bh*0.012+(isLead?bh*0.014:-bh*0.016)
+            + (punching? bh*0.012*CH.chamber : 0);
   if(s===LEAD) V.shL={x:shx,y:shy}; else V.shR={x:shx,y:shy};
 
-  // 構え：前手は顔より前へ差し出す（＝カメラに近く、低く、大きい）。
-  //       後ろ手は顎の横に置く（＝奥、高い位置、小さい）。
-  let gx, gy, r=bh*0.047*dep, ex_, ey;
-  if(isLead){
-    gx=cx+s*hw*0.56; gy=headY+headR*1.12;
-    ex_=cx+s*hw*0.94; ey=shY+bh*0.105;
+  // ---- 拳の3D位置を決める ----
+  let P;
+  if(punching){
+    // 引き手 → 伸展。腕は運動連鎖の最後に動く
+    const g=fistPath(arc, s, CH.arm, isLead);
+    const gh=(EB.guardHigh-0.62)*0.10;
+    const rest= isLead ? [ -s*0.014, -0.038+gh, 0.052 ]     // 前手：やや前、頬の高さ
+                       : [ -s*0.030, -0.098+gh, 0.016 ];    // 後ろ手：頬の横
+    const ch=CH.chamber;
+    // 溜め：拳を顎の横へ引く（奥へ引くので小さく見える）
+    const chP=[ -s*0.004, -0.062+gh, -0.032 ];
+    const base=[ lerp(rest[0],chP[0],ch), lerp(rest[1],chP[1],ch), lerp(rest[2],chP[2],ch) ];
+    const u=CH.arm;
+    P={ p:[ lerp(base[0],g.p[0],u), lerp(base[1],g.p[1],u), lerp(base[2],g.p[2],u) ],
+        hint:g.hint };
   }else{
-    gx=cx+s*hw*0.70; gy=headY+headR*0.34;
-    ex_=cx+s*hw*0.84; ey=shY+bh*0.085;
+    // 構え：前手は前へ低く、後ろ手は顎の横
+    const gh=(EB.guardHigh-0.62)*0.10;
+    P= isLead
+      ? { p:[ -s*0.014, -0.038+gh, 0.052 ], hint:[ 0, 1.00, 0.18 ] }
+      : { p:[ -s*0.030, -0.098+gh, 0.016 ], hint:[ 0, 0.35, 1.00 ] };
+    // 相手が打っている間、反対の手は顎を締める
+    if(side===s*-1 && a>0){
+      P.p[1]-=0.022*CH.torso; P.p[0]-=s*0.010*CH.torso;
+    }
   }
 
-  if(wind>0 && strike===0){
-    const w=easeOut(wind);
-    if(side===s && isLead && arc==='straight'){
-      // 左ジャブ：肩が既に前にあるので、ほとんど溜めない（＝読ませない）
-      gx=lerp(gx, cx+s*hw*0.60, w);
-      gy=lerp(gy, gy-headR*0.06, w);
-      r*=1-0.05*w;
-    }else if(side===s){
-      // 打つ側：引き手を後ろへ（画面上は中央寄り・小さく・下がる）
-      if(arc==='hook'){
-        gx=lerp(gx, cx+s*hw*1.55, w);
-        gy=lerp(gy, headY+headR*0.10, w);
-        r*=1+0.10*w;
-        ex_=lerp(ex_, cx+s*hw*1.34, w); ey=lerp(ey, shY+bh*0.02, w);
-      }else if(arc==='upper'){
-        gx=lerp(gx, cx+s*hw*0.64, w);
-        gy=lerp(gy, shY+bh*0.20, w);
-        r*=1-0.10*w;
-        ex_=lerp(ex_, cx+s*hw*0.96, w); ey=lerp(ey, shY+bh*0.19, w);
-      }else if(arc==='tackle'){
-        gx=lerp(gx, cx+s*hw*1.02, w);
-        gy=lerp(gy, shY+bh*0.10, w);
-        ex_=lerp(ex_, cx+s*hw*1.16, w);
-      }else{
-        // ジャブ／ストレート：顎の横へ引き、奥へ引く分だけ小さく見せる
-        gx=lerp(gx, cx+s*hw*0.50, w);
-        gy=lerp(gy, headY+headR*0.98, w);
-        r*=1-0.17*w;
-        ex_=lerp(ex_, cx+s*hw*0.70, w); ey=lerp(ey, shY+bh*0.13, w);
-      }
-    }else{
-      // 反対の腕：わずかに前へ出て顔を守る
-      gx=lerp(gx, cx+s*hw*(isLead?0.62:0.78), w*0.5);
-      gy=lerp(gy, gy-headR*0.22, w*0.5);
-      r*=1+0.04*w;
-    }
-  }
-  if(striking){
-    // 前手は伸びる距離が短いので速く到達し、拳も小さめ。後ろ手は中心線を越えて大きく届く
-    const u=Math.pow(strike, isLead?1.25:1.60);
-    const tx=V.W*0.5+s*bh*(isLead?0.055:0.02), ty=V.H*(isLead?0.455:0.44);
-    let sx0=isLead? cx+s*hw*0.62 : cx+s*hw*0.52,
-        sy0=isLead? headY+headR*1.02 : headY+headR*1.05;
-    if(arc==='upper'){ sx0=cx+s*hw*0.66; sy0=shY+bh*0.20; }
-    if(arc==='hook'){ sx0=cx+s*hw*1.62; sy0=headY+headR*0.05; }
-    if(arc==='hook'){
-      const c1x=cx+s*hw*2.6, c1y=headY+headR*0.1;
-      gx=(1-u)*(1-u)*sx0+2*(1-u)*u*c1x+u*u*tx;
-      gy=(1-u)*(1-u)*sy0+2*(1-u)*u*c1y+u*u*ty;
-    }else if(arc==='upper'){
-      const c1x=cx+s*hw*0.6, c1y=V.H*0.72;
-      gx=(1-u)*(1-u)*sx0+2*(1-u)*u*c1x+u*u*tx;
-      gy=(1-u)*(1-u)*sy0+2*(1-u)*u*c1y+u*u*ty;
-    }else{
-      gx=lerp(sx0,tx,u); gy=lerp(sy0,ty,u);
-    }
-    r=lerp(bh*0.047*dep, bh*(isLead?0.175:0.235), Math.pow(u,1.8));
-    ex_=lerp(ex_,cx+s*hw*0.78,u*0.6);
-    ey=lerp(ey,shY+bh*0.05,u*0.6);
-    V.fist={x:gx,y:gy,r,active:true,s};
-  }
+  // ---- 骨の長さを保ったまま肘を解く ----
+  const k=solveElbow(P.p[0],P.p[1],P.p[2],P.hint[0],P.hint[1],P.hint[2]);
+  const E=projArm(shx,shy,k.ex,k.ey,k.ez,bh);
+  const Fp=projArm(shx,shy,k.fx,k.fy,k.fz,bh);
+  const gr=bh*0.048*(0.9+0.1*dep)*Math.min(Fp.k,4.6);
+  if(punching && CH.arm>0.25) V.fist={x:Fp.x,y:Fp.y,r:gr,active:true,s};
+
+  // 拳の回転（インパクトへ向けて手の甲が下を向く）
+  const pron = punching ? (arc==='hook'? 0.35 : easeOut(clamp((CH.arm-0.55)/0.45,0,1))) : 0;
 
   ctx.save();
   ctx.lineCap='round'; ctx.lineJoin='round';
-  if(striking){
-    // 前腕：肩側は細く、拳側は太く（正面へ伸びる遠近）
-    const ang=Math.atan2(gy-shy,gx-shx), nx=-Math.sin(ang), ny=Math.cos(ang);
-    const w0=bh*0.030, w1=r*0.72;
-    const arm=new Path2D();
-    arm.moveTo(shx+nx*w0,shy+ny*w0);
-    arm.quadraticCurveTo(ex_+nx*w1*0.7,ey+ny*w1*0.7,gx+nx*w1,gy+ny*w1);
-    arm.lineTo(gx-nx*w1,gy-ny*w1);
-    arm.quadraticCurveTo(ex_-nx*w1*0.7,ey-ny*w1*0.7,shx-nx*w0,shy-ny*w0);
-    arm.closePath();
-    ctx.fillStyle=C.bg2; ctx.fill(arm);
-    ctx.strokeStyle='rgba(10,13,22,0.75)'; ctx.lineWidth=Math.max(1,bh*0.006); ctx.stroke(arm);
-    ctx.save(); ctx.clip(arm);
-    ctx.fillStyle='rgba(232,226,212,0.09)';
-    ctx.beginPath();
-    ctx.moveTo(shx+nx*w0,shy+ny*w0);
-    ctx.quadraticCurveTo(ex_+nx*w1*0.7,ey+ny*w1*0.7,gx+nx*w1,gy+ny*w1);
-    ctx.lineTo(gx+nx*w1*0.45,gy+ny*w1*0.45);
-    ctx.quadraticCurveTo(ex_+nx*w1*0.3,ey+ny*w1*0.3,shx,shy);
-    ctx.closePath(); ctx.fill();
-    ctx.restore();
-  }else{
-    // 前腕
-    ctx.strokeStyle=C.bg2; ctx.lineWidth=bh*0.048*dep;
-    ctx.beginPath(); ctx.moveTo(shx,shy); ctx.lineTo(ex_,ey); ctx.lineTo(gx,gy); ctx.stroke();
-    ctx.strokeStyle='rgba(232,226,212,0.08)'; ctx.lineWidth=bh*0.016;
-    ctx.beginPath(); ctx.moveTo(shx,shy); ctx.lineTo(ex_,ey); ctx.stroke();
-  }
 
-  // グローブ
-  const gr=r;
-  ctx.beginPath(); ctx.arc(gx,gy,gr,0,7);
-  ctx.fillStyle=C.gloveE; ctx.fill();
-  ctx.save(); ctx.beginPath(); ctx.arc(gx,gy,gr,0,7); ctx.clip();
-  ctx.beginPath(); ctx.arc(gx+gr*0.34,gy+gr*0.30,gr*0.94,0,7);
-  ctx.fillStyle=C.gloveEShade; ctx.globalAlpha=0.6; ctx.fill(); ctx.globalAlpha=1;
-  // ナックル面
+  // ---- 上腕：肩 → 肘 ----
+  const dw=0.88+0.12*dep;
+  const w1a=bh*0.039*dw, w1b=bh*0.034*dw*Math.min(E.k,2.2);
+  tube(shx,shy,w1a, E.x,E.y,w1b, C.bg2, bh);
+  // ---- 前腕：肘 → 拳 ----
+  const w2a=bh*0.033*dw*Math.min(E.k,2.2), w2b=bh*0.028*dw*Math.min(Fp.k,3.0);
+  tube(E.x,E.y,w2a, Fp.x,Fp.y,w2b, C.bg2, bh);
+  // 肘の丸み
+  ctx.fillStyle=C.bg2;
+  ctx.beginPath(); ctx.arc(E.x,E.y,w1b*0.52,0,7); ctx.fill();
+
+  // ---- グローブ ----
+  drawEnemyGlove(Fp.x,Fp.y,gr,pron,s,bh);
+  ctx.restore();
+}
+
+// 先細りの筒。手前ほど太く、奥ほど細く見える
+function tube(x1,y1,w1,x2,y2,w2,fill,bh){
+  const ang=Math.atan2(y2-y1,x2-x1), nx=-Math.sin(ang), ny=Math.cos(ang);
+  const pth=new Path2D();
+  pth.moveTo(x1+nx*w1,y1+ny*w1);
+  pth.lineTo(x2+nx*w2,y2+ny*w2);
+  pth.arc(x2,y2,w2,ang+Math.PI/2,ang-Math.PI/2,true);
+  pth.lineTo(x1-nx*w1,y1-ny*w1);
+  pth.arc(x1,y1,w1,ang-Math.PI/2,ang+Math.PI/2,true);
+  pth.closePath();
+  ctx.fillStyle=fill; ctx.fill(pth);
+  ctx.strokeStyle='rgba(10,13,22,0.72)'; ctx.lineWidth=Math.max(1,bh*0.005); ctx.stroke(pth);
+  ctx.save(); ctx.clip(pth);
+  ctx.fillStyle='rgba(232,226,212,0.09)';
+  ctx.fillRect(Math.min(x1,x2)-w1, Math.min(y1,y2)-w1, Math.abs(x2-x1)+w1*2, (Math.abs(y2-y1)+w1*2)*0.45);
+  ctx.restore();
+}
+
+function drawEnemyGlove(gx,gy,gr,pron,s,bh){
+  ctx.save();
+  ctx.translate(gx,gy); ctx.rotate(s*pron*0.5);
+  ctx.beginPath(); ctx.arc(0,0,gr,0,7);
+  ctx.fillStyle=EC.glove; ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.arc(0,0,gr,0,7); ctx.clip();
+  ctx.beginPath(); ctx.arc(gr*0.34,gr*0.30,gr*0.94,0,7);
+  ctx.fillStyle=EC.gloveShade; ctx.globalAlpha=0.6; ctx.fill(); ctx.globalAlpha=1;
+  // ナックル面：拳の向きが分かる
   ctx.fillStyle='rgba(255,255,255,0.16)';
-  ctx.beginPath(); ctx.ellipse(gx-gr*0.10,gy-gr*0.30,gr*0.66,gr*0.34,0,0,7); ctx.fill();
-  // 縫い目
+  ctx.beginPath(); ctx.ellipse(-gr*0.10,-gr*0.30,gr*0.66,gr*0.34,0,0,7); ctx.fill();
   ctx.strokeStyle='rgba(90,20,16,0.22)'; ctx.lineWidth=Math.max(1,gr*0.030);
   ctx.beginPath();
-  ctx.moveTo(gx-gr*0.66,gy+gr*0.42);
-  ctx.quadraticCurveTo(gx,gy+gr*0.58,gx+gr*0.66,gy+gr*0.40); ctx.stroke();
+  ctx.moveTo(-gr*0.66,gr*0.42);
+  ctx.quadraticCurveTo(0,gr*0.58,gr*0.66,gr*0.40); ctx.stroke();
   ctx.restore();
-  ctx.beginPath(); ctx.arc(gx-gr*0.34,gy-gr*0.36,gr*0.26,0,7);
+  ctx.beginPath(); ctx.arc(-gr*0.34,-gr*0.36,gr*0.26,0,7);
   ctx.fillStyle='rgba(255,255,255,0.26)'; ctx.fill();
   ctx.strokeStyle='rgba(10,13,22,0.8)'; ctx.lineWidth=Math.max(1.2,bh*0.007);
-  ctx.beginPath(); ctx.arc(gx,gy,gr,0,7); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,gr,0,7); ctx.stroke();
   ctx.restore();
 }
 
 function drawEnemyHead(F,o){
   const {cx,headY,headR,bh,wind,strike,arc}=o;
-  const e=F.e, R=headR;
+  const e=F.e, R=headR, FA=(F.ftr&&F.ftr.face)||{eye:1,brow:0,jaw:1,hairDip:0.66};
   const shade=e.stagger, fat=e.fatigue;
 
   ctx.save();
@@ -2095,23 +2250,23 @@ function drawEnemyHead(F,o){
   head.quadraticCurveTo(cx-R*0.92,headY-R*1.00,cx,headY-R*1.04);   // 頭頂
   head.quadraticCurveTo(cx+R*0.92,headY-R*1.00,cx+R*0.86,headY-R*0.34);
   head.lineTo(cx+R*0.82,headY+R*0.02);                              // 頬骨
-  head.quadraticCurveTo(cx+R*0.66,headY+R*0.50,cx+R*0.27,headY+R*0.88); // 顎のライン
-  head.quadraticCurveTo(cx,headY+R*1.00,cx-R*0.27,headY+R*0.88);    // 顎先（少し角を残す）
-  head.quadraticCurveTo(cx-R*0.66,headY+R*0.50,cx-R*0.82,headY+R*0.02);
+  head.quadraticCurveTo(cx+R*0.66*FA.jaw,headY+R*0.50,cx+R*0.27*FA.jaw,headY+R*0.88); // 顎のライン
+  head.quadraticCurveTo(cx,headY+R*1.00,cx-R*0.27*FA.jaw,headY+R*0.88);    // 顎先
+  head.quadraticCurveTo(cx-R*0.66*FA.jaw,headY+R*0.50,cx-R*0.82,headY+R*0.02);
   head.closePath();
-  ctx.fillStyle=C.skin; ctx.fill(head);
+  ctx.fillStyle=EC.skin; ctx.fill(head);
 
   ctx.save(); ctx.clip(head);
 
   // ---- 面 ----
   // 影面：右側。境界を斜めにして彫刻的に
-  ctx.fillStyle=C.skinShade; ctx.globalAlpha=0.62;
+  ctx.fillStyle=EC.skinShade; ctx.globalAlpha=0.62;
   ctx.beginPath();
   ctx.moveTo(cx+R*0.26,headY-R*1.2); ctx.lineTo(cx+R*1.3,headY-R*1.2);
   ctx.lineTo(cx+R*1.3,headY+R*1.3);  ctx.lineTo(cx+R*0.40,headY+R*1.3);
   ctx.closePath(); ctx.fill();
   // 額の明面
-  ctx.globalAlpha=0.34; ctx.fillStyle=C.skinLit;
+  ctx.globalAlpha=0.34; ctx.fillStyle=EC.skinLit;
   ctx.beginPath();
   ctx.moveTo(cx-R*0.62,headY-R*0.80);
   ctx.quadraticCurveTo(cx-R*0.10,headY-R*0.92,cx+R*0.16,headY-R*0.74);
@@ -2126,7 +2281,7 @@ function drawEnemyHead(F,o){
   ctx.quadraticCurveTo(cx-R*0.40,headY+R*0.28,cx-R*0.70,headY+R*0.22);
   ctx.closePath(); ctx.fill();
   // 頬のくぼみ（影側）
-  ctx.globalAlpha=0.30; ctx.fillStyle=C.skinShade;
+  ctx.globalAlpha=0.30; ctx.fillStyle=EC.skinShade;
   ctx.beginPath();
   ctx.moveTo(cx+R*0.44,headY+R*0.06); ctx.lineTo(cx+R*0.80,headY+R*0.02);
   ctx.lineTo(cx+R*0.60,headY+R*0.56); ctx.lineTo(cx+R*0.34,headY+R*0.44);
@@ -2149,11 +2304,11 @@ function drawEnemyHead(F,o){
   hair.quadraticCurveTo(cx+R*0.94,headY-R*1.02,cx+R*0.88,headY-R*0.40);
   hair.lineTo(cx+R*0.72,headY-R*0.52);
   hair.quadraticCurveTo(cx+R*0.56,headY-R*0.80,cx+R*0.20,headY-R*0.74);
-  hair.quadraticCurveTo(cx+R*0.03,headY-R*0.70,cx,headY-R*0.66);   // 生え際の中央を少し下げる
+  hair.quadraticCurveTo(cx+R*0.03,headY-R*0.70,cx,headY-R*FA.hairDip); // 生え際の深さは選手ごと
   hair.quadraticCurveTo(cx-R*0.03,headY-R*0.70,cx-R*0.20,headY-R*0.74);
   hair.quadraticCurveTo(cx-R*0.56,headY-R*0.80,cx-R*0.72,headY-R*0.52);
   hair.closePath();
-  ctx.fillStyle='#1a1e2b'; ctx.fill(hair);
+  ctx.fillStyle=EC.hair; ctx.fill(hair);
   ctx.save(); ctx.clip(hair);
   // 面のハイライト：頭の丸みに沿わせて、貼り付いて見えないように
   ctx.fillStyle='rgba(152,172,212,0.16)';
@@ -2170,9 +2325,9 @@ function drawEnemyHead(F,o){
   ctx.restore();
 
   // ---- 眉：太い帯をやめ、внутрь厚く外へ細く ----
-  const brow = wind*0.35 + shade*0.45 + fat*0.18;   // 集中・被弾・疲労で寄る
+  const brow = FA.brow + wind*0.35 + shade*0.45 + fat*0.18;   // 選手ごとの既定＋集中・被弾・疲労
   const byy  = headY-R*0.50;
-  ctx.fillStyle='#252734';
+  ctx.fillStyle=EC.brow;
   for(const sgn of [-1,1]){
     const bx=cx+sgn*R*0.41;
     ctx.beginPath();
@@ -2186,7 +2341,7 @@ function drawEnemyHead(F,o){
 
   // ---- 目：アーモンド型。白目を減らし、上瞼のラインで締める ----
   const gx=e.gaze.x, gy=e.gaze.y;
-  const eyeY=headY-R*0.16, eyeDX=R*0.40, eyeW=R*0.255, eyeH=R*0.128;
+  const eyeY=headY-R*0.16, eyeDX=R*0.40, eyeW=R*0.255*FA.eye, eyeH=R*0.128*FA.eye;
   const blink=(Math.sin(Clock.game/2200)>0.982)?0.10:1;
   const open=blink*(1-clamp(shade*0.45+fat*0.25,0,0.5));
   for(const sgn of [-1,1]){
@@ -2546,10 +2701,10 @@ function drawSharpFist(f){
   const gr=f.r, gx=f.x, gy=f.y;
   ctx.save();
   ctx.beginPath(); ctx.arc(gx,gy,gr,0,7);
-  ctx.fillStyle=C.gloveE; ctx.fill();
+  ctx.fillStyle=EC.glove; ctx.fill();
   ctx.save(); ctx.beginPath(); ctx.arc(gx,gy,gr,0,7); ctx.clip();
   ctx.beginPath(); ctx.arc(gx+gr*0.34,gy+gr*0.30,gr*0.94,0,7);
-  ctx.fillStyle=C.gloveEShade; ctx.globalAlpha=0.6; ctx.fill(); ctx.globalAlpha=1;
+  ctx.fillStyle=EC.gloveShade; ctx.globalAlpha=0.6; ctx.fill(); ctx.globalAlpha=1;
   ctx.fillStyle='rgba(255,255,255,0.16)';
   ctx.beginPath(); ctx.ellipse(gx-gr*0.10,gy-gr*0.30,gr*0.66,gr*0.34,0,0,7); ctx.fill();
   ctx.strokeStyle='rgba(90,20,16,0.22)'; ctx.lineWidth=Math.max(1,gr*0.030);
@@ -2662,7 +2817,7 @@ const SlowFx = {
     for(let i=0;i<this.echo.length;i++){
       const e=this.echo[i], k=(i+1)/this.echo.length;
       ctx.globalAlpha=0.16*k*d;
-      ctx.fillStyle=C.gloveE;
+      ctx.fillStyle=EC.glove;
       ctx.beginPath(); ctx.arc(e.x,e.y,e.r*(0.72+0.28*k),0,7); ctx.fill();
     }
     ctx.restore();
@@ -3062,7 +3217,7 @@ function drawHUD(F){
 
   // RIVAL
   let y=top+W*0.095;
-  smallCaps('RIVAL',W*0.045,y+5,Math.round(W*0.024),C.inkFaint,'left','0.18em');
+  smallCaps(F.ftr?F.ftr.name:'RIVAL',W*0.045,y+5,Math.round(W*0.024),C.inkFaint,'left','0.16em');
   bar(bx,y,bw,4,F.e.hp/100,C.accent,true);
   bar(bx,y+6,bw,2,F.e.stam/100,'rgba(232,226,212,0.42)',true);
 
@@ -3413,6 +3568,7 @@ const Calib = {
    ============================================================ */
 let scene='title';
 let curDiff='NORMAL';
+let curFighter='arata';
 const el=id=>document.getElementById(id);
 const OV={title:el('ovTitle'),howto:el('ovHowto'),result:el('ovResult'),
           sit:el('ovSit'),brief:el('ovBrief')};
@@ -3420,7 +3576,20 @@ const OV={title:el('ovTitle'),howto:el('ovHowto'),result:el('ovResult'),
 function go(s){
   scene=s;
   for(const k in OV) OV[k].classList.toggle('hidden', s!==k);
-  if(s==='title') el('sitCount').textContent=`${Progress.cleared()} / ${SITUATIONS.length}`;
+  if(s==='title'){
+    el('sitCount').textContent=`${Progress.cleared()} / ${SITUATIONS.length}`;
+    buildFighters();
+  }
+}
+
+// 相手を選ぶ。体格・顔・色・打ち方・癖・リズムがまとめて入れ替わる
+function buildFighters(){
+  el('ftrRow').innerHTML = FIGHTER_ORDER.map(id=>{
+    const f=FIGHTERS[id];
+    return `<button class="fbtn" data-ftr="${id}" data-on="${id===curFighter?1:0}">
+      <b>${f.name}</b><span>${f.style}</span>
+      <i style="background:${f.color.glove}"></i></button>`;
+  }).join('');
 }
 
 const STAR=(n)=>'★★★'.slice(0,n)+'<i>'+'★★★'.slice(0,3-n)+'</i>';
@@ -3457,7 +3626,7 @@ function buildBrief(sit){
   curSit=sit;
   const i=SITUATIONS.indexOf(sit);
   el('briefBody').innerHTML=`
-    <div class="sub">SITUATION ${String(i+1).padStart(2,'0')}　${DIST_NAME[sit.dist]}</div>
+    <div class="sub">SITUATION ${String(i+1).padStart(2,'0')}　${DIST_NAME[sit.dist]}　vs ${FIGHTERS[sit.fighter||curFighter].name}</div>
     <div class="verdict" style="font-size:clamp(26px,8vw,40px)">${sit.title}</div>
     <div class="stars">${STAR(Progress.stars(sit.id))}</div>
     <div class="note" style="margin-top:20px;text-align:left">${sit.brief}</div>
@@ -3472,7 +3641,7 @@ function buildBrief(sit){
 
 function startFight(mode,sit){
   Audio_.resume();
-  Fight.reset(mode, DIFF[curDiff], Fight.offsetMs, sit);
+  Fight.reset(mode, DIFF[curDiff], Fight.offsetMs, sit, curFighter);
   Input.clear(); Clock.reset(); SlowFx.init();
   Arms.L.init=Arms.R.init=false;
   go('fight');
@@ -3684,7 +3853,7 @@ function computeLayout(F){
   const ap=F.inIntro()? F.approachK() : 1;      // 対峙中は奥から詰めてくる
   V.approach=ap;
   V.scale=distScale(dv)*lerp(0.30,1,ap);
-  V.bh=V.H*0.90*V.scale;
+  V.bh=V.H*EB.height*V.scale;
   V.groundY=lerp(V.H*0.585, V.H*distLerp(DIST_GROUND,dv), ap);
 }
 
@@ -3785,6 +3954,9 @@ Object.assign(Fight,{
 });
 
 document.addEventListener('click',ev=>{
+  const fb=ev.target.closest('[data-ftr]');
+  if(fb){ Audio_.resume(); Audio_.ui(); curFighter=fb.dataset.ftr;
+          setFighter(curFighter); buildFighters(); return; }
   const sb=ev.target.closest('[data-sit]');
   if(sb && !sb.disabled){ Audio_.resume(); Audio_.ui();
     buildBrief(SITUATIONS.find(x=>x.id===sb.dataset.sit)); return; }
@@ -3808,6 +3980,7 @@ document.addEventListener('click',ev=>{
     case 'close-howto': go('title'); break;
     case 'calib': Calib.start(); go('calib'); break;
     case 'retry': startFight(Fight.mode, Fight.sit); break;
+    case 'ftr': break;
     case 'title': go('title'); break;
   }
 });
@@ -3816,8 +3989,8 @@ Input.bind(cv);
 Input.onFirstTouch=()=>{ Audio_.resume(); Input.onFirstTouch=null; };
 resize();
 try{ const o=localStorage.getItem('maai.offset'); if(o!==null) Fight.offsetMs=parseInt(o,10)||0; }catch(e){}
-Progress.load(); SlowFx.init();
-Fight.reset('match',DIFF[curDiff],Fight.offsetMs);
+Progress.load(); SlowFx.init(); setFighter(curFighter);
+Fight.reset('match',DIFF[curDiff],Fight.offsetMs,null,curFighter);
 document.querySelectorAll('[data-diff]').forEach(x=>x.dataset.on = x.dataset.diff===curDiff?'1':'0');
 go('title');
 requestAnimationFrame(frame);
