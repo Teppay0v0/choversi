@@ -310,7 +310,7 @@ const C = {
   bg0:'#070910', bg1:'#131a2b', bg2:'#1d2740',
   ink:'#e8e2d4', inkDim:'#8d93a6', inkFaint:'#5c6274',
   accent:'#ff3b30', accentSoft:'#ff6257',
-  skin:'#c9a184', skinShade:'#8d6b55', skinLit:'#e6c4a6',
+  skin:'#d6ac8b', skinShade:'#a37c62', skinLit:'#f0ceae',
   gloveP:'#cec4ae', glovePShade:'#7d766a',
   gloveE:'#ff3b30', gloveEShade:'#a3241d',
   cage:'#39435c',
@@ -2085,121 +2085,188 @@ function drawEnemyArm(F,s,o){
 function drawEnemyHead(F,o){
   const {cx,headY,headR,bh,wind,strike,arc}=o;
   const e=F.e, R=headR;
-  const shade=e.stagger;
+  const shade=e.stagger, fat=e.fatigue;
 
   ctx.save();
-  // 頭部：少数の大きな面で構成
+
+  // ---- シルエット：頬骨で張り、顎へ向けて締まる (§4.2 面で認識させる) ----
   const head=new Path2D();
-  head.moveTo(cx-R*0.90,headY-R*0.24);
-  head.quadraticCurveTo(cx-R*0.94,headY-R*1.02,cx,headY-R*1.06);
-  head.quadraticCurveTo(cx+R*0.94,headY-R*1.02,cx+R*0.90,headY-R*0.24);
-  head.lineTo(cx+R*0.80,headY+R*0.30);
-  head.quadraticCurveTo(cx+R*0.66,headY+R*0.86,cx,headY+R*0.94);
-  head.quadraticCurveTo(cx-R*0.66,headY+R*0.86,cx-R*0.80,headY+R*0.30);
+  head.moveTo(cx-R*0.86,headY-R*0.34);
+  head.quadraticCurveTo(cx-R*0.92,headY-R*1.00,cx,headY-R*1.04);   // 頭頂
+  head.quadraticCurveTo(cx+R*0.92,headY-R*1.00,cx+R*0.86,headY-R*0.34);
+  head.lineTo(cx+R*0.82,headY+R*0.02);                              // 頬骨
+  head.quadraticCurveTo(cx+R*0.66,headY+R*0.50,cx+R*0.27,headY+R*0.88); // 顎のライン
+  head.quadraticCurveTo(cx,headY+R*1.00,cx-R*0.27,headY+R*0.88);    // 顎先（少し角を残す）
+  head.quadraticCurveTo(cx-R*0.66,headY+R*0.50,cx-R*0.82,headY+R*0.02);
   head.closePath();
   ctx.fillStyle=C.skin; ctx.fill(head);
 
   ctx.save(); ctx.clip(head);
-  // 影面（右側）
-  ctx.fillStyle=C.skinShade; ctx.globalAlpha=0.75;
+
+  // ---- 面 ----
+  // 影面：右側。境界を斜めにして彫刻的に
+  ctx.fillStyle=C.skinShade; ctx.globalAlpha=0.62;
   ctx.beginPath();
-  ctx.moveTo(cx+R*0.18,headY-R*1.2); ctx.lineTo(cx+R*1.2,headY-R*1.2);
-  ctx.lineTo(cx+R*1.2,headY+R*1.2); ctx.lineTo(cx+R*0.42,headY+R*1.2);
+  ctx.moveTo(cx+R*0.26,headY-R*1.2); ctx.lineTo(cx+R*1.3,headY-R*1.2);
+  ctx.lineTo(cx+R*1.3,headY+R*1.3);  ctx.lineTo(cx+R*0.40,headY+R*1.3);
   ctx.closePath(); ctx.fill();
-  // 頬骨のハイライト面
-  ctx.globalAlpha=0.55; ctx.fillStyle=C.skinLit;
+  // 額の明面
+  ctx.globalAlpha=0.34; ctx.fillStyle=C.skinLit;
   ctx.beginPath();
-  ctx.moveTo(cx-R*0.86,headY-R*0.12); ctx.lineTo(cx-R*0.20,headY-R*0.30);
-  ctx.lineTo(cx-R*0.30,headY+R*0.34); ctx.lineTo(cx-R*0.78,headY+R*0.20);
+  ctx.moveTo(cx-R*0.62,headY-R*0.80);
+  ctx.quadraticCurveTo(cx-R*0.10,headY-R*0.92,cx+R*0.16,headY-R*0.74);
+  ctx.lineTo(cx+R*0.10,headY-R*0.50);
+  ctx.quadraticCurveTo(cx-R*0.20,headY-R*0.58,cx-R*0.60,headY-R*0.48);
   ctx.closePath(); ctx.fill();
-  // 眉骨の影
-  ctx.globalAlpha=0.45; ctx.fillStyle='#4a3529';
+  // 頬骨の明面：目の下を斜めに走らせる
+  ctx.globalAlpha=0.40;
   ctx.beginPath();
-  ctx.moveTo(cx-R*0.92,headY-R*0.46); ctx.lineTo(cx+R*0.92,headY-R*0.46);
-  ctx.lineTo(cx+R*0.86,headY-R*0.16); ctx.lineTo(cx-R*0.86,headY-R*0.16);
+  ctx.moveTo(cx-R*0.78,headY-R*0.10);
+  ctx.quadraticCurveTo(cx-R*0.42,headY-R*0.20,cx-R*0.14,headY-R*0.02);
+  ctx.quadraticCurveTo(cx-R*0.40,headY+R*0.28,cx-R*0.70,headY+R*0.22);
   ctx.closePath(); ctx.fill();
+  // 頬のくぼみ（影側）
+  ctx.globalAlpha=0.30; ctx.fillStyle=C.skinShade;
+  ctx.beginPath();
+  ctx.moveTo(cx+R*0.44,headY+R*0.06); ctx.lineTo(cx+R*0.80,headY+R*0.02);
+  ctx.lineTo(cx+R*0.60,headY+R*0.56); ctx.lineTo(cx+R*0.34,headY+R*0.44);
+  ctx.closePath(); ctx.fill();
+  // 顎下の影
+  ctx.globalAlpha=0.34;
+  ctx.beginPath();
+  ctx.ellipse(cx,headY+R*0.90,R*0.46,R*0.16,0,0,7); ctx.fill();
   ctx.globalAlpha=1;
   ctx.restore();
 
-  ctx.strokeStyle='rgba(10,13,22,0.8)'; ctx.lineWidth=Math.max(1,bh*0.005);
+  // 輪郭は抑制する (§4.1)
+  ctx.strokeStyle='rgba(14,17,26,0.72)'; ctx.lineWidth=Math.max(1,bh*0.0045);
   ctx.stroke(head);
 
-  // 髪（面）
-  ctx.fillStyle='#171b28';
+  // ---- 髪：生え際を作り、面で光らせる ----
   const hair=new Path2D();
-  hair.moveTo(cx-R*0.93,headY-R*0.42);
-  hair.quadraticCurveTo(cx-R*0.97,headY-R*1.10,cx,headY-R*1.12);
-  hair.quadraticCurveTo(cx+R*0.97,headY-R*1.10,cx+R*0.93,headY-R*0.42);
-  hair.lineTo(cx+R*0.74,headY-R*0.62);
-  hair.quadraticCurveTo(cx,headY-R*0.48,cx-R*0.74,headY-R*0.64);
+  hair.moveTo(cx-R*0.88,headY-R*0.40);
+  hair.quadraticCurveTo(cx-R*0.94,headY-R*1.02,cx,headY-R*1.06);
+  hair.quadraticCurveTo(cx+R*0.94,headY-R*1.02,cx+R*0.88,headY-R*0.40);
+  hair.lineTo(cx+R*0.72,headY-R*0.52);
+  hair.quadraticCurveTo(cx+R*0.56,headY-R*0.80,cx+R*0.20,headY-R*0.74);
+  hair.quadraticCurveTo(cx+R*0.03,headY-R*0.70,cx,headY-R*0.66);   // 生え際の中央を少し下げる
+  hair.quadraticCurveTo(cx-R*0.03,headY-R*0.70,cx-R*0.20,headY-R*0.74);
+  hair.quadraticCurveTo(cx-R*0.56,headY-R*0.80,cx-R*0.72,headY-R*0.52);
   hair.closePath();
-  ctx.fill(hair);
+  ctx.fillStyle='#1a1e2b'; ctx.fill(hair);
+  ctx.save(); ctx.clip(hair);
+  // 面のハイライト：頭の丸みに沿わせて、貼り付いて見えないように
+  ctx.fillStyle='rgba(152,172,212,0.16)';
+  ctx.beginPath();
+  ctx.moveTo(cx-R*0.80,headY-R*0.56);
+  ctx.quadraticCurveTo(cx-R*0.60,headY-R*0.98,cx-R*0.10,headY-R*1.02);
+  ctx.quadraticCurveTo(cx-R*0.48,headY-R*0.84,cx-R*0.62,headY-R*0.52);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,0.26)';                // 影側は締める
+  ctx.beginPath();
+  ctx.moveTo(cx+R*0.24,headY-R*1.2); ctx.lineTo(cx+R*1.3,headY-R*1.2);
+  ctx.lineTo(cx+R*1.3,headY+R*0.2);  ctx.lineTo(cx+R*0.40,headY-R*0.5);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
 
-  // --- 目線：常に判読可能 (§4.1) ---
+  // ---- 眉：太い帯をやめ、внутрь厚く外へ細く ----
+  const brow = wind*0.35 + shade*0.45 + fat*0.18;   // 集中・被弾・疲労で寄る
+  const byy  = headY-R*0.50;
+  ctx.fillStyle='#252734';
+  for(const sgn of [-1,1]){
+    const bx=cx+sgn*R*0.41;
+    ctx.beginPath();
+    ctx.moveTo(bx-sgn*R*0.28, byy+brow*R*0.11);                      // 眉頭（太い）
+    ctx.quadraticCurveTo(bx+sgn*R*0.02, byy-R*0.09-brow*R*0.03,
+                         bx+sgn*R*0.33, byy+R*0.02);                 // 眉尻（細く抜ける）
+    ctx.quadraticCurveTo(bx+sgn*R*0.04, byy+R*0.005-brow*R*0.03,
+                         bx-sgn*R*0.28, byy+R*0.055+brow*R*0.11);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // ---- 目：アーモンド型。白目を減らし、上瞼のラインで締める ----
   const gx=e.gaze.x, gy=e.gaze.y;
-  const eyeY=headY-R*0.15, eyeDX=R*0.40, eyeW=R*0.240, eyeH=R*0.145;
-  const blink = (Math.sin(Clock.game/2200)>0.982) ? 0.12 : 1;
-  const squint = 1-clamp(shade*0.5+e.fatigue*0.35,0,0.6);
+  const eyeY=headY-R*0.16, eyeDX=R*0.40, eyeW=R*0.255, eyeH=R*0.128;
+  const blink=(Math.sin(Clock.game/2200)>0.982)?0.10:1;
+  const open=blink*(1-clamp(shade*0.45+fat*0.25,0,0.5));
   for(const sgn of [-1,1]){
     const ex=cx+sgn*eyeDX;
-    // 眼窩の影（上側のみ）
-    ctx.fillStyle='rgba(58,40,30,0.30)';
-    ctx.beginPath(); ctx.ellipse(ex,eyeY-eyeH*0.5,eyeW*1.15,eyeH*1.15,0,0,7); ctx.fill();
-    ctx.save();
+    // 眼形
     const eye=new Path2D();
-    eye.ellipse(ex,eyeY,eyeW,eyeH*blink*squint,0,0,7);
-    ctx.fillStyle='#e6ded0'; ctx.fill(eye);
-    ctx.clip(eye);
-    // 瞳（虹彩＋瞳孔）
-    const px=ex+gx*eyeW*0.40, py=eyeY+gy*eyeH*0.42;
-    ctx.fillStyle='#333a4a';
-    ctx.beginPath(); ctx.arc(px,py,eyeW*0.50,0,7); ctx.fill();
-    ctx.fillStyle='#11141d';
-    ctx.beginPath(); ctx.arc(px,py,eyeW*0.26,0,7); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,0.8)';
-    ctx.beginPath(); ctx.arc(px-eyeW*0.20,py-eyeW*0.22,eyeW*0.13,0,7); ctx.fill();
+    eye.moveTo(ex-sgn*eyeW, eyeY+eyeH*0.10);
+    eye.quadraticCurveTo(ex-sgn*eyeW*0.30, eyeY-eyeH*1.05*open, ex+sgn*eyeW*0.62, eyeY-eyeH*0.62*open);
+    eye.quadraticCurveTo(ex+sgn*eyeW, eyeY-eyeH*0.30*open, ex+sgn*eyeW, eyeY+eyeH*0.02);
+    eye.quadraticCurveTo(ex+sgn*eyeW*0.34, eyeY+eyeH*0.98*open, ex-sgn*eyeW, eyeY+eyeH*0.10);
+    eye.closePath();
+    ctx.fillStyle='#e9e2d6'; ctx.fill(eye);
+    ctx.save(); ctx.clip(eye);
+    // 虹彩
+    const px=ex+gx*eyeW*0.34, py=eyeY+gy*eyeH*0.34+eyeH*0.06;
+    ctx.fillStyle='#3d4a5c';
+    ctx.beginPath(); ctx.arc(px,py,eyeH*1.10,0,7); ctx.fill();
+    ctx.fillStyle='#14171f';
+    ctx.beginPath(); ctx.arc(px,py,eyeH*0.52,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.85)';
+    ctx.beginPath(); ctx.arc(px-eyeH*0.42,py-eyeH*0.46,eyeH*0.26,0,7); ctx.fill();
     // 上瞼の落ち影
-    ctx.fillStyle='rgba(48,32,22,0.50)';
-    ctx.fillRect(ex-eyeW,eyeY-eyeH*2,eyeW*2,eyeH*1.32);
+    ctx.fillStyle='rgba(58,40,30,0.34)';
+    ctx.fillRect(ex-eyeW*1.2, eyeY-eyeH*2.4, eyeW*2.4, eyeH*1.85);
     ctx.restore();
-    ctx.strokeStyle='rgba(38,25,18,0.75)'; ctx.lineWidth=Math.max(1,R*0.035);
-    ctx.beginPath(); ctx.moveTo(ex-eyeW,eyeY-eyeH*0.55);
-    ctx.quadraticCurveTo(ex,eyeY-eyeH*1.5,ex+eyeW,eyeY-eyeH*0.55); ctx.stroke();
-  }
-  // 眉：集中／怒り／疲労で角度が変わる
-  const brow = wind*0.5 + shade*0.6 + e.fatigue*0.25;
-  ctx.strokeStyle='#1b1a22'; ctx.lineWidth=R*0.11; ctx.lineCap='round';
-  ctx.beginPath();
-  ctx.moveTo(cx-eyeDX-eyeW,eyeY-R*0.34+brow*R*0.10);
-  ctx.lineTo(cx-eyeDX+eyeW*0.8,eyeY-R*0.40-brow*R*0.12);
-  ctx.moveTo(cx+eyeDX+eyeW,eyeY-R*0.34+brow*R*0.10);
-  ctx.lineTo(cx+eyeDX-eyeW*0.8,eyeY-R*0.40-brow*R*0.12);
-  ctx.stroke();
-  // 鼻：線ではなく影の面で
-  ctx.fillStyle='rgba(74,53,41,0.42)';
-  ctx.beginPath();
-  ctx.moveTo(cx+R*0.04,eyeY+R*0.02);
-  ctx.lineTo(cx+R*0.15,headY+R*0.20);
-  ctx.lineTo(cx-R*0.15,headY+R*0.20);
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle='rgba(40,26,18,0.55)';
-  ctx.beginPath(); ctx.ellipse(cx-R*0.09,headY+R*0.19,R*0.05,R*0.035,0,0,7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(cx+R*0.09,headY+R*0.19,R*0.05,R*0.035,0,0,7); ctx.fill();
-  // 口（マウスピース）
-  const open=clamp(wind*0.45+e.fatigue*0.55+shade*0.8,0,1);
-  ctx.fillStyle='#2e1812';
-  ctx.beginPath();
-  ctx.ellipse(cx,headY+R*0.50,R*0.165+R*0.045*open,R*0.026+R*0.115*open,0,0,7); ctx.fill();
-  if(open>0.25){
-    ctx.fillStyle='rgba(232,226,212,0.6)';
+    // 上瞼のライン（内が太く外へ抜ける）
+    ctx.strokeStyle='#23252f'; ctx.lineCap='round';
+    ctx.lineWidth=Math.max(1.1,R*0.055);
     ctx.beginPath();
-    ctx.ellipse(cx,headY+R*0.465,R*0.14,R*0.026,0,0,7); ctx.fill();
+    ctx.moveTo(ex-sgn*eyeW*0.98, eyeY+eyeH*0.02);
+    ctx.quadraticCurveTo(ex-sgn*eyeW*0.20, eyeY-eyeH*1.20*open, ex+sgn*eyeW*0.98, eyeY-eyeH*0.34*open);
+    ctx.stroke();
+    // 二重の線
+    ctx.strokeStyle='rgba(120,86,66,0.40)'; ctx.lineWidth=Math.max(1,R*0.022);
+    ctx.beginPath();
+    ctx.moveTo(ex-sgn*eyeW*0.72, eyeY-eyeH*0.72);
+    ctx.quadraticCurveTo(ex, eyeY-eyeH*1.70*open, ex+sgn*eyeW*0.86, eyeY-eyeH*0.86*open);
+    ctx.stroke();
   }
-  ctx.fillStyle='rgba(120,84,64,0.35)';
-  ctx.beginPath(); ctx.ellipse(cx,headY+R*0.64,R*0.20,R*0.05,0,0,7); ctx.fill();
 
-  // マウスピース／汗（粒子として抽象化 §4.1）
-  if(e.fatigue>0.4){
+  // ---- 鼻：影の塊ではなく、稜線の明面と小さな落ち影で立たせる ----
+  ctx.fillStyle='rgba(240,206,174,0.34)';
+  ctx.beginPath();
+  ctx.moveTo(cx-R*0.07,headY-R*0.34); ctx.lineTo(cx+R*0.02,headY-R*0.34);
+  ctx.lineTo(cx+R*0.06,headY+R*0.16); ctx.lineTo(cx-R*0.11,headY+R*0.16);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(120,86,66,0.34)';
+  ctx.beginPath();
+  ctx.moveTo(cx+R*0.06,headY-R*0.10); ctx.lineTo(cx+R*0.17,headY+R*0.20);
+  ctx.lineTo(cx-R*0.02,headY+R*0.22); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(70,46,34,0.42)';
+  ctx.beginPath(); ctx.ellipse(cx-R*0.10,headY+R*0.20,R*0.035,R*0.022,0.3,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+R*0.09,headY+R*0.20,R*0.035,R*0.022,-0.3,0,7); ctx.fill();
+
+  // ---- 口：下向きの塊をやめ、結んだ線にする ----
+  const mo=clamp(wind*0.35+fat*0.50+shade*0.75,0,1);
+  const my=headY+R*0.52;
+  if(mo<0.18){
+    ctx.strokeStyle='rgba(96,58,46,0.75)'; ctx.lineCap='round';
+    ctx.lineWidth=Math.max(1.2,R*0.045);
+    ctx.beginPath();
+    ctx.moveTo(cx-R*0.19,my-R*0.01);
+    ctx.quadraticCurveTo(cx,my+R*0.035,cx+R*0.19,my-R*0.01);
+    ctx.stroke();
+  }else{
+    ctx.fillStyle='#2c1712';
+    ctx.beginPath();
+    ctx.ellipse(cx,my+R*0.02,R*0.17+R*0.04*mo,R*0.03+R*0.13*mo,0,0,7); ctx.fill();
+    ctx.fillStyle='rgba(232,226,212,0.55)';            // マウスピース
+    ctx.beginPath();
+    ctx.ellipse(cx,my-R*0.02,R*0.145,R*0.028,0,0,7); ctx.fill();
+  }
+  // 下唇の明面と顎の割れ
+  ctx.fillStyle='rgba(240,206,174,0.26)';
+  ctx.beginPath(); ctx.ellipse(cx,my+R*0.15,R*0.16,R*0.055,0,0,7); ctx.fill();
+  ctx.fillStyle='rgba(120,86,66,0.22)';
+  ctx.beginPath(); ctx.ellipse(cx,my+R*0.30,R*0.10,R*0.045,0,0,7); ctx.fill();
+
+  // ---- 汗（粒子として抽象化 §4.1）----
+  if(fat>0.4){
     ctx.fillStyle='rgba(210,230,255,0.5)';
     for(let i=0;i<3;i++){
       const t=(Clock.real/700+i*0.33)%1;
