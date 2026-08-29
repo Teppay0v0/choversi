@@ -219,6 +219,7 @@ const TS = {
   ENTER_MS: 120,   // 1.0 → 0.35
   EXIT_MS : 100,   // 0.25 → 1.0
   MAX_CHOICE_REAL: 1800,   // 安全弁（通常はインパクトまで減速を維持する）
+  MIN_SLOW_REAL: 300,      // 見切ったら最低これだけは遅い時間を体感させる
   CHOICE_REAL: 1100,       // 攻防選択に与える実時間。これに合わせて減速率を決める
 };
 
@@ -326,6 +327,8 @@ const rnd  =(a,b)=>a+Math.random()*(b-a);
 const pick =arr=>arr[(Math.random()*arr.length)|0];
 // フレームレート非依存の指数補間
 const damp =(cur,tgt,rate,dt)=>cur+(tgt-cur)*(1-Math.exp(-rate*dt/1000));
+const JUDGE_RANK={MISS:0,LATE:1,EARLY:2,GOOD:3,PERFECT:4};
+const bestJudge=(a,b)=>(JUDGE_RANK[b]||0)>(JUDGE_RANK[a]||0)?b:a;
 
 /* ============================================================
    3. AUDIO  —  足音・呼吸・打撃を合成 (§14 リズム音響レイヤー)
@@ -986,8 +989,10 @@ Object.assign(Fight,{
        Clock.real-ex.slowRealT > TS.MAX_CHOICE_REAL){
       ex.returning=true; Clock.to(TS.OBSERVE, TS.EXIT_MS); Audio_.slowOut();
     }
-    // 行動確定 → 通常速度へ復帰
-    if(ex.choice && !ex.returning){
+    // 行動確定 → 通常速度へ復帰。
+    // ただし見切った手応えが残るよう、最低 MIN_SLOW_REAL は遅いままにする
+    if(ex.choice && !ex.soft && !ex.returning &&
+       Clock.real-ex.slowRealT >= (ex.slowed?TS.MIN_SLOW_REAL:0)){
       ex.returning=true; Clock.to(TS.OBSERVE, TS.EXIT_MS); Audio_.slowOut();
     }
     // 接触
@@ -1048,6 +1053,8 @@ Object.assign(Fight,{
       // 来る側と逆の手で受けると肩越しになり、止め切れない
       const want = (ch==='guard') ? blockSide(m) : null;
       const wrongHand = !!want && p.guardSide!==want;
+      // 構え続けた防御は、押した時刻ではなく「どれだけ早く見切ったか」で質が決まる
+      if(ex.soft && ex.read){ j=bestJudge(j, ex.read); this.lastJudge=j; }
       if(wrongHand && j==='PERFECT'){ j='GOOD'; this.lastJudge='GOOD'; }
       this.countJudge(j);
 
@@ -1333,9 +1340,12 @@ Object.defineProperty(Fight,'advantage',{get(){ return Clock.game < this.p.advUn
    ============================================================ */
 Object.assign(Fight,{
 
-  setChoice(kind, gtime){
+  // soft = まだ決めていない構え（長押し）。行動確定ではないので主観時間を終わらせない。
+  // 構えたまま様子を見て、そこから滑らせて別の選択に切り替えられる。
+  setChoice(kind, gtime, soft){
     const ex=this.exchange;
-    if(!ex || ex.choice || ex.resolved) return null;
+    if(!ex || ex.resolved) return null;
+    if(ex.choice && !(ex.soft && !soft)) return null;   // 確定済みなら上書きしない
     const diff=(gtime + this.offsetMs) - ex.impact;
     let j=this.judgeOf(diff);
     // 構えっぱなしの防御は「早すぎ」にはならない。上げ続けている限り止まる。
@@ -1343,7 +1353,7 @@ Object.assign(Fight,{
     if((kind==='guard'||kind==='sprawl') && diff<0 && j!=='PERFECT' && j!=='GOOD'){
       j='GOOD'; ex.heldEarly=true;
     }
-    ex.choice=kind; ex.choiceT=gtime; ex.judge=j; ex.diff=diff;
+    ex.choice=kind; ex.choiceT=gtime; ex.judge=j; ex.diff=diff; ex.soft=!!soft;
     this.lastJudge=ex.judge; this.lastDiff=Math.round(diff);
     return ex.judge;
   },
@@ -1363,7 +1373,7 @@ Object.assign(Fight,{
 
       case 'HOLD': {                       // 長押し = 左右ガード (§6)
         p.guard=g.side; p.guardSide=g.side; p.guardT=Clock.game;
-        if(ex) this.setChoice('guard', g.game);
+        if(ex) this.setChoice('guard', g.game, true);   // 構えただけ。まだ確定しない
         Audio_.glove();
         break;
       }
@@ -1437,7 +1447,7 @@ Object.assign(Fight,{
       }
       case 'DUAL_HOLD': {                  // 両指長押し = スプロール／低い構え (§11)
         p.crouch=1;
-        if(ex) this.setChoice('sprawl', g.game);
+        if(ex) this.setChoice('sprawl', g.game, true);
         break;
       }
     }
@@ -3440,6 +3450,14 @@ function buildHowto(){
     <div class="ctrl"><div class="k">起こりの後半で押す</div><div class="v">読んだ — 通常</div></div>
     <div class="ctrl"><div class="k">拳が出てから押す</div><div class="v">遅い — 浅く、短い</div></div>
     <div class="ctrl"><div class="k">押さない</div><div class="v">スローなし。通常速度で捌くしかない</div></div>
+    <div class="note">
+      <b>指を置いたまま様子を見られます。</b>長押しは「構えただけ」で、
+      まだ行動を決めたことにはなりません。主観時間は続いたままなので、
+      構えたまま拳が来るのを見て、そこから<b>指を滑らせて回避に切り替える</b>こともできます。
+      タップやスライドで技を出した瞬間に、行動が確定して通常速度へ戻ります。<br><br>
+      構え続けて受けた防御の質は、押した時刻ではなく<b>どれだけ早く見切ったか</b>で決まります。
+      前半で見切っていれば、構えたままでも PERFECT になり有利を取れます。
+    </div>
     <div class="note">
       指を置きっぱなしでは見切れません。<b>置き直した瞬間</b>が見切りです。
       ただしガードは、接触の瞬間に上がってさえいれば止まります
