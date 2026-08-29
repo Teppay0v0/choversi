@@ -341,7 +341,7 @@ const Audio_ = {
   // ローパスを主観時間に追従させる
   setSlow(k){                                   // k: 0=通常 1=最も遅い
     if(!this.ready) return;
-    const f = lerp(18000, 620, k);
+    const f = lerp(18000, 380, k);
     this.lp.frequency.setTargetAtTime(f, this.t, 0.05);
   },
 
@@ -411,8 +411,18 @@ const Audio_ = {
   whoosh(){ this.hit({f0:600,f1:2400,dur:0.20,gain:0.13,type:'bandpass',q:0.7}); },
   cage(){   this.hit({f0:3200,f1:1400,dur:0.24,gain:0.16,type:'bandpass',q:2.4}); },
   heart(){  this.tone({f:56,f2:30,dur:0.16,gain:0.34}); this.tone({f:52,f2:28,dur:0.13,gain:0.22,delay:0.17}); },
-  slowIn(){ this.tone({f:420,f2:90,dur:0.55,gain:0.16,type:'triangle'}); },
-  slowOut(){this.tone({f:120,f2:520,dur:0.20,gain:0.14,type:'triangle'}); },
+  // 主観時間へ入る／出る瞬間は、耳でもはっきり分かる必要がある
+  slowIn(){
+    this.hit({f0:8000,f1:600,dur:0.34,gain:0.30,type:'bandpass',q:0.8});  // 抜ける空気
+    this.tone({f:180,f2:38,dur:0.85,gain:0.42,type:'triangle'});          // 沈むサブ
+    this.tone({f:1760,f2:440,dur:0.30,gain:0.10,type:'sine'});
+    if(this.ready) this.master.gain.setTargetAtTime(0.62,this.t,0.06);    // 世界が遠のく
+  },
+  slowOut(){
+    this.hit({f0:400,f1:6000,dur:0.22,gain:0.26,type:'bandpass',q:0.7});  // 戻る空気
+    this.tone({f:60,f2:300,dur:0.22,gain:0.34,type:'triangle'});
+    if(this.ready) this.master.gain.setTargetAtTime(0.95,this.t,0.05);
+  },
   crowd(level){            // 観客：優勢/劣勢でレイヤー増減
     if(!this.ready) return;
     this.hit({f0:900,f1:400,dur:0.5,gain:0.05+0.10*level,type:'bandpass',q:0.5});
@@ -829,6 +839,7 @@ Object.assign(Fight,{
     e.gaze.y = m.arc==='kick' ? 0.2 : (m.arc==='upper' ? 0.35 : -0.1);
     Audio_.breath(true, 0.5+e.fatigue*0.5);
     Audio_.step(true);
+    SlowFx.emitSweat(V.faceX, V.faceY, 3+((e.fatigue*5)|0), 0.7);
 
     this.exchange={
       id, data:m, t0:Clock.game, tell, impact:Clock.game+impact,
@@ -1048,6 +1059,7 @@ Object.assign(Fight,{
     this.stats.taken+=dmg; this.sitStats.damage+=dmg;
     this.burst(this.oppFaceX(),this.oppFaceY(),kind==='guard'?'guard':'hurt',
                clamp(dmg/14,0.3,1));
+    SlowFx.emitSweat(V.W*0.5, V.H*0.55, 8+((dmg)|0), 1.3);
     if(kind==='guard') Audio_.guardHit(); else { Audio_.punchHit(clamp(dmg/14,0.2,1)); haptic('hurt'); }
     // 強打を受ける → 30%で1段階後退 (§5)
     if(kind==='clean' && dmg>=10 && Math.random()<0.3 && this.distT<0){
@@ -1181,6 +1193,7 @@ Object.assign(Fight,{
 
     const x=this.oppFaceX(), y=arc==='kick'?this.oppBodyY():this.oppFaceY();
     this.burst(x,y,perfect?'perfect':'hit',clamp(dmg/16,0.3,1));
+    SlowFx.emitSweat(x,y, 10+((dmg)|0), 1.5);
     if(tag) this.float(tag,color,perfect);
     else if(blocked) this.float('ガードされた','#5c6274');
     if(perfect){ Audio_.punchPerfect(); haptic('perfect'); this.hitstop=Clock.real+70; }
@@ -1467,6 +1480,29 @@ Object.assign(Fight,{
    11. VIEW  —  レイアウト計算 (§4)
    上部15% HP / 中央70% 相手 / 下部15% 距離
    ============================================================ */
+// 描画品質：フレーム時間を測り、重ければ自動で効果を落とす
+const Q = {
+  dpr:2, blur:true, grade:true, maxSweat:110,
+  avg:16, slowN:0, fastN:0,
+  tick(dt){
+    this.avg = this.avg*0.9 + Math.min(dt,60)*0.1;
+    if(this.avg>21){ this.slowN++; this.fastN=0; } 
+    else if(this.avg<15){ this.fastN++; this.slowN=0; }
+    if(this.slowN>24){ this.slowN=0; this.down(); }
+    if(this.fastN>180){ this.fastN=0; this.up(); }
+  },
+  down(){
+    if(this.blur){ this.blur=false; return; }
+    if(this.maxSweat>50){ this.maxSweat=50; return; }
+    if(this.dpr>1.5){ this.dpr=1.5; resize(); }
+  },
+  up(){
+    if(this.dpr<2){ this.dpr=2; resize(); return; }
+    if(this.maxSweat<110){ this.maxSweat=110; return; }
+    if(!this.blur) this.blur=true;
+  },
+};
+
 const V = {W:390,H:844,short:390,dpr:1,
            topH:0,midH:0,botH:0,groundY:0,cx:195,bh:400,scale:1,
            faceX:195,faceY:300,bodyY:400,shoulderY:0,hw:0};
@@ -1476,7 +1512,7 @@ const ctx=cv.getContext('2d');
 
 function resize(){
   const w=window.innerWidth, h=window.innerHeight;
-  const dpr=Math.min(window.devicePixelRatio||1, 2.5);
+  const dpr=Math.min(window.devicePixelRatio||1, Q.dpr);
   V.W=w; V.H=h; V.short=Math.min(w,h); V.dpr=dpr;
   cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -2286,29 +2322,301 @@ function drawFx(F){
   }
 }
 
+// ぼかしの上に鮮明な拳を描き直す（視線を集める焦点）
+function drawSharpFist(f){
+  const gr=f.r, gx=f.x, gy=f.y;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(gx,gy,gr,0,7);
+  ctx.fillStyle=C.gloveE; ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.arc(gx,gy,gr,0,7); ctx.clip();
+  ctx.beginPath(); ctx.arc(gx+gr*0.34,gy+gr*0.30,gr*0.94,0,7);
+  ctx.fillStyle=C.gloveEShade; ctx.globalAlpha=0.6; ctx.fill(); ctx.globalAlpha=1;
+  ctx.fillStyle='rgba(255,255,255,0.16)';
+  ctx.beginPath(); ctx.ellipse(gx-gr*0.10,gy-gr*0.30,gr*0.66,gr*0.34,0,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(90,20,16,0.22)'; ctx.lineWidth=Math.max(1,gr*0.030);
+  ctx.beginPath();
+  ctx.moveTo(gx-gr*0.66,gy+gr*0.42);
+  ctx.quadraticCurveTo(gx,gy+gr*0.58,gx+gr*0.66,gy+gr*0.40); ctx.stroke();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(gx-gr*0.34,gy-gr*0.36,gr*0.26,0,7);
+  ctx.fillStyle='rgba(255,255,255,0.26)'; ctx.fill();
+  ctx.strokeStyle='rgba(10,13,22,0.85)'; ctx.lineWidth=Math.max(1.4,gr*0.045);
+  ctx.beginPath(); ctx.arc(gx,gy,gr,0,7); ctx.stroke();
+  ctx.restore();
+}
+
+/* ============================================================
+   16.5 主観時間の知覚  —  「遅くなった」を見せるための基準
+   スローモーションは何かが遅く動いて初めて知覚できる。
+   常に流れている塵と、拳の残像と、実時間で動く要素を用意する。
+   ============================================================ */
+const SlowFx = {
+  motes:[], echo:[], sweat:[], enterT:-9999, exitT:-9999, zoom:1, letter:0, wasSlow:false,
+  off:null, offCtx:null, acc:null, accCtx:null,
+
+  init(){
+    this.sweat=[];
+    this.motes=[];
+    for(let i=0;i<44;i++){
+      this.motes.push({
+        x:Math.random(), y:Math.random(),
+        vx:rnd(-0.05,0.05), vy:rnd(-0.11,-0.03),
+        r:rnd(0.6,2.1), a:rnd(0.10,0.34), ph:Math.random()*7,
+      });
+    }
+    this.echo=[]; this.enterT=this.exitT=-9999; this.zoom=1; this.letter=0; this.wasSlow=false;
+    if(!this.off){
+      this.off =document.createElement('canvas'); this.offCtx =this.off.getContext('2d');
+      this.acc =document.createElement('canvas'); this.accCtx =this.acc.getContext('2d');
+    }
+  },
+
+  // 汗：ゲーム内時間で飛ぶので、減速すると目に見えて宙で止まる
+  emitSweat(x,y,n,power){
+    for(let i=0;i<n;i++){
+      const a=rnd(-Math.PI,0), sp=rnd(0.10,0.42)*(power||1);
+      this.sweat.push({
+        x, y,
+        vx:Math.cos(a)*sp*V.W + rnd(-40,40)/1000*V.W,
+        vy:Math.sin(a)*sp*V.H*0.6 - rnd(0.02,0.12)*V.H,
+        r:rnd(1.2,3.4), life:0, max:rnd(700,1500),
+      });
+    }
+    if(this.sweat.length>Q.maxSweat) this.sweat.splice(0,this.sweat.length-Q.maxSweat);
+  },
+
+  update(F){
+    const d=Clock.depth;
+    // 塵はゲーム内時間で流れる → 減速すると目に見えて止まりかける
+    const gs=Clock.gameDt/1000;
+    for(const m of this.motes){
+      m.x+=m.vx*gs; m.y+=m.vy*gs;
+      if(m.y<-0.05){ m.y=1.05; m.x=Math.random(); }
+      if(m.x<-0.05) m.x=1.05; else if(m.x>1.05) m.x=-0.05;
+    }
+    // 汗（ゲーム内時間）
+    const sdt=Clock.gameDt/1000;
+    for(let i=this.sweat.length-1;i>=0;i--){
+      const w=this.sweat[i];
+      w.life+=Clock.gameDt;
+      w.vy += 900*sdt;                       // 重力
+      w.x  += w.vx*sdt; w.y += w.vy*sdt;
+      if(w.life>w.max || w.y>V.H+20) this.sweat.splice(i,1);
+    }
+    // 拳の残像
+    if(V.fist && V.fist.active && d>0.15){
+      this.echo.push({x:V.fist.x,y:V.fist.y,r:V.fist.r,t:Clock.real});
+      if(this.echo.length>7) this.echo.shift();
+    }else if(this.echo.length && Clock.real-this.echo[this.echo.length-1].t>220){
+      this.echo.length=0;
+    }
+    // 入る／出る瞬間を記録する
+    const slow = d>0.35;
+    if(slow && !this.wasSlow){ this.enterT=Clock.real; Fight.hitstop=Clock.real+55; }
+    if(!slow && this.wasSlow){ this.exitT=Clock.real; }
+    this.wasSlow=slow;
+    // カメラの寄りとレターボックス
+    this.zoom  = damp(this.zoom, 1+0.085*d, 16, Clock.realDt);
+    this.letter= damp(this.letter, d, 14, Clock.realDt);
+  },
+
+  // 世界の描画に掛ける寄り
+  applyZoom(){
+    const z=this.zoom;
+    if(z<=1.001) return false;
+    ctx.translate(V.W/2,V.H*0.44); ctx.scale(z,z); ctx.translate(-V.W/2,-V.H*0.44);
+    return true;
+  },
+
+  // 世界のなかに描くもの（塵・残像）
+  drawWorld(){
+    const d=Clock.depth;
+    ctx.save();
+    // 塵：主観時間の速度計として常に流れている
+    for(const m of this.motes){
+      const x=m.x*V.W, y=m.y*V.H;
+      ctx.globalAlpha=m.a*(0.45+0.55*d);
+      ctx.fillStyle=d>0.4?'#cfe0ff':C.ink;
+      ctx.beginPath(); ctx.arc(x,y,m.r*(1+0.5*d),0,7); ctx.fill();
+    }
+    // 拳の残像：遅いことを軌跡そのもので示す
+    for(let i=0;i<this.echo.length;i++){
+      const e=this.echo[i], k=(i+1)/this.echo.length;
+      ctx.globalAlpha=0.16*k*d;
+      ctx.fillStyle=C.gloveE;
+      ctx.beginPath(); ctx.arc(e.x,e.y,e.r*(0.72+0.28*k),0,7); ctx.fill();
+    }
+    ctx.restore();
+  },
+
+  // 汗は前景（ぼかしの後）に描く
+  drawSweat(){
+    if(!this.sweat.length) return;
+    const d=Clock.depth;
+    ctx.save();
+    for(const w of this.sweat){
+      const k=1-w.life/w.max;
+      // 尾を引かせると「飛んでいる」ことが分かる
+      if(Q.blur){
+        const tx=-w.vx*0.035*(1-d*0.75), ty=-w.vy*0.035*(1-d*0.75);
+        ctx.globalAlpha=0.20*k;
+        ctx.strokeStyle='#cfe4ff'; ctx.lineWidth=w.r*0.8; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(w.x,w.y); ctx.lineTo(w.x+tx,w.y+ty); ctx.stroke();
+      }
+      ctx.globalAlpha=0.55*k;
+      ctx.fillStyle='#e8f2ff';
+      ctx.beginPath(); ctx.ellipse(w.x,w.y,w.r*0.9,w.r*1.15,0,0,7); ctx.fill();
+      ctx.globalAlpha=0.9*k;
+      ctx.fillStyle='#fff';
+      ctx.beginPath(); ctx.arc(w.x-w.r*0.25,w.y-w.r*0.3,w.r*0.34,0,7); ctx.fill();
+    }
+    ctx.restore();
+  },
+
+  // 世界の色を抜く。この後に描くもの（拳・汗）は鮮やかなまま残る
+  drawGrade(){
+    const L=this.letter; if(L<0.02) return;
+    const {W,H}=V;
+    // 相手だけ薄く起こして、予備動作を読めるようにする
+    ctx.save();
+    ctx.globalCompositeOperation='lighter';
+    const ly=(V.faceY+V.bodyY)/2;
+    const g=ctx.createRadialGradient(V.faceX,ly,0,V.faceX,ly,V.bh*0.72);
+    g.addColorStop(0,`rgba(104,118,158,${0.34*L})`);
+    g.addColorStop(0.55,`rgba(88,100,136,${0.16*L})`);
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    const R=V.bh*0.72;
+    ctx.fillStyle=g;
+    ctx.fillRect(V.faceX-R,ly-R,R*2,R*2);
+    ctx.restore();
+  },
+
+  // ラジアルブラー：世界を中心へ流す。拳と自分のグローブは後から鮮明に描く
+  radialBlur(){
+    const d=Clock.depth;
+    if(d<0.06 || !Q.blur) return;
+    const W=V.W,H=V.H, sc=0.5;
+    const ow=Math.max(2,Math.round(W*sc)), oh=Math.max(2,Math.round(H*sc));
+    if(this.off.width!==ow||this.off.height!==oh){
+      this.off.width=ow; this.off.height=oh; this.acc.width=ow; this.acc.height=oh;
+    }
+    const o=this.offCtx, a=this.accCtx;
+    o.setTransform(1,0,0,1,0,0); o.clearRect(0,0,ow,oh);
+    o.drawImage(cv,0,0,ow,oh);                    // 画面を1/2解像度で取り込む
+    // 重ね合わせも1/2解像度で済ませ、画面全面への書き込みは最後の1回だけ
+    const fx=ow*0.5, fy=oh*0.44;
+    a.setTransform(1,0,0,1,0,0); a.clearRect(0,0,ow,oh);
+    for(let i=1;i<=3;i++){
+      const z=1+0.026*i*d;
+      a.setTransform(1,0,0,1,0,0);
+      a.globalAlpha=(0.42*d)/i;
+      a.translate(fx,fy); a.scale(z,z); a.translate(-fx,-fy);
+      a.drawImage(this.off,0,0);
+    }
+    a.setTransform(1,0,0,1,0,0); a.globalAlpha=1;
+    ctx.drawImage(this.acc,0,0,ow,oh,0,0,W,H);
+  },
+
+  // 画面全体に掛けるもの（フラッシュ・レターボックス・減速リング）
+  drawScreen(F){
+    const {W,H}=V, d=Clock.depth;
+
+    // --- 入った瞬間の一撃 ---
+    const et=(Clock.real-this.enterT)/460;
+    if(et>=0 && et<1){
+      const k=easeOut(et);
+      ctx.save();
+      // 白の一瞬
+      ctx.globalAlpha=0.5*(1-Math.min(1,et*6));
+      ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+      // 外へ抜けていく衝撃波
+      ctx.globalAlpha=0.7*(1-k);
+      ctx.strokeStyle=C.accent; ctx.lineWidth=Math.max(2,W*0.012*(1-k));
+      ctx.beginPath(); ctx.arc(W*0.5,H*0.44,W*(0.05+1.15*k),0,7); ctx.stroke();
+      ctx.globalAlpha=0.35*(1-k);
+      ctx.strokeStyle=C.ink; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(W*0.5,H*0.44,W*(0.05+0.85*k),0,7); ctx.stroke();
+      ctx.restore();
+    }
+    // --- 出た瞬間の抜け ---
+    const xt=(Clock.real-this.exitT)/300;
+    if(xt>=0 && xt<1){
+      ctx.save();
+      ctx.globalAlpha=0.30*(1-xt);
+      ctx.strokeStyle=C.ink; ctx.lineWidth=2;
+      for(let i=0;i<16;i++){
+        const a=i*0.3927, r0=W*(0.20+0.9*xt), r1=r0+W*0.28*(1-xt);
+        ctx.beginPath();
+        ctx.moveTo(W*0.5+Math.cos(a)*r0,H*0.44+Math.sin(a)*r0);
+        ctx.lineTo(W*0.5+Math.cos(a)*r1,H*0.44+Math.sin(a)*r1);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    if(this.letter<0.02) return;
+    const L=this.letter;
+
+    // --- レターボックス ---
+    const bh=H*0.062*L;
+    ctx.save();
+    ctx.fillStyle='#05070d';
+    ctx.fillRect(0,0,W,bh); ctx.fillRect(0,H-bh,W,bh);
+    ctx.globalAlpha=0.5*L; ctx.strokeStyle=C.accent; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,bh); ctx.lineTo(W,bh);
+    ctx.moveTo(0,H-bh); ctx.lineTo(W,H-bh); ctx.stroke();
+    ctx.restore();
+
+    // --- 判断できる残り時間（接触までの実時間） ---
+    const ex=F.exchange;
+    if(ex && !ex.resolved && ex.slowed){
+      const left=clamp((ex.impact-Clock.game)/Math.max(1,ex.impact-ex.slowAt),0,1);
+      ctx.save();
+      ctx.globalAlpha=0.95*L;
+      ctx.fillStyle = ex.choice ? 'rgba(232,226,212,0.5)' : C.accent;
+      ctx.fillRect(0, H-bh-3, W*left, 3);
+      ctx.globalAlpha=0.30*L; ctx.fillStyle=C.ink;
+      ctx.fillRect(W*left, H-bh-3, W*(1-left), 3);
+      ctx.restore();
+    }
+  },
+};
+
 /* ============================================================
    17. 主観時間の演出レイヤー (§9.1 §12)
    ============================================================ */
+let slowVig=null, slowVigKey='';
 function drawSlowLayer(F){
   const d=Clock.depth;
   const {W,H}=V;
   if(d>0.02){
     // 彩度を落とし、周辺を締める
     ctx.save();
-    ctx.globalAlpha=0.38*d; ctx.fillStyle='#0b1526'; ctx.fillRect(0,0,W,H);
-    const g=ctx.createRadialGradient(W*0.5,H*0.42,H*0.08,W*0.5,H*0.42,H*0.58);
-    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(3,5,10,${0.74*d})`);
-    ctx.globalAlpha=1; ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-    // 集中線（墨を軌道に使う）
-    ctx.globalAlpha=0.11*d; ctx.strokeStyle=C.ink; ctx.lineWidth=1;
-    ctx.beginPath();
-    for(let i=0;i<14;i++){
-      const a=i*0.449+Clock.real/9000, r0=H*0.46, r1=H*0.46+H*0.34;
-      const cx=W*0.5, cy=H*0.42;
-      ctx.moveTo(cx+Math.cos(a)*r0,cy+Math.sin(a)*r0);
-      ctx.lineTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);
+    // 暗転と色抜きを1回にまとめる
+    ctx.globalAlpha=0.34*d; ctx.fillStyle='#20263a'; ctx.fillRect(0,0,W,H);
+    if(slowVigKey!==W+'x'+H){
+      slowVigKey=W+'x'+H;
+      slowVig=ctx.createRadialGradient(W*0.5,H*0.44,H*0.12,W*0.5,H*0.44,H*0.62);
+      slowVig.addColorStop(0,'rgba(0,0,0,0)'); slowVig.addColorStop(1,'rgba(3,5,10,1)');
     }
-    ctx.stroke();
+    ctx.globalAlpha=0.44*d; ctx.fillStyle=slowVig; ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha=1;
+    // 集中線：中心へ吸い込まれる速度感
+    const cx=W*0.5, cy=H*0.44;
+    ctx.lineCap='round';
+    for(let i=0;i<46;i++){
+      const a=i*2.3999+Clock.real/14000;      // 黄金角で散らす
+      const seed=(i*97%23)/23;
+      const r0=H*(0.26+0.20*seed);
+      const len=H*(0.10+0.34*seed);
+      ctx.globalAlpha=(0.05+0.22*seed)*d;
+      ctx.strokeStyle= seed>0.82 ? C.accent : C.ink;
+      ctx.lineWidth=(0.6+1.9*seed);
+      ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(a)*r0,cy+Math.sin(a)*r0);
+      ctx.lineTo(cx+Math.cos(a)*(r0+len),cy+Math.sin(a)*(r0+len));
+      ctx.stroke();
+    }
     ctx.restore();
   }
   // 「見えた」
@@ -2832,7 +3140,7 @@ function buildBrief(sit){
 function startFight(mode,sit){
   Audio_.resume();
   Fight.reset(mode, DIFF[curDiff], Fight.offsetMs, sit);
-  Input.clear(); Clock.reset();
+  Input.clear(); Clock.reset(); SlowFx.init();
   Arms.L.init=Arms.R.init=false;
   go('fight');
 }
@@ -2953,6 +3261,7 @@ let last=0;
 function frame(ts){
   requestAnimationFrame(frame);
   const raw = last ? ts-last : 16; last=ts;
+  Q.tick(raw);
   Clock.freeze = !!(Fight.hitstop && Clock.real<Fight.hitstop);
   Clock.tick(raw);
   Input.update();
@@ -2971,6 +3280,7 @@ function frame(ts){
 
   updateCamera(Fight);
   Arms.update(Fight);
+  SlowFx.update(Fight);
   render();
 }
 
@@ -2987,23 +3297,41 @@ function render(){
   computeLayout(F);
   drawBackground(F);
   ctx.save();
+  SlowFx.applyZoom();                       // 減速に合わせて寄る
   ctx.translate(V.W/2 - F.p.camX, V.H/2 + F.p.camY);
   ctx.rotate(F.p.camRot);
   ctx.translate(-V.W/2, -V.H/2);
   drawCage(F);
+  SlowFx.drawWorld();                       // 塵と残像
   drawOpponent(F);
+  ctx.restore();
+
+  // ---- ここまでが「ぼける世界」 ----
+  SlowFx.radialBlur();
+  drawSlowLayer(F);        // 暗転・集中線
+  SlowFx.drawGrade();      // 彩度を抜き、相手だけ起こす
+
+  // ---- ここから先は鮮明なまま重ねる ----
+  ctx.save();
+  SlowFx.applyZoom();
+  ctx.translate(V.W/2 - F.p.camX, V.H/2 + F.p.camY);
+  ctx.rotate(F.p.camRot);
+  ctx.translate(-V.W/2, -V.H/2);
+  if(V.fist && V.fist.active) drawSharpFist(V.fist);   // 迫る拳はぼかさない
+  SlowFx.drawSweat();
   drawFx(F);
   drawAssist(F,'world');
   ctx.restore();
 
-  drawSlowLayer(F);
   if(scene==='fight'||scene==='result') Arms.draw(F);
   drawAssist(F,'screen');
   if(scene==='fight'||scene==='result') drawHUD(F);
+  SlowFx.drawScreen(F);                     // フラッシュ・レターボックス・残り時間
   drawOverlayFx(F);
   if(scene==='calib') Calib.draw();
 }
 
+let vignetteCache=null, vignetteKey='';
 function drawOverlayFx(F){
   const {W,H}=V;
   // 被弾フラッシュ
@@ -3012,10 +3340,15 @@ function drawOverlayFx(F){
     ctx.save(); ctx.globalAlpha=0.30*(1-ht);
     ctx.fillStyle=C.accent; ctx.fillRect(0,0,W,H); ctx.restore();
   }
-  // ビネット
-  const g=ctx.createRadialGradient(W*0.5,H*0.45,H*0.28,W*0.5,H*0.45,H*0.78);
-  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(3,5,10,0.55)');
-  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // ビネット（毎フレーム作り直さない）
+  const key=W+'x'+H;
+  if(vignetteKey!==key){
+    vignetteKey=key;
+    vignetteCache=ctx.createRadialGradient(W*0.5,H*0.45,H*0.28,W*0.5,H*0.45,H*0.78);
+    vignetteCache.addColorStop(0,'rgba(0,0,0,0)');
+    vignetteCache.addColorStop(1,'rgba(3,5,10,0.55)');
+  }
+  ctx.fillStyle=vignetteCache; ctx.fillRect(0,0,W,H);
 }
 
 /* ============================================================
@@ -3063,7 +3396,7 @@ Input.bind(cv);
 Input.onFirstTouch=()=>{ Audio_.resume(); Input.onFirstTouch=null; };
 resize();
 try{ const o=localStorage.getItem('maai.offset'); if(o!==null) Fight.offsetMs=parseInt(o,10)||0; }catch(e){}
-Progress.load();
+Progress.load(); SlowFx.init();
 Fight.reset('match',DIFF[curDiff],Fight.offsetMs);
 document.querySelectorAll('[data-diff]').forEach(x=>x.dataset.on = x.dataset.diff===curDiff?'1':'0');
 go('title');
