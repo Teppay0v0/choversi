@@ -661,6 +661,9 @@ const Fight = {
     if(this.sit){ this.p.cage=this.sit.pCage||0; this.e.cage=this.sit.eCage||0; }
     this.distTarget=this.dist; this.distT=-1; this.distDur=STEP_MS;
 
+    // 開始直後は殴り合わない。相手が金網際から歩いて詰めてくる 4 拍を置く。
+    // この間に 100BPM の足音でテンポを掴ませる (§14 相手の踏み込みを拍の基準音にする)
+    this.introUntil = BEAT*4;
     this.beat=0; this.lastBeatIdx=-1;
     this.exchange=null;         // 進行中の攻防 {move, t0, impact, phase, choice, judge}
     this.stats={reads:0,readPerfect:0,noRead:0,
@@ -723,6 +726,16 @@ const Fight = {
     if(this.distT<0) return this.dist;
     const k=easeOut(clamp((Clock.game-this.distT)/this.distDur,0,1));
     return lerp(this.dist,this.distTarget,k);
+  },
+
+  inIntro(){ return Clock.game < this.introUntil; },
+  // 0 = 金網際 / 1 = 定位置
+  approachK(){ return easeOut(clamp(Clock.game/Math.max(1,this.introUntil),0,1)); },
+  // 対峙中に指を置いたら、残りを詰めて始める（連戦でだれないように）
+  skipIntro(){
+    if(!this.inIntro()) return false;
+    this.introUntil = Math.min(this.introUntil, Clock.game + BEAT*0.75);
+    return true;
   },
 
   // ---------- 演出ヘルパ ----------
@@ -1113,6 +1126,7 @@ Object.assign(Fight,{
     const p=this.p, e=this.e;
     const m=pmove(id); if(!m) return;
     if(Clock.game<p.stunUntil) return;
+    if(this.inIntro()) return;                 // 対峙中はまだ届かない
     // 両手を組み防御に使っている間は打てない
     if(Input.isDualHolding()) return;
 
@@ -1300,8 +1314,10 @@ Object.assign(Fight,{
 
     switch(g.type){
 
-      // 指を置いた瞬間＝初動を見切った瞬間
-      case 'LEFT_PRESS': case 'RIGHT_PRESS': this.tryRead(); break;
+      // 指を置いた瞬間＝初動を見切った瞬間。対峙中なら開始の合図
+      case 'LEFT_PRESS': case 'RIGHT_PRESS':
+        if(!this.skipIntro()) this.tryRead();
+        break;
 
       case 'HOLD': {                       // 長押し = 左右ガード (§6)
         p.guard=g.side; p.guardSide=g.side; p.guardT=Clock.game;
@@ -1402,7 +1418,7 @@ Object.assign(Fight,{
   update(){
     if(this.over){ this.updateFx(); return; }
     const p=this.p, e=this.e, gdt=Clock.gameDt;
-    this.elapsed += this.mode==='single' ? Clock.gameDt : Clock.gameDt;
+    if(!this.inIntro()) this.elapsed += Clock.gameDt;
 
     // --- 拍：相手の踏み込みを基準音にする (§14) ---
     const bi=Math.floor(Clock.game/BEAT);
@@ -1410,7 +1426,7 @@ Object.assign(Fight,{
       this.lastBeatIdx=bi;
       this.beat=bi;
       if(Clock.scale>0.7 && !this.exchange){
-        const strong=(bi%4===0);
+        const strong = this.inIntro() ? true : (bi%4===0);
         if(e.state==='idle'||e.state==='moving'){
           Audio_.step(strong); e.legStep=1;
         }
@@ -1445,8 +1461,11 @@ Object.assign(Fight,{
       this.startEnemyAttack(mv);
     }
 
-    // --- 敵の行動選択 ---
-    if(this.mode==='single')          this.runScript();
+    // --- 敵の行動選択（対峙中は仕掛けてこない）---
+    if(this.inIntro()){
+      // 詰めながら足を運ぶ
+      this.e.state='moving'; this.e.stateT=Clock.game;
+    }else if(this.mode==='single')          this.runScript();
     else if(this.mode==='situation')  this.sitUpdate();
     else                              AI.update(this);
 
@@ -1677,14 +1696,15 @@ function drawOpponent(F){
   const sc=V.scale;
   const bh=V.bh;                              // 身長
   const feet=V.groundY;
-  const breath=e.breath*bh*0.006;
+  const breath=e.breath*bh*0.006
+    + (F.inIntro()? Math.sin(Clock.game/BEAT*Math.PI*2)*bh*0.012 : 0);
   const stagX=e.stagger*Math.sin(Clock.real/45)*bh*0.03;
   const cx=V.W*0.5 + stagX + e.hipRot*bh*0.03;
 
   V.scale=sc; V.bh=bh; V.cx=cx;
   const headY=feet-bh*0.895+breath;
   const headR=bh*0.090;
-  const shY  =feet-bh*0.755+breath;
+  const shY  =feet-bh*0.774+breath;   // 首が伸びて見えないよう肩をやや上げる
   const hipY =feet-bh*0.520;
   const hw   =bh*0.178;                        // 肩半幅
   V.faceX=cx; V.faceY=headY; V.bodyY=(shY+hipY)/2; V.shoulderY=shY; V.hw=hw;
@@ -2897,8 +2917,47 @@ function drawHUD(F){
   }
   smallCaps('CAGE',W*0.075-4,cy-9,Math.round(W*0.019),C.inkFaint,'left','0.14em');
 
+  // ---- 対峙：拍を刻みながら詰めてくる ----
+  if(F.inIntro()){
+    const k=Clock.game/F.introUntil;
+    const beat=Clock.game/BEAT;
+    const n=Math.min(4,Math.floor(beat)+1);
+    ctx.save(); ctx.textAlign='center';
+    // 文字が相手に重なっても読めるように、薄い帯を敷く
+    const bg=ctx.createLinearGradient(0,H*0.755,0,H*0.905);
+    bg.addColorStop(0,'rgba(7,9,16,0)');
+    bg.addColorStop(0.45,'rgba(7,9,16,0.72)');
+    bg.addColorStop(1,'rgba(7,9,16,0)');
+    ctx.fillStyle=bg; ctx.fillRect(0,H*0.755,W,H*0.150);
+    // 拍のマーカー：残り何拍で始まるか
+    const dotW=W*0.030, gap=W*0.026, total=4*dotW+3*gap, sx0=(W-total)/2;
+    for(let i=0;i<4;i++){
+      const on=i<n, pop=on?clamp(1-(beat-i)*2.2,0,1):0;
+      ctx.globalAlpha=on?1:0.20;
+      ctx.fillStyle=on?C.accent:C.ink;
+      const h=3+6*pop;
+      ctx.fillRect(sx0+i*(dotW+gap), H*0.836-h/2, dotW, h);
+    }
+    ctx.globalAlpha=1;
+    // 文字
+    const late=k>0.72;
+    ctx.fillStyle=late?C.accent:C.inkDim;
+    ctx.font=`700 ${Math.round(W*(late?0.085:0.052))}px -apple-system,sans-serif`;
+    ctx.letterSpacing=late?'0.30em':'0.42em';
+    const pulse=late?(0.75+0.25*Math.sin(Clock.real/70)):1;
+    ctx.globalAlpha=pulse;
+    ctx.fillText(late?'来 る':'構 え ろ', W*0.5+(late?W*0.02:W*0.03), H*0.800);
+    ctx.letterSpacing='0px'; ctx.globalAlpha=1;
+    if(!late){
+      ctx.fillStyle='rgba(232,226,212,0.32)';
+      ctx.font=`500 ${Math.round(W*0.029)}px -apple-system,sans-serif`;
+      ctx.fillText('指を置くと すぐ始まる', W*0.5, H*0.874);
+    }
+    ctx.restore();
+  }
+
   // シチュエーションの操作ヒント（開始 3 秒）
-  if(F.mode==='situation' && F.elapsed<3000){
+  if(F.mode==='situation' && !F.inIntro() && F.elapsed<3000){
     ctx.save();
     ctx.globalAlpha=clamp((3000-F.elapsed)/900,0,1)*0.9;
     ctx.textAlign='center'; ctx.fillStyle=C.accent;
@@ -3371,9 +3430,11 @@ function frame(ts){
 
 function computeLayout(F){
   const dv=F.distVisual;
-  V.scale=distScale(dv);
+  const ap=F.inIntro()? F.approachK() : 1;      // 対峙中は奥から詰めてくる
+  V.approach=ap;
+  V.scale=distScale(dv)*lerp(0.30,1,ap);
   V.bh=V.H*0.90*V.scale;
-  V.groundY=V.H*distLerp(DIST_GROUND,dv);
+  V.groundY=lerp(V.H*0.585, V.H*distLerp(DIST_GROUND,dv), ap);
 }
 
 function render(){
