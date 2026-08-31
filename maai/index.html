@@ -1502,7 +1502,11 @@ Object.assign(Fight,{
           // ここを PERFECT 限定にしていたため「避けても何も起きない」
           // 状態が続いていた（実測：有利が一度も取れない）
           if(j==='PERFECT'){
-            this.grantAdvantage(true);
+            // 振り切る大技を見切って外したときだけ「返し」になる。
+            // 戻りが長い技＝相手が空を切って体勢を失う技に限る
+            const committed = m.recover>=340 && ch!=='sprawl';
+            if(committed) this.reversal('counter', 0);
+            else this.grantAdvantage(true);
             if(p.cage>0){ p.cage--; this.float('回り込み','#8d93a6'); }
           }else{
             this.grantAdvantage(false);
@@ -1511,7 +1515,11 @@ Object.assign(Fight,{
           if(ch==='sprawl'){ this.sitStats.sprawled++; }
           if(ch==='sprawl'){                     // スプロール結果 (§11)
             e.stam=Math.max(0,e.stam-(j==='PERFECT'?15:8));
-            if(j==='PERFECT') this.float('タックル阻止',C.accent);
+            if(j==='PERFECT'){
+              // 組みに来た相手を切って、そのまま背後へ回る。
+              // 「阻止した」で終わらせず、立場を入れ替える
+              this.reversal('back', 16);
+            }
             else if(j==='GOOD'){ this.changeDist(+1,false); }
           }
           if(ch==='intercept'){                  // 膝・アッパー迎撃 (§11)
@@ -1558,6 +1566,37 @@ Object.assign(Fight,{
   },
 
   // ---------- 有利状態 (§9) ----------
+  // ---------- 返し (CQC的な反転) ----------
+  // 止めるのではなく奪う。掛けられた側から掛ける側へ、一拍で入れ替わる。
+  // 気持ちよさの正体は「時間が死ぬ一瞬 → 立場が反転した状態で時間が戻る」
+  reversal(kind, dmg){
+    const e=this.e, p=this.p;
+    // 1) 時間が死ぬ。通常のヒットストップ(70ms)より遥かに長く止める
+    this.hitstop=Clock.real+210;
+    Clock.to(0.12, 60);                       // 止まった直後は超スロー
+    setTimeout(()=>{ if(!this.over) Clock.to(TS.OBSERVE, 420); }, 260);
+    // 2) 画面が跳ねる
+    p.shake=Math.max(p.shake,1.35);
+    p.camRot=(Math.random()<0.5?-1:1)*0.06;
+    this.edge('read');
+    // 3) 音と手応え
+    Audio_.punchPerfect(); haptic('perfect');
+    // 4) 相手を完全に崩す
+    e.state='stagger'; e.stateT=Clock.game; e.stagger=1; e.guardUp=0;
+    e.stam=Math.max(0,e.stam-26);
+    this.enemyKnockback();
+    p.reversalUntil=Clock.real+700;           // 演出用
+    // 5) 返しそのもののダメージ。先に処理する
+    //    （dealDamage は末尾で有利を閉じるので、有利はこの後に張る）
+    if(dmg>0) this.dealDamage(dmg,'PERFECT',false,'upper');
+    // 6) こちらは長い有利。ここから組み立てられる
+    p.advUntil=Clock.game+COUNTER_WINDOW*1.9;
+    p.advPerfect=true; p.combo=0; p.comboDmg=0;
+    this.float(kind==='back'?'背 後 を 取 っ た':'返 し た', C.accent, true, 'what');
+    this.stats.perfect++;
+    this.sitStats.perfectCounter++;
+  },
+
   grantAdvantage(perfect){
     this.p.advUntil=Clock.game+COUNTER_WINDOW*(perfect?1.15:1);
     this.p.advPerfect=perfect;
@@ -3319,6 +3358,36 @@ function updateCamera(F){
 /* ============================================================
    16. エフェクト  —  接触点・墨の一閃・PERFECT (§14)
    ============================================================ */
+// 返しの一拍：画面が白く抜けて、放射状の線が内へ収束する。
+// 「相手の勢いを自分のものにした」という向きを、線の向きで見せる
+function drawReversal(F){
+  const p=F.p;
+  if(!p.reversalUntil || Clock.real>p.reversalUntil) return;
+  const k=clamp((p.reversalUntil-Clock.real)/700,0,1);   // 1→0
+  const cx=V.W*0.5, cy=V.H*0.46;
+  ctx.save();
+  // 白抜き（最初の一瞬だけ強く）
+  const flash=Math.pow(clamp((k-0.72)/0.28,0,1),1.5);
+  if(flash>0){ ctx.globalAlpha=flash*0.85; ctx.fillStyle='#fff';
+    ctx.fillRect(0,0,V.W,V.H); }
+  // 外から内へ吸い込まれる線
+  const n=26, R=Math.hypot(V.W,V.H)*0.62;
+  ctx.globalAlpha=k*0.55; ctx.strokeStyle=C.accent;
+  ctx.lineWidth=Math.max(2,V.W*0.007); ctx.lineCap='round';
+  for(let i=0;i<n;i++){
+    const a2=(i/n)*Math.PI*2 + (1-k)*0.5;
+    const r0=R*(0.30+0.70*(1-k)), r1=r0+R*0.26*k;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(a2)*r1, cy+Math.sin(a2)*r1);
+    ctx.lineTo(cx+Math.cos(a2)*r0, cy+Math.sin(a2)*r0);
+    ctx.stroke();
+  }
+  // 中心の輪：反転が起きた点
+  ctx.globalAlpha=k*0.8; ctx.lineWidth=Math.max(3,V.W*0.012);
+  ctx.beginPath(); ctx.arc(cx,cy,V.W*0.10*(1+1.6*(1-k)),0,7); ctx.stroke();
+  ctx.restore();
+}
+
 function drawFx(F){
   const now=Clock.real;
   for(const f of F.fx){
@@ -4647,6 +4716,7 @@ function render(){
   if(V.fist && V.fist.active) drawSharpFist(V.fist);   // 迫る拳はぼかさない
   SlowFx.drawSweat();
   drawFx(F);
+  drawReversal(F);        // 返しの一拍（UIの下、世界の上）
   drawAssist(F,'world');
   ctx.restore();
 
