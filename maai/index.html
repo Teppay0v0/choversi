@@ -564,6 +564,14 @@ const Clock = {
   realDt:0, gameDt:0,
   reset(){ this.real=0; this.game=0; this.scale=1; this.target=1; this.realDt=0; this.gameDt=0; },
   to(target, ms){ this.target=target; this.rate=ms; },
+  // 直近の tick の実時刻（rAFのタイムスタンプ）。ポインタイベントの
+  // e.timeStamp と同じ時間軸なので、フレーム間に起きた入力の真の時刻を
+  // 復元できる。これが無いと押した時刻が最大1フレーム分ずれ、
+  // 60Hz と 120Hz の端末で実効判定窓が変わる
+  tickAt:0,
+  evReal(ts){ return this.real + clamp((ts||this.tickAt)-this.tickAt, 0, 50); },
+  evGame(ts){ const d=clamp((ts||this.tickAt)-this.tickAt, 0, 50);
+              return this.game + d*this.scale*(this.freeze?0.02:1); },
   tick(rawDt){
     this.realDt = Math.min(rawDt, 50);
     // scale を rate ms かけて target へ
@@ -603,8 +611,10 @@ const Input = {
     el.addEventListener('contextmenu', e=>e.preventDefault());
   },
 
-  emit(type, data){
-    this.queue.push(Object.assign({type, real:Clock.real, game:Clock.game}, data||{}));
+  emit(type, data, ts){
+    // ts（イベントのタイムスタンプ）があれば真の発生時刻で記録する
+    this.queue.push(Object.assign(
+      {type, real:Clock.evReal(ts), game:Clock.evGame(ts)}, data||{}));
   },
 
   down(e){
@@ -615,18 +625,18 @@ const Input = {
     const p = {
       id:e.pointerId, side, band,
       x0:e.clientX, y0:e.clientY, x:e.clientX, y:e.clientY,
-      t0:Clock.real, moved:0, maxMove:0,
-      gesture:null, holding:false, dual:false, consumed:false,
+      t0:Clock.evReal(e.timeStamp), moved:0, maxMove:0,
+      gesture:null, holding:false, dual:false, consumed:false, pendSwipe:null,
     };
     // 既存ポインタと 140ms 以内 → 両指入力候補 (§7 判定優先順位 1)
     for(const q of this.pts.values()){
-      if(q.side!==side && Clock.real - q.t0 <= G.DUAL_WINDOW && !q.gesture){
+      if(q.side!==side && Clock.evReal(e.timeStamp) - q.t0 <= G.DUAL_WINDOW && !q.gesture){
         p.dual=true; q.dual=true;
       }
     }
     this.pts.set(e.pointerId,p);
     this[side]=p;
-    this.emit(side==='L'?'LEFT_PRESS':'RIGHT_PRESS',{side,x:p.x0,y:p.y0,band});
+    this.emit(side==='L'?'LEFT_PRESS':'RIGHT_PRESS',{side,x:p.x0,y:p.y0,band}, e.timeStamp);
   },
 
   move(e){
@@ -634,6 +644,9 @@ const Input = {
     p.x=e.clientX; p.y=e.clientY;
     p.moved=Math.hypot(p.x-p.x0,p.y-p.y0)/this.short;
     p.maxMove=Math.max(p.maxMove,p.moved);
+    // 閾値越えをイベントの場で検出する。次の rAF を待つと
+    // スワイプの成立が最大1フレーム遅れて選択判定が不利になる
+    this.update(e.timeStamp);
   },
 
   up(e){
@@ -645,28 +658,34 @@ const Input = {
       p.moved=Math.hypot(p.x-p.x0,p.y-p.y0)/this.short;
       p.maxMove=Math.max(p.maxMove,p.moved);
     }
-    this.update();
+    this.update(e.timeStamp);
+    if(p.pendSwipe && !p.gesture && !p.consumed && !this.dualHandled){
+      p.gesture=p.pendSwipe.ev.raw;
+      this.emit('SWIPE',p.pendSwipe.ev,p.pendSwipe.ts);
+      p.pendSwipe=null;
+    }
     this.pts.delete(e.pointerId);
     if(this[p.side]===p) this[p.side]=null;
-    const dur=Clock.real-p.t0;
+    const dur=Clock.evReal(e.timeStamp)-p.t0;
     if(p.band==='G' && !p.gesture){
       // ガード帯：離した＝構えを解いただけ。決して打撃にはならない
-      this.emit(p.side==='L'?'LEFT_RELEASE':'RIGHT_RELEASE',{held:dur,band:'G'});
+      this.emit(p.side==='L'?'LEFT_RELEASE':'RIGHT_RELEASE',{held:dur,band:'G'}, e.timeStamp);
     }else if(p.holding){
-      this.emit(p.side==='L'?'LEFT_RELEASE':'RIGHT_RELEASE',{held:dur,band:p.band});
+      this.emit(p.side==='L'?'LEFT_RELEASE':'RIGHT_RELEASE',{held:dur,band:p.band}, e.timeStamp);
     }else if(!p.gesture && !p.consumed){
       // 180ms 以内 かつ 移動量 3% 未満 → タップ (§7 優先順位 4)
       if(dur<=G.TAP_MAX_MS && p.maxMove<G.TAP_MAX_MOVE){
-        this.emit('TAP',{side:p.side,x:p.x,y:p.y,band:p.band});
+        this.emit('TAP',{side:p.side,x:p.x,y:p.y,band:p.band}, e.timeStamp);
       }else{
-        this.emit('INVALID',{side:p.side});
+        this.emit('INVALID',{side:p.side}, e.timeStamp);
       }
     }
     if(this.pts.size===0) this.dualHandled=false;
   },
 
-  // 毎フレーム：スライド / 長押しの成立判定
-  update(){
+  // スライド / 長押しの成立判定。毎フレームと、pointermove/up の場でも走る。
+  // ts はイベント由来の時刻（rAF から呼ばれたときは undefined ＝現フレーム時刻）
+  update(ts){
     const arr=[...this.pts.values()];
 
     // --- 両指入力 ---
@@ -682,23 +701,36 @@ const Input = {
       const L=a.side==='L'?a:b, R=a.side==='L'?b:a;
       const inBoth = (L.x-L.x0)> th && (R.x-R.x0)< -th;
       if(upBoth||downBoth||inBoth){
-        this.emit(upBoth?'DUAL_UP':downBoth?'DUAL_DOWN':'DUAL_IN');
+        this.emit(upBoth?'DUAL_UP':downBoth?'DUAL_DOWN':'DUAL_IN', null, ts);
         a.gesture=b.gesture='dual'; a.consumed=b.consumed=true;
         this.dualHandled=true;
-      }else if(Clock.real-Math.max(a.t0,b.t0)>=G.HOLD_MS &&
+      }else if(Clock.evReal(ts)-Math.max(a.t0,b.t0)>=G.HOLD_MS &&
                a.maxMove<G.GUARD_IGNORE && b.maxMove<G.GUARD_IGNORE &&
                !a.holding && !b.holding){
         // 両指長押し = スプロール／低い構え
         a.holding=b.holding=true; a.gesture=b.gesture='dualhold';
-        this.emit('DUAL_HOLD');
+        this.emit('DUAL_HOLD', null, ts);
         this.dualHandled=true;
       }
       if(this.dualHandled) return;
     }
 
+    // --- 保留スワイプの仲裁（rAF でのみ）---
+    if(ts===undefined){
+      for(const p of arr){
+        if(!p.pendSwipe) continue;
+        if(!p.gesture && !p.consumed && !this.dualHandled){
+          p.gesture=p.pendSwipe.ev.raw;
+          this.emit('SWIPE',p.pendSwipe.ev,p.pendSwipe.ts);
+        }
+        p.pendSwipe=null;
+      }
+    }
+
     // --- 片指 ---
     for(const p of arr){
       if(p.gesture||p.consumed) continue;
+
       const dx=p.x-p.x0, dy=p.y-p.y0;
       const d=Math.hypot(dx,dy);
       if(d >= G.SWIPE_DIST*this.short){
@@ -710,20 +742,28 @@ const Input = {
         else if(Math.abs(ang)<=G.DIR_TOL) dir='RIGHT';
         else if(Math.abs(Math.abs(ang)-Math.PI)<=G.DIR_TOL) dir='LEFT';
         if(dir){
-          p.gesture=dir;
           // 内側／外側へ変換
           let kind=dir;
           if(dir==='LEFT'||dir==='RIGHT'){
             const inward = (p.side==='L') ? (dir==='RIGHT') : (dir==='LEFT');
             kind = inward ? 'IN' : 'OUT';
           }
-          this.emit('SWIPE',{side:p.side,dir:kind,raw:dir,band:p.band});
+          const ev={side:p.side,dir:kind,raw:dir,band:p.band};
+          if(p.dual && !this.dualHandled && ts!==undefined && !p.pendSwipe){
+            // 両指ジェスチャーの可能性が残っている間は1フレームだけ保留。
+            // 次の rAF（または指を離した瞬間）に、両指が成立していなければ
+            // 記録した発生時刻のまま単独スワイプとして発火する
+            p.pendSwipe={ev, ts};
+          }else{
+            p.gesture=dir;
+            this.emit('SWIPE',ev,ts);
+          }
         }
       }else if(!p.holding && p.band==='S' &&
-               Clock.real-p.t0>=G.HOLD_MS && p.maxMove<G.GUARD_IGNORE){
+               Clock.evReal(ts)-p.t0>=G.HOLD_MS && p.maxMove<G.GUARD_IGNORE){
         // 打撃帯で 220ms 静止 → 長押しガード (§7 優先順位 3)
         p.holding=true;
-        this.emit('HOLD',{side:p.side,band:'S'});
+        this.emit('HOLD',{side:p.side,band:'S'}, ts);
       }
     }
   },
@@ -1039,18 +1079,22 @@ Object.assign(Fight,{
   // ---------- 見切り (§9.1 発動条件) ----------
   // 指を置いた瞬間が「初動を見切った」瞬間。既存の操作はすべてここから始まる。
   // 早く見抜くほど、拳が遠い段階から深く長く減速する。
-  tryRead(){
+  tryRead(atGame){
     const p=this.p, ex=this.exchange;
     if(this.over) return;
+    // 判定基準は「指が触れた瞬間」。キュー処理は次フレームなので、
+    // 処理時点の Clock.game を使うと 60Hz で最大17ms 遅く判定され、
+    // 60Hz と 120Hz の端末で PERFECT の実効幅が変わってしまう
+    const t = (atGame!==undefined)? atGame : Clock.game;
     // 先走った直後は目が置いていかれる。連打では見切れない
-    if(Clock.game < p.flinchUntil) return;
+    if(t < p.flinchUntil) return;
 
-    const el = ex ? Clock.game-ex.t0 : 0;
+    const el = ex ? t-ex.t0 : 0;
     const readable = ex && !ex.read && !ex.resolved &&
                      el <= ex.tell*this.diff.readWindow + this.diff.readGrace;
     if(!readable){
       // 読むものが無いのに手が出た＝過剰反応。しばらく読めなくなる (§9.1「間」)
-      p.flinchUntil = Clock.game + 300;
+      p.flinchUntil = t + 300;
       return;
     }
     const rel = el/ex.tell;
@@ -1061,11 +1105,11 @@ Object.assign(Fight,{
     else               { q='LATE';    mul=0.45; }     // 拳が出てから気づいた
 
     const m=ex.data;
-    const remain=Math.max(60, ex.impact-Clock.game);
+    const remain=Math.max(60, ex.impact-t);
     const real=TS.CHOICE_REAL*(m.read||1)*this.diff.readMul*this.ftr.ai.readMul*mul*(this.readPenalty?0.7:1);
     ex.read=q; ex.readRel=rel;
     ex.slowScale=clamp(remain/real, 0.10, 0.90);
-    ex.slowAt=Clock.game;
+    ex.slowAt=t;
     this.stats.reads++;
     if(q==='PERFECT') this.stats.readPerfect++;
     this.float(q==='PERFECT'?'見 切 っ た':(q==='GOOD'?'読 ん だ':'遅 い'),
@@ -1476,7 +1520,7 @@ Object.assign(Fight,{
       // 指を置いた瞬間＝初動を見切った瞬間。対峙中なら開始の合図
       case 'LEFT_PRESS': case 'RIGHT_PRESS': {
         if(this.skipIntro()) break;
-        this.tryRead();
+        this.tryRead(g.game);
         // ガード帯は触れた瞬間から構える。打撃には決してならない
         if(g.band==='G'){
           p.guard=g.side; p.guardSide=g.side; p.guardT=Clock.game;
@@ -3909,6 +3953,7 @@ function frame(ts){
   Q.tick(raw);
   Clock.freeze = !!(Fight.hitstop && Clock.real<Fight.hitstop);
   Clock.tick(raw);
+  Clock.tickAt = ts;
   Input.update();
 
   if(scene==='fight'){
