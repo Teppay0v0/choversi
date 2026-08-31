@@ -254,7 +254,7 @@ const STEP_MS = 300, STEP_MS_PERFECT = 240, STEP_STAMINA = 4;
 // safe   : 有効な防御手段
 const MOVES = {
   // リード（左）— 肩が既に前にあるので溜めがほとんど無い。差し合いの道具
-  jab      :{ja:'左ジャブ',      hand:'lead', dmg:5, stam:3, whiff:2, tell:110, impact:250, recover:180, arc:'straight', side:'L', from:+1, read:0.46, safe:['guard','slipL','sway'],    bad:['advance']},
+  jab      :{ja:'左ジャブ',      hand:'lead', dmg:5, stam:3, whiff:2, tell:150, impact:330, recover:210, arc:'straight', side:'L', from:+1, read:0.52, safe:['guard','slipL','sway'],    bad:['advance']},
   hook     :{ja:'左フック',      hand:'lead', dmg:11,stam:8, whiff:5, tell:280, impact:520, recover:360, arc:'hook',     side:'L', from:+1, read:0.86, safe:['guard','sway','retreat'],  bad:['slipL','slipR']},
   // リア（右）— 肩の溜め・腰の回転・後ろ足の返りが出る。読めるが重い
   straight :{ja:'右ストレート',  hand:'rear', dmg:11,stam:6, whiff:4, tell:280, impact:480, recover:380, arc:'straight', side:'R', from:-1, read:1.00, safe:['guard','slipR','sway'],    bad:['slipL','advance']},
@@ -2109,6 +2109,9 @@ function chain(a){
 // コーチング文献の「フックは肘90度」は指導上の目安で、実測はもっと開いている。
 // 肘角から余弦定理で「肩から拳までの距離」を出し、それを軌道の終点にする。
 const ELBOW_IMPACT = { straight:112.9, hook:116.9, upper:100.1 };
+// Stanley et al.(2018)：拳の最高速度は接触の 8〜21ms 前に訪れる。
+// つまり接触時にはすでにわずかに減速している（easeOut がこれを表す）
+const PEAK_BEFORE_CONTACT = 15;   // ms
 function reachAt(deg){
   const L1=ARM.upper, L2=ARM.fore, c=Math.cos(deg*Math.PI/180);
   return Math.sqrt(L1*L1 + L2*L2 - 2*L1*L2*c);

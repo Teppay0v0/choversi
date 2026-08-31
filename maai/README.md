@@ -224,6 +224,35 @@ FIGHTERS.gou = {
 | 右アッパー 着弾 | 500 ms | **545 ms** |
 | 右ストレート 着弾 | 480 ms | 480 ms（据え置き） |
 
+### 第3次調査：Stanley et al. (2018) の数値
+
+6技すべてを3D モーションキャプチャ＋2枚のフォースプレートで計測した論文を特定しました。
+アマチュア15名（経験 6.3±2.8年）。PDFは環境の制約で取得できませんでしたが、
+主要数値は取得できています。
+
+| 計測項目 | 値 |
+|---|---|
+| **ジャブの所要時間**（6技中で最短） | **405 ± 0.15 ms** |
+| **リードフックの拳速度**（6技中で最大） | **11.95 ± 1.84 m/s** |
+| 後ろ手ストレートの拳速度 | 6.97 m/s |
+| 後ろ手ストレートの肩角速度 | 534.5 ± 207.8 °/s |
+| 後ろ手ストレートの肘角速度 | 399.6 ± 171.8 °/s |
+| **リアアッパーの肩角速度**（最大） | **1069.8 ± 104.5 °/s** |
+| **リードアッパーの肘角速度**（最大） | **651.0 ± 357.5 °/s** |
+| **拳が最高速度に達するのは接触の** | **8〜21 ms 前** |
+
+**フックが最速・ストレートが最遅**という関係は、Dinu & Louis (2020) と独立に一致しました
+（11.95 vs 11.2 m/s、6.97 vs 8.1 m/s）。
+
+#### 修正
+
+ジャブの所要が **250ms** と実測（405ms）より速すぎたため、
+最速である関係を保ったまま **330ms** へ寄せました（溜め 110→150ms）。
+NORMAL での見切りの猶予も 387→433ms に広がります。
+
+「拳の最高速度は接触の 8〜21ms 前」＝**接触時にはすでにわずかに減速している**。
+軌道の `easeOut` がこれを表現しており、実測と整合していることを確認しました。
+
 ### 調査の制約
 
 この開発環境は組織のegressポリシーにより **`WebSearch` 以外の外部アクセスが遮断**されています。
@@ -245,6 +274,15 @@ Wikipedia までブロックされ、`curl` も全ドメインで接続不可で
   https://researchonline.ljmu.ac.uk/id/eprint/14088/
 - A comparative analysis of punching in boxing and sanda: cross and uppercut
   https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1441470/full
+- **Stanley E, Thomson E, Smith G, Lamb KL (2018) An analysis of the three-dimensional
+  kinetics and kinematics of maximal effort punches among amateur boxers.
+  International Journal of Performance Analysis in Sport 18(5)**
+  https://www.tandfonline.com/doi/abs/10.1080/24748668.2018.1525651
+  オープンアクセス版: https://chesterrep.openrepository.com/bitstream/handle/10034/621889/IJPAS%20(2018).pdf
+- Stanley E. Maximal punching performance in amateur boxing（博士論文・全文）
+  https://chesterrep.openrepository.com/bitstream/handle/10034/623170/FINAL%20THESIS%20FOR%20CHESTERREP.pdf
+- 3D Kinematic Analysis of Three Different Punches in Amateur Boxing（METU 修士論文）
+  https://open.metu.edu.tr/bitstream/handle/11511/21166/index.pdf
 - Kinematic and kinetic analysis of throwing a straight punch
   https://efsupit.ro/images/stories/30dec2017/Art%20287.pdf
 - Expert amateur Irish boxing coaches' perceptions of the technical components of straight punches
