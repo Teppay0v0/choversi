@@ -265,28 +265,27 @@ const Rig3 = {
     return true;
   },
 
-  // 拳の握り 0..1（検証：ローカルZ軸カールで拳がグローブ内に収まる）
-  setFist(k){
-    const T=this.T;
-    for(const f of this.fingers){
-      // グローブには指ループがあり、指はそこを通っている。
-      // 深く握ると指がループから抜けて破綻するので、浅い握りに留める
-      const ang=(f.f==='Thumb'? 0.12 : (f.seg===1?0.34:0.30))*k;
-      const q=new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1), f.side==='L'? -ang : ang);
-      f.b.quaternion.copy(f.bind).multiply(q);
-    }
+  // v01モデルは素手の指がグローブのループを通る構造で、ポーズすると
+  // 指が抜けて素手が露出して見える。指ボーンを潰してグローブ内へ収め、
+  // オープンフィンガーの見た目はグローブ形状（指ループ穴）に任せる。
+  // v02で指スタブ一体型グローブが来たらここを差し替える
+  setFist(){
+    if(this._crushed) return; this._crushed=true;
+    for(const f of this.fingers){ if(f.seg===1) f.b.scale.setScalar(0.02); }
   },
 
   // 手の完全指定：腕方向 fwd と「拳の甲」方向 kn で基底を作る。
   // swingだけの _aim では捻りが左右非対称に暴れる（グローブが180度回った）
-  _orient(name, fwd, kn){
+  _orient(name, fwd, kn, basis){
     const T=this.T, b=this.B[name];
     const a1=new T.Vector3(fwd[0],fwd[1],fwd[2]).normalize();
     let k1=new T.Vector3(kn[0],kn[1],kn[2]);
     k1.addScaledVector(a1,-k1.dot(a1)).normalize();
     const t1=new T.Vector3().crossVectors(a1,k1);
-    const dx=(name[0]==='L')?1:-1;                     // Tポーズで腕は ±X、甲は +Y
-    const a0=new T.Vector3(dx,0,0), k0=new T.Vector3(0,1,0);
+    // 既定はTポーズの手：腕は ±X、甲は +Y。頭は [0,1,0]/[0,0,1] を渡す
+    const dx=(name[0]==='L')?1:-1;
+    const a0=new T.Vector3(...(basis?basis[0]:[dx,0,0]));
+    const k0=new T.Vector3(...(basis?basis[1]:[0,1,0]));
     const t0=new T.Vector3().crossVectors(a0,k0);
     const M1=new T.Matrix4().makeBasis(a1,k1,t1);
     const M0=new T.Matrix4().makeBasis(a0,k0,t0);
@@ -351,22 +350,20 @@ const Rig3 = {
     this._aim('Spine1', spineDir, +twistTotal*0.5);
     this._aim('Spine2', spineDir, +twistTotal*0.5);
 
-    // --- 首と頭：頭の位置へ伸ばし、顔はカメラへ向ける ---
+    // --- 首と頭 ---
+    // ファイターは常に相手（＝カメラ）を見る。頭は完全基底指定：
+    // 上方向＝首の軸、正面＝カメラへの水平方向＋視線の揺れ
     const neckW=B.Neck.getWorldPosition(new T.Vector3());
     this._aim('Neck', this._dir([neckW.x,neckW.y,neckW.z], P.headC), 0);
     {
-      // 頭のねじり：現在の顔の向き（バインド＋Z変換後）とカメラ方向の水平角差
       const headW=B.Head.getWorldPosition(new T.Vector3());
-      const q=new T.Quaternion(); B.Head.parent.getWorldQuaternion(q);
-      const fwd=new T.Vector3(0,0,1).applyQuaternion(q.clone().multiply(this.bindQ.Head));
-      const toCam=camPos? new T.Vector3(camPos[0]-headW.x,0,camPos[2]-headW.z).normalize()
-                        : new T.Vector3(0,0,1);
-      fwd.y=0; fwd.normalize();
-      let a=Math.atan2(fwd.x,fwd.z)-Math.atan2(toCam.x,toCam.z);
-      if(a>Math.PI)a-=2*Math.PI; if(a<-Math.PI)a+=2*Math.PI;
       const up=this._dir([headW.x,headW.y,headW.z],
         [P.headC[0], P.headC[1]+0.12, P.headC[2]]);
-      this._aim('Head', up, clamp(a,-1.1,1.1)*0.9 + (P.gaze?P.gaze.x*0.25:0));
+      const gz=P.gaze||{x:0,y:0};
+      let fwd=camPos? [camPos[0]-headW.x, 0, camPos[2]-headW.z] : [0,0,1];
+      const fl=Math.hypot(fwd[0],fwd[2])||1;
+      fwd=[fwd[0]/fl + gz.x*0.28, -0.10 + gz.y*0.15, fwd[2]/fl];
+      this._orient('Head', up, fwd, [[0,1,0],[0,0,1]]);
     }
 
     // --- 腕 ---
@@ -2337,7 +2334,9 @@ function drawOpponent(F){
   const tackleY=(arc==='tackle')? -0.30*lean : 0;
   const rootX=stagX + (side||0)*0.02*CH.chamber;
   const rootZ=adv + tackleZ;
-  const rootY=spring + tackleY - (EB.crouch||0)*0.30 - 0.015*CH.chamber*(punchArc?1:0);
+  // 構えの屈膝：直立の骨盤高だと膝が伸び切ってマネキンになる。
+  // 実測では構えの膝角は約143度（Dinu & Louis 2020）＝骨盤を沈める
+  const rootY=spring + tackleY - 0.055 - (EB.crouch||0)*0.30 - 0.015*CH.chamber*(punchArc?1:0);
 
   // ローカル(x,z)を腰ヨーで回してワールドへ。yは床からの絶対高さ
   const toW=(x,y,z,yy)=>{ const r=rotY([x,0,z],yy===undefined?hipYaw:yy);
