@@ -420,6 +420,9 @@ const BEAT = 60000 / BPM;          // 600 ms
 // 人の反応は約250ms、Joch(1981)の平均反応は427ms。
 // 「見て・決めて・構え直す」ために、その2倍以上を空ける
 const GAP_MIN = 900;
+// 視覚刺激から指が動くまでの下限。単純反応で約190ms（選択反応はさらに遅い）。
+// 見切りの質はここを起点に測る
+const REACT_FLOOR = 190;
 
 // --- ジェスチャー認識 (§7) 画面短辺比 ---
 // 画面を上下に分ける。上＝ガード帯（触れた瞬間に構える）／下＝打撃帯
@@ -1354,10 +1357,16 @@ Object.assign(Fight,{
       p.flinchUntil = t + 300;
       return;
     }
-    const rel = el/ex.tell;
+    // 見切りの質は「予告が始まってから何ms」ではなく、
+    // 「人が反応できるようになってから何ms」で測る。
+    // 予告が網膜に映ってから指が動くまでの約190msは誰にも詰められない。
+    // ここを引かずに rel<=0.35 で PERFECT としていたため、
+    // ジャブは61ms以内・ストレートは113ms以内という到達不能な要求になり、
+    // 実プレイでPERFECTが一度も出ず、返しも永久に起きていなかった（実測）
+    const rel = Math.max(0, el-REACT_FLOOR) / ex.tell;
 
     let q, mul;
-    if(rel<=0.35)      { q='PERFECT'; mul=1.45; }     // 起こりの瞬間を捉えた
+    if(rel<=0.35)      { q='PERFECT'; mul=1.45; }     // 反応できる限界で捉えた
     else if(rel<=1.0)  { q='GOOD';    mul=1.00; }     // 予備動作のうちに反応した
     else               { q='LATE';    mul=0.45; }     // 拳が出てから気づいた
 
@@ -1485,7 +1494,13 @@ Object.assign(Fight,{
           this.float(j,j==='PERFECT'?C.good:C.ink,j==='PERFECT');
           this.burst(hitX,hitY,'guard',j==='PERFECT'?1:0.6);
           Audio_.guardHit(); haptic(j==='PERFECT'?'perfect':'guard');
-          if(j==='PERFECT') this.grantAdvantage(true);
+          // 受け止めてから返す。パンチの攻防でこそ反転が起きてほしいので、
+          // 振り切る技をPERFECTで受け切ったときはガードでも「返し」になる。
+          // （スリップ限定にしていたため、最も使われるガードでは
+          //   一度も反転が起きていなかった ——実測で返し3/24）
+          const committedG = m.recover>=340 && !wrongHand;
+          if(j==='PERFECT' && committedG) this.reversal('counter', 0);
+          else if(j==='PERFECT') this.grantAdvantage(true);
           else if(ex.read) this.grantAdvantage(false);   // 見切った上でのガードも反撃可
           avoided=true;
         }
