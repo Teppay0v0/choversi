@@ -270,10 +270,15 @@ const Rig3 = {
   // 指が抜けて素手が露出して見える。指ボーンを潰してグローブ内へ収め、
   // オープンフィンガーの見た目はグローブ形状（指ループ穴）に任せる。
   // v02で指スタブ一体型グローブが来たらここを差し替える
-  setFist(){
-    if(this._crushed) return; this._crushed=true;
-    // 全節を潰す。第1節だけだと指先が甲から突き出て見えた
-    for(const f of this.fingers) f.b.scale.setScalar(0.01);
+  // 素手の拳を握る。グローブは外してあるので指はそのまま見せる
+  setFist(k){
+    const T=this.T, kk=(k===undefined?1:k);
+    for(const f of this.fingers){
+      const ang=(f.f==='Thumb'? 0.55 : (f.seg===1?1.05:1.25))*kk;
+      const q=new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),
+        f.side==='L'? -ang : ang);
+      f.b.quaternion.copy(f.bind).multiply(q);
+    }
   },
 
   // 手の完全指定：腕方向 fwd と「拳の甲」方向 kn で基底を作る。
@@ -2175,7 +2180,9 @@ function chain(a, arc){
 
 /* ---- カメラ（ピンホール） ---- */
 const Cam={
-  fovY:60*Math.PI/180, eyeH:1.62, lookH:1.44, dist:1.30, x:0,
+  // 構えた選手は頭を下げる。モーキャプの打撃は y=1.34〜1.54 に着弾するので、
+  // こちらの目線をそこへ合わせる（1.62 のままだと拳が顎の下を通る）
+  fovY:60*Math.PI/180, eyeH:1.50, lookH:1.48, dist:1.30, x:0,
   E:[0,1.62,1.35], right:[1,0,0], up2:[0,1,0], fwd:[0,0,-1], f:900,
   update(){
     this.E=[this.x,this.eyeH,this.dist];
@@ -2204,14 +2211,16 @@ const Cam={
    予備動作(tell)・打撃・戻りを、クリップ時刻へ写像して再生する。
    主観時間スローは「写像された時刻」をそのまま使うので自動で効く */
 const Anim={
-  ready:false, mixer:null, clips:{}, impact:{}, cur:null, curName:'', idleT:0,
+  ready:false, mixer:null, clips:{}, impact:{}, peakZ:{}, cur:null, curName:'', idleT:0,
   init(scene, animations){
     if(!animations || !animations.length) return false;
+    this.root=scene;
     this.mixer=new THREE.AnimationMixer(scene);
     for(const c of animations){
       const n=c.name.toLowerCase().replace(/[^a-z0-9_]/g,'_');
       this.clips[n]=c;
-      this.impact[n]=this._detectImpact(c, scene);
+      const d=this._detectImpact(c, scene);
+      this.impact[n]=d.t; this.peakZ[n]=d.z;
     }
     this.ready=true;
     console.log('Anim clips:', Object.keys(this.clips).join(', '));
@@ -2237,7 +2246,7 @@ const Anim={
       if(z>best){ best=z; bestT=t; }
     }
     mx.stopAllAction(); mx.uncacheRoot(scene);
-    return Math.max(0.05, bestT);
+    return { t:Math.max(0.05,bestT), z:best };
   },
   _pick(m){
     const arc=m.arc||'straight', lead=(m.hand==='lead');
@@ -2256,9 +2265,15 @@ const Anim={
   },
   _play(name){
     if(name===this.curName) return;
-    if(this.cur) this.cur.stop();
+    // 一つのミキサーを使い回すと、stop() したはずのアクションが
+    // 全て running・重み1 のまま残って姿勢が混ざる（実測：9本が同時再生され、
+    // 拳が本来 0.72 のところ 0.203 で止まっていた）。
+    // 切替のたびにミキサーを作り直す。生成は軽く、切替は毎秒数回まで
+    if(this.mixer) this.mixer.stopAllAction();
+    this.mixer=new THREE.AnimationMixer(this.root);
     this.cur=this.mixer.clipAction(this.clips[name]);
     this.cur.play(); this.curName=name;
+    this._settle=true;      // 直後の1回目は姿勢が確定しないので余分に更新する
   },
   // ゲーム状態 → クリップ時刻。tell＝インパクト前40%、打撃＝残り60%、
   // 戻り＝インパクト後を220msで再生
@@ -2303,8 +2318,11 @@ const Anim={
     }
     this._play(name);
     this.mixer.setTime(t);
+    if(this._settle){ this._settle=false; this.mixer.setTime(t); }
     if(this._snap){
-      const k=clamp((Clock.real-this._snapAt)/120,0,1);
+      // 予告(tell)は最短170ms。120msのブレンドでは打撃の大半が
+      // 前の姿勢に食われる。60msに詰める
+      const k=clamp((Clock.real-this._snapAt)/60,0,1);
       if(k>=1){ this._snap=null; }
       else for(const s of this._snap){
         s.b.quaternion.slerp(s.q, 1-k);       // 現在値→旧姿勢へ (1-k) だけ戻す
@@ -2338,6 +2356,8 @@ const GL3={
         this.sc.add(g.scene); this.root=g.scene;
         if(!Rig3.init(g.scene, THREE)) return;
         this.body=g.scene.getObjectByName('MAAi_Ren_Body');
+        // グローブのメッシュは外す（v01の形状は暫定でゲームに合わない）
+        g.scene.traverse(o=>{ if(/^Icosphere/.test(o.name||'')) o.visible=false; });
         // クリップ：GLB同梱があれば優先、無ければ埋め込みJSON（Mixamo変換済み）
         const clips=(g.animations&&g.animations.length)? g.animations
           : (window.CLIPS_JSON||[]).map(j=>THREE.AnimationClip.parse(j));
@@ -2375,7 +2395,25 @@ const GL3={
       // 屈膝・上下動はクリップ側にあるので、コードの定常沈み(-0.055)は打ち消す
       const H2=(EB.height||0.90)*2.035;
       const dy=Math.min(0, P.pelvis[1]-RIG.hipH*H2+0.055);
-      this.root.position.set(P.pelvis[0], dy, P.pelvis[2]);
+      // モーキャプの拳は腰から0.65〜0.72mまでしか届かない（実測）。
+      // カメラは1.02mなので、そのままでは30cm以上手前で止まり
+      // 「打っていない」ように見える。不足分だけ体ごと踏み込ませる
+      let z=P.pelvis[2];
+      const pk=Anim.peakZ[Anim.curName];
+      if(pk!==undefined && P.punchingSide!==0){
+        // 既存の前進(pelvisZ)を差し引いて、拳がちょうど顔の手前で止まるように
+        const need=clamp((Cam.dist-0.16)-pk-P.pelvis[2], 0, 0.60);
+        const ex=F.exchange;
+        let k=0;
+        if(ex && !ex.resolved) k=clamp((Clock.game-ex.t0)/Math.max(1,ex.impact-ex.t0),0,1);
+        else if(F.e.state==='recover') k=1-clamp((Clock.game-F.e.stateT)/220,0,1);
+        z += need*easeOut(k);
+        // 体がカメラを突き抜けないよう上限（タックルで1.45まで来ていた）
+        if(pk+z > Cam.dist+0.04) z = Cam.dist+0.04-pk;
+      }
+      // モーキャプの打撃は体の中心より約9cm左へ着弾する。
+      // 体を右へずらして、拳がこちらの正面へ来るようにする
+      this.root.position.set(P.pelvis[0]+0.09, dy, z);
       // 半身はクリップ（Boxing Idle等）自体に入っているため、根の回転は少しだけ
       // 半身はクリップ（Boxing Idle等）自体に入っている。根を回すと
       // 打撃の狙点が横へずれるので回さない
@@ -2392,7 +2430,8 @@ const GL3={
       V.shL={x:sL.x,y:sL.y}; V.shR={x:sR.x,y:sR.y};
       if(P.punchingSide!==0 && P.CH.arm>0.25){
         const hp=prj(Rig3.B[P.punchingSide===1?'LeftHand':'RightHand']);
-        const r=0.058*(V.H*0.5)/Math.tan(Cam.fovY/2)/Math.max(0.14,hp.d);
+        // 拳が目前まで来ると投影半径が発散するので上限を設ける
+        const r=Math.min(V.H*0.20, 0.058*(V.H*0.5)/Math.tan(Cam.fovY/2)/Math.max(0.14,hp.d));
         V.fist={x:hp.x,y:hp.y,r,active:true,s:P.punchingSide};
       }
     }else{
