@@ -254,7 +254,7 @@ const STEP_MS = 300, STEP_MS_PERFECT = 240, STEP_STAMINA = 4;
 // safe   : 有効な防御手段
 const MOVES = {
   // リード（左）— 肩が既に前にあるので溜めがほとんど無い。差し合いの道具
-  jab      :{ja:'左ジャブ',      hand:'lead', dmg:5, stam:3, whiff:2, tell:150, impact:330, recover:210, arc:'straight', side:'L', from:+1, read:0.52, safe:['guard','slipL','sway'],    bad:['advance']},
+  jab      :{ja:'左ジャブ',      hand:'lead', dmg:6.5,stam:3, whiff:2, tell:150, impact:330, recover:210, arc:'straight', side:'L', from:+1, read:0.52, safe:['guard','slipL','sway'],    bad:['advance']},
   hook     :{ja:'左フック',      hand:'lead', dmg:11,stam:8, whiff:5, tell:280, impact:520, recover:360, arc:'hook',     side:'L', from:+1, read:0.86, safe:['guard','sway','retreat'],  bad:['slipL','slipR']},
   // リア（右）— 肩の溜め・腰の回転・後ろ足の返りが出る。読めるが重い
   straight :{ja:'右ストレート',  hand:'rear', dmg:11,stam:6, whiff:4, tell:280, impact:480, recover:380, arc:'straight', side:'R', from:-1, read:1.00, safe:['guard','slipR','sway'],    bad:['slipL','advance']},
@@ -1902,7 +1902,7 @@ function drawOpponent(F){
     prog=1-easeOut(back); strike=prog; wind=prog>0?1:0;
     const lm=F.lastMove; if(lm){ m=lm; side=lm.side==='R'?-1:(lm.side==='L'?1:0); arc=lm.arc; }
   }
-  const CH=chain(prog);
+  const CH=chain(prog, arc);
 
   ctx.save();
 
@@ -2091,8 +2091,21 @@ const ARM = {
 //  ・クロスは「腰が先導し、肩が続き、腕が遅れ、拳が最後に弾ける」
 //  ・腕そのものの伸展は 60〜100ms（接触時間は 10〜20ms）
 //    → 右ストレート全体 480ms のうち、腕は最後の約 22%（106ms）
-function chain(a){
+function chain(a, arc){
   const sm=(x,s,e)=>clamp((x-s)/(e-s),0,1);
+  // Whiting, Gregor & Finerman (1988)：肩のピーク速度は
+  // 「フックの方がジャブより打撃サイクルの早い段階で起きる」
+  const sh = (arc==='hook') ? -0.08 : 0;
+  if(sh){
+    return {
+      chamber: 1-sm(a,0.00,0.40+sh),
+      foot   : sm(a,0.34+sh,0.66+sh),
+      hip    : sm(a,0.46+sh,0.84+sh),
+      torso  : sm(a,0.56+sh,0.90+sh),
+      shldr  : sm(a,0.66+sh,0.94+sh),
+      arm    : sm(a,0.78+sh,1.00),
+    };
+  }
   return {
     chamber: 1-sm(a,0.00,0.40),   // 引き手（先に完了する）
     foot   : sm(a,0.34,0.66),     // 後ろ足の踵が外へ返る
@@ -2119,6 +2132,10 @@ function reachAt(deg){
 const R_CROSS = reachAt(ELBOW_IMPACT.straight);   // 0.298
 const R_HOOK  = reachAt(ELBOW_IMPACT.hook);       // 0.304
 const R_UPPER = reachAt(ELBOW_IMPACT.upper);      // 0.274
+// Joch, Fritsche & Krause (1981)：打撃は肘角 50〜70度から始まり、
+// 110〜130度で接触する。所要は平均100ms。
+// 接触時の 110〜130度は Dinu & Louis(2020) の 112.9度と一致する。
+const R_CHAMBER = reachAt(60);                    // 引き手の肘角 60度 → 0.179
 
 // カメラ軸（画面中央）へ向かう透視投影
 function projArm(ax,ay,dx,dy,dz,bh){
@@ -2179,7 +2196,7 @@ function drawEnemyArm(F,s,o){
   const {cx,shY,headY,headR,bh,side,arc,m}=o;
   const wind=o.wind, strike=o.strike, a=o.prog;         // a: 起こり(0)→接触(1)
   const isLead=(s===LEAD);
-  const CH=chain(a);
+  const CH=chain(a, arc);
   const punching=(side===s)&&arc!=='kick'&&arc!=='tackle'&&a>0;
 
   // 肩：体幹の回転に押されて前へ出る（＝腕より先に動く）
@@ -2203,11 +2220,15 @@ function drawEnemyArm(F,s,o){
     // 引き手 → 伸展。腕は運動連鎖の最後に動く
     const g=fistPath(arc, s, CH.arm, isLead);
     const gh=(EB.guardHigh-0.62)*0.10;
-    const rest= isLead ? [ -s*0.014, -0.038+gh, 0.052 ]     // 前手：やや前、頬の高さ
-                       : [ -s*0.030, -0.098+gh, 0.016 ];    // 後ろ手：頬の横
+    // Düz(2011) の構えの定義：前手は「頭の高さ」、後ろ手は「顎の高さ」に置く
+    const rest= isLead ? [ -s*0.020, -0.118+gh, 0.046 ]     // 前手：頭の高さ
+                       : [ -s*0.036, -0.046+gh, 0.020 ];    // 後ろ手：顎の高さ
     const ch=CH.chamber;
     // 溜め：拳を顎の横へ引く（奥へ引くので小さく見える）
-    const chP=[ -s*0.004, -0.062+gh, -0.032 ];
+    // 引き手：肘角60度（実測）。方向を保ったまま距離を合わせる
+    const cd=[ -s*0.10, -0.34, -0.30 ];
+    const cdl=Math.hypot(cd[0],cd[1],cd[2]);
+    const chP=[ cd[0]/cdl*R_CHAMBER, cd[1]/cdl*R_CHAMBER+gh, cd[2]/cdl*R_CHAMBER ];
     const base=[ lerp(rest[0],chP[0],ch), lerp(rest[1],chP[1],ch), lerp(rest[2],chP[2],ch) ];
     const u=CH.arm;
     // 引き手の距離 → 実測の肘角が与える距離 へ伸ばす
@@ -2233,9 +2254,10 @@ function drawEnemyArm(F,s,o){
   }else{
     // 構え：前手は前へ低く、後ろ手は顎の横
     const gh=(EB.guardHigh-0.62)*0.10;
+    // Düz(2011)：前手は頭の高さ、後ろ手は顎の高さ
     P= isLead
-      ? { p:[ -s*0.014, -0.038+gh, 0.052 ], hint:[ 0, 1.00, 0.18 ] }
-      : { p:[ -s*0.030, -0.098+gh, 0.016 ], hint:[ 0, 0.35, 1.00 ] };
+      ? { p:[ -s*0.020, -0.118+gh, 0.046 ], hint:[ 0, 1.00, 0.30 ] }
+      : { p:[ -s*0.036, -0.046+gh, 0.020 ], hint:[ 0, 0.60, 0.85 ] };
     // 相手が打っている間、反対の手は顎を締める
     if(side===s*-1 && a>0){
       P.p[1]-=0.022*CH.torso; P.p[0]-=s*0.010*CH.torso;

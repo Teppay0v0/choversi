@@ -253,6 +253,67 @@ NORMAL での見切りの猶予も 387→433ms に広がります。
 「拳の最高速度は接触の 8〜21ms 前」＝**接触時にはすでにわずかに減速している**。
 軌道の `easeOut` がこれを表現しており、実測と整合していることを確認しました。
 
+### 第4次調査：Düz (2011) METU博士論文
+
+30名（初級10・中級9・上級11）を 240fps モーションキャプチャ＋フォースプレート＋
+掌に挿入した加速度計で計測した博士論文。**文献レビューに、探していた時系列の数値が
+引用されていました。**
+
+#### ここでも私の実装が2か所否定されました
+
+**1. 引き手の肘角が畳みすぎだった**
+
+Joch, Fritsche & Krause (1981)：
+> 打撃は**肘角 50〜70度**から始まり、**110〜130度**で接触する。所要は平均 **100ms**。
+
+こちらの引き手は**肘角22度**で、拳を体に付けすぎていました。**60度**へ修正。
+なお接触時の 110〜130度は Dinu & Louis(2020) の 112.9度と一致しており、
+**独立した2本で裏が取れました**。
+
+**2. 構えの左右の高さが逆だった**
+
+Düz (2011) §1.8 の構えの定義：
+> 足は肩幅程度。**左足は約15〜20cm前**、後ろ足は体幹の前額面から約10cm後ろ。
+> **左手は頭の高さ**に、**右のグローブは顎の高さ**に置き、両手とも体の正中線より外側。
+
+こちらは後ろ手を高く、前手を低く置いていました。**前手＝頭の高さ／後ろ手＝顎の高さ**へ入れ替え。
+
+#### 追加で反映した数値
+
+| 文献の記述 | 実装 |
+|---|---|
+| 肩のピーク速度は**フックの方がジャブより早い**段階で起きる (Whiting 1988) | フックだけ運動連鎖を 8% 前倒し |
+| 最大打撃力は**全レベルで後ろ手＞前手**（エリート 4800N 対 2847N ＝ 1.68倍）(Smith 2000) | ジャブの威力 5 → 6.5（ストレート11に対し1.7倍） |
+| 掌の並進加速度：**アッパー71g ＞ フック63.2g ＞ ジャブ38.3g** | 威力の序列と整合 |
+| アッパーが**肩・肘・手首すべてで最大の加速度** | 3技で最も爆発的という位置づけを維持 |
+| フックが**最大の肩変位** | 肩の移動量が最大になる軌道 |
+| 上級者は初級者より**肩と肘の変位・速度・加速度が大きい** | 選手データの体格・速度差に対応 |
+| 打撃力：上級3453N / 国内リーグ3023N / 未経験2932N (Joch 1981) | 選手間の威力差の目安 |
+| 拳の実効質量 約4.1kg（手だけより大きい＝腕の質量が連結される）(Smith & Hamill 1986) | 運動連鎖の実装根拠 |
+
+#### 検証結果
+
+| 項目 | 実装 | 実測 |
+|---|---:|---:|
+| 引き手の肘角 | 60.0° | 50〜70° |
+| 接触時 ストレート | 112.9° | 112.9° / 110〜130° |
+| 接触時 フック | 116.9° | 116.9° |
+| 接触時 アッパー | 100.1° | 100.1° |
+| 前手の構え | 頭の高さ | 頭の高さ |
+| 後ろ手の構え | 顎の高さ | 顎の高さ |
+
+#### この企画の前提そのものを裏付ける記述
+
+Joch, Fritsche & Krause (1981) の結論：
+
+> 平均反応時間（**427ms**）は動作時間の**4倍**だった。
+> 著者らは「**ボクサーには、殴られるのを避けるのに十分な時間で動く可能性がほとんど無い**」
+> と結論づけた。
+
+打撃の実行は約100ms、反応には427msかかる。**現実には反応が間に合わない。**
+だからこそ「見えた瞬間、世界は遅くなる」という主観時間の発明が要る、という
+この企画の前提が、そのまま文献に裏付けられていました。
+
 ### 調査の制約
 
 この開発環境は組織のegressポリシーにより **`WebSearch` 以外の外部アクセスが遮断**されています。
@@ -283,6 +344,17 @@ Wikipedia までブロックされ、`curl` も全ドメインで接続不可で
   https://chesterrep.openrepository.com/bitstream/handle/10034/623170/FINAL%20THESIS%20FOR%20CHESTERREP.pdf
 - 3D Kinematic Analysis of Three Different Punches in Amateur Boxing（METU 修士論文）
   https://open.metu.edu.tr/bitstream/handle/11511/21166/index.pdf
+- **Düz S (2011) 3D Kinematic Analysis of Three Different Punches in Amateur Boxing.
+  博士論文, Middle East Technical University**（30名・240fps・フォースプレート）
+  https://open.metu.edu.tr/handle/11511/21166
+- Joch W, Fritsche P, Krause I (1981) Biomechanical analysis of punching in boxing.
+  Biomechanics VII-A, University Park Press, 343-349.（肘角50-70°→110-130°、所要100ms）
+- Whiting WC, Gregor RJ, Finerman GA (1988) Kinematic analysis of human upper
+  extremity movements in boxing. Am J Sports Med 16(2), 130-136.（体節ピーク速度の順序）
+- Smith MS, Dyson RJ, Hale T, Janaway L (2000) Development of a boxing dynamometer
+  and its punch force discrimination efficacy. J Sports Sci 18, 445-450.（前手対後ろ手の打撃力）
+- Smith PK, Hamill J (1986) The effect of punching glove type and skill level on
+  momentum transfer. J Human Movement Studies 12, 153-161.（拳の実効質量 4.1kg）
 - Kinematic and kinetic analysis of throwing a straight punch
   https://efsupit.ro/images/stories/30dec2017/Art%20287.pdf
 - Expert amateur Irish boxing coaches' perceptions of the technical components of straight punches
