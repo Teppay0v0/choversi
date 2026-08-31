@@ -71,3 +71,32 @@
 - [ ] 肘・膝を実測角度（112.9°等）に曲げて破綻しない
     （ウェイト塗りの確認。特に肩まわり）
 - [ ] iPhone Safari で 60fps
+
+
+## v02 依頼事項（実機確認とアニメーション方針決定後・2026-08-31）
+
+### アニメーションクリップ（最優先）
+Mixamo（無料・要Adobeアカウント）から以下を取得して1つのGLBに同梱する。
+ボーン名がMixamo互換なのでそのまま適用できるはず。
+
+検索名 → クリップ名（この名前でエクスポート）:
+- "Boxing Idle"（構えて揺れるもの）→ `idle_guard`
+- "Jab" / "Punch"（前手の刺し）→ `jab`
+- "Cross Punch"（後手ストレート）→ `cross`
+- "Hook Punch" → `hook_lead`
+- "Uppercut" → `uppercut_rear`
+- "Roundhouse Kick" または "Low Kick" → `kick_low`
+- "Takedown" 系 → `takedown`
+- "Head Hit" / "Receive Punch" → `hit_head`
+- "Knocked Out" → `ko`
+
+ダウンロード設定: FBX Binary / **Without Skin** / 30fps / Keyframe Reduction: none / **In Place にチェック**（あるもの）
+
+ゲーム側は実装済み: クリップがGLBに入っていれば自動でクリップ駆動へ
+切り替わる（無ければ従来の手続き駆動）。インパクト時刻は手首の前方
+到達最大で自動検出するので、フレーム表は「あれば尚良し」程度でよい。
+
+### モデル修正
+1. 眉・髪・瞳（テクスチャまたはメッシュ）。表情はゲームの「読み」の核。
+2. ショーツのウェイト修正（膝曲げポーズで腿が突き抜ける）
+3. 指スタブ一体型OFGグローブ（現在は素手の指を潰して収納している）
