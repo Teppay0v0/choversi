@@ -159,6 +159,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
         <button class="btn sub" data-act="howto">操作を確認</button>
         <button class="btn sub" data-act="calib">タイミング補正</button>
       </div>
+      <div class="row">
+        <button class="btn sub" data-act="stats">プレイの記録を見る</button>
+      </div>
     </div>
   </div>
 
@@ -166,6 +169,16 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
   <div class="overlay hidden" id="ovSit">
     <div class="sheet" id="sitBody"></div>
     <div class="menu"><button class="btn" data-act="title">タイトルへ</button></div>
+  </div>
+
+  <!-- プレイの記録 -->
+  <div class="overlay hidden" id="ovStats">
+    <div class="result" id="statsBody" style="overflow-y:auto;max-height:70vh"></div>
+    <div class="menu">
+      <button class="btn sub" data-act="stats-copy">記録をコピー</button>
+      <button class="btn sub" data-act="stats-clear">記録を消す</button>
+      <button class="btn primary" data-act="close-ov">戻る</button>
+    </div>
   </div>
 
   <!-- ブリーフィング -->
@@ -1059,6 +1072,8 @@ const Fight = {
     this.mode=mode; this.diff=diff; this.offsetMs=offset|0;
     // 相手を切り替える。体格・顔・色・打ち方・癖・リズムがすべて入れ替わる (§4.2)
     this.ftr = setFighter((sit&&sit.fighter) || fighterId || 'arata');
+    Rec.start(mode, (this.diff&&this.diff.ja)||'', this.ftr.name, sit&&sit.id);
+    this._lastImpactReal=0; this._takenNow=0;
     this.over=false; this.endReason=''; this.win=false;
     this.sit = mode==='situation' ? sit : null;
     this.timeLimit = mode==='single' ? 12000 : (mode==='situation' ? 999000 : 60000);
@@ -1327,8 +1342,11 @@ Object.assign(Fight,{
     SlowFx.emitSweat(V.faceX, V.faceY, 3+((e.fatigue*5)|0), 0.7);
 
     const readYou=e.readYou; e.readYou=null;
+    Rec.push('atk',{move:id, tell:Math.round(tell), imp:Math.round(impact),
+      gap: this._lastImpactReal? Math.round(Clock.real-this._lastImpactReal):null, readYou:readYou||null});
+    if(this._lastImpactReal) Rec.push('gap',{ms:Math.round(Clock.real-this._lastImpactReal)});
     this.exchange={
-      id, data:m, t0:Clock.game, tell, impact:Clock.game+impact, readYou,
+      id, data:m, t0:Clock.game, t0Real:Clock.real, tell, impact:Clock.game+impact, readYou,
       // 主観時間は自動では発動しない。予備動作の間に指を置けた時だけ開く (§9.1)
       read:null, readRel:0, slowAt:0, slowScale:TS.CHOICE,
       slowed:false, slowRealT:0, returning:false,
@@ -1389,6 +1407,9 @@ Object.assign(Fight,{
                      el <= ex.tell*this.diff.readWindow + this.diff.readGrace;
     if(!readable){
       // 読むものが無いのに手が出た＝過剰反応。しばらく読めなくなる (§9.1「間」)
+      Rec.push('noread',{move:ex?ex.id:null,
+        react: ex? Math.round(Clock.real-(ex.t0Real||Clock.real)) : null,
+        why: ex? 'late' : 'noattack'});
       p.flinchUntil = t + 300;
       return;
     }
@@ -1404,8 +1425,13 @@ Object.assign(Fight,{
     const after = Math.max(0, el-REACT_FLOOR);
 
     const rel = after/ex.tell;
+    // 人が反応できる下限より前に押されたものは「見た」のではなく「山を張った」。
+    // ここを PERFECT にすると、予告を見ずに連打するのが最適解になる
+    // （実測：ランダムに触るだけのボットが反応100msでPERFECTを取っていた）
+    const guessed = el < REACT_FLOOR*0.55;
     let q, mul;
-    if(after<=perfW)   { q='PERFECT'; mul=1.45; }     // 反応できる限界で捉えた
+    if(guessed)        { q='GOOD'; mul=0.85; }        // 当たったが読みではない
+    else if(after<=perfW){ q='PERFECT'; mul=1.45; }   // 反応できる限界で捉えた
     else if(rel<=1.0)  { q='GOOD';    mul=1.00; }     // 予備動作のうちに反応した
     else               { q='LATE';    mul=0.45; }     // 拳が出てから気づいた
 
@@ -1413,6 +1439,9 @@ Object.assign(Fight,{
     const remain=Math.max(60, ex.impact-t);
     const real=TS.CHOICE_REAL*(m.read||1)*this.diff.readMul*this.ftr.ai.readMul*mul*(this.readPenalty?0.7:1);
     ex.read=q; ex.readRel=rel;
+    // 反応時間は「予告が出てから指が触れるまでの実時間」。これが本当に欲しい数字
+    Rec.push('read',{q, react:Math.round(Clock.real-(ex.t0Real||Clock.real)),
+      move:ex.id, guessed:!!guessed});
     ex.slowScale=clamp(remain/real, 0.10, 0.90);
     ex.slowAt=t;
     this.stats.reads++;
@@ -1429,7 +1458,7 @@ Object.assign(Fight,{
 
     // 見切りが成立していたら減速する (§9.1)
     if(!ex.slowed && ex.read && Clock.game>=ex.slowAt){
-      ex.slowed=true; ex.slowRealT=Clock.real;
+      ex.slowed=true; ex.slowRealT=Clock.real; Rec.push('slowin',{move:ex.id});
       Clock.to(ex.slowScale, TS.ENTER_MS);
       Audio_.slowIn();
       if(this.diff.showIcon) this.beginnerFlash=Clock.real;
@@ -1479,6 +1508,7 @@ Object.assign(Fight,{
   // ---------- 攻防の解決 ----------
   resolveExchange(){
     const ex=this.exchange, m=ex.data, p=this.p, e=this.e;
+    this._takenNow=0;
     const ch=ex.choice; let j=ex.judge;
     // 見切って主観時間に入っているなら、そこでの選択はもうタイミング当てではない。
     // 「見えた瞬間、世界は遅くなる」の約束どおり、見切りの質がそのまま対応の質になる。
@@ -1596,6 +1626,11 @@ Object.assign(Fight,{
     // 差し（ジャブ）に防御を使わされると、続く本命の読みが浅くなる
     this.readPenalty = (ex.id==='jab' && !!ch);
 
+    this._lastImpactReal=Clock.real;
+    Rec.push('resolve',{move:ex.id, choice:ch||null, judge:j||null,
+      dmg:Math.round(this._takenNow||0), avoided:!!avoided,
+      reversal:(p.reversalUntil||0)>Clock.real, adv:this.advantage,
+      read:ex.read||null, readYou:ex.readYou||null});
     // 何が起きたのかを一行で残す
     const okDef = avoided || (ch==='guard' && j!=='MISS');
     // 連続して捌けていることを見せる
@@ -1646,6 +1681,7 @@ Object.assign(Fight,{
     // 6) こちらは長い有利。ここから組み立てられる
     p.advUntil=Clock.game+COUNTER_WINDOW*1.9;
     p.advPerfect=true; p.combo=0; p.comboDmg=0;
+    Rec.push('reversal',{kind});
     this.float(kind==='back'?'背 後 を 取 っ た':'返 し た', C.accent, true, 'what');
     this.stats.perfect++;
     this.sitStats.perfectCounter++;
@@ -1662,6 +1698,7 @@ Object.assign(Fight,{
 
   // ---------- プレイヤー被弾 ----------
   hurt(dmg, m, kind){
+    this._takenNow=(this._takenNow||0)+dmg;   // この攻防で受けた量（記録用）
     const p=this.p;
     if(this.stepping) dmg*=1.25;                 // ステップ中に被弾 (§5)
     if(this.e.stam<20) dmg*=0.8;                 // 相手のスタミナ切れ (§10)
@@ -1790,6 +1827,7 @@ Object.assign(Fight,{
     if(p.stam<20) dmg*=0.8;                      // §10
 
     if(isCounter){
+      Rec.push('counter',{judge, dmg:Math.round(dmg)});
       this.sitStats.countered++;
       if(judge==='PERFECT'){ dmg*=1.8; tag='PERFECT COUNTER'; color=C.accent; perfect=true;
                              this.sitStats.perfectCounter++; }
@@ -1814,6 +1852,7 @@ Object.assign(Fight,{
         e.state='stagger'; e.stateT=Clock.game; e.stagger=Math.max(e.stagger,0.5);
       }else{
         p.advUntil=Clock.game;                 // 打ち切り。相手が立て直す
+        Rec.push('combo',{n:p.combo, dmg:Math.round(p.comboDmg)});
         this.float(p.combo+'連　'+Math.round(p.comboDmg), C.accent, true, 'what');
       }
     }
@@ -1856,6 +1895,8 @@ Object.assign(Fight,{
   // ---------- 決着 ----------
   finish(win,reason){
     if(this.over) return;
+    Rec.end(reason,{win, hp:[Math.round(this.e.hp),Math.round(this.p.hp)],
+      score:Math.round(this.score||0)});
     // 局面で相手を倒し切った場合も達成として扱う。
     // 反撃が繋がるようになった結果、課題の途中でKOが起きるようになった
     if(win && this.sit && reason!=='TAKEDOWN' && !this.sitStars){
@@ -1894,7 +1935,12 @@ Object.assign(Fight,{
       j='GOOD'; ex.heldEarly=true;
     }
     ex.choice=kind; ex.choiceT=gtime; ex.judge=j; ex.diff=diff; ex.soft=!!soft;
-    if(!soft) AI.noteHabit(this, kind);          // 同じ対応の繰り返しを相手が覚える
+    if(!soft){
+      AI.noteHabit(this, kind);                 // 同じ対応の繰り返しを相手が覚える
+      Rec.push('choice',{kind, judge:j, move:ex.id,
+        // スロー窓のうち何割を使って決めたか（1.0に近い＝迷っている）
+        slowUsed: ex.slowRealT? clamp((Clock.real-ex.slowRealT)/TS.MAX_CHOICE_REAL,0,1) : null});
+    }
     this.lastJudge=ex.judge; this.lastDiff=Math.round(diff);
     return ex.judge;
   },
@@ -1910,6 +1956,9 @@ Object.assign(Fight,{
       // 指を置いた瞬間＝初動を見切った瞬間。対峙中なら開始の合図
       case 'LEFT_PRESS': case 'RIGHT_PRESS': {
         if(this.skipIntro()) break;
+        // 「押したのに何も起きなかった」を数える。面白くなさの主因になりやすい
+        Rec.push('press',{band:g.band, side:g.side,
+          waste: !(ex && !ex.resolved)});
         this.tryRead(g.game);
         // ガード帯は触れた瞬間から構える。打撃には決してならない
         if(g.band==='G'){
@@ -4383,6 +4432,95 @@ Object.assign(Fight,{
 });
 
 /* ============================================================
+   19.4 プレイの記録 —— 何が起きたかを実際のプレイから測る
+   ------------------------------------------------------------
+   シミュレートした仮想プレイヤーでは分からないことを取る。
+   とくに「押したのに何も起きなかった入力」と「何もできない死に時間」は、
+   面白くなさの主因になりやすいが、コードを読んでも出てこない。
+   ============================================================ */
+const Rec = {
+  ev:[], t0:0, on:true, MAX:4000,
+  start(mode,diff,ftr,sit){
+    this.ev=[]; this.t0=Date.now();
+    this.push('start',{mode,diff,ftr,sit:sit||null,
+      ua:(navigator.userAgent||'').slice(0,90), w:V.W,h:V.H});
+  },
+  push(type,d){
+    if(!this.on) return;
+    if(this.ev.length>=this.MAX) return;
+    this.ev.push(Object.assign({t:Math.round(Clock.real),type},d||{}));
+  },
+  end(reason,extra){
+    this.push('end',Object.assign({reason},extra||{}));
+    this.save();
+  },
+  save(){
+    try{
+      const all=JSON.parse(localStorage.getItem('maai.rec')||'[]');
+      all.push({at:this.t0, ev:this.ev});
+      while(all.length>12) all.shift();          // 直近12戦だけ残す
+      localStorage.setItem('maai.rec',JSON.stringify(all));
+    }catch(e){}
+  },
+  load(){ try{ return JSON.parse(localStorage.getItem('maai.rec')||'[]'); }catch(e){ return []; } },
+  clear(){ try{ localStorage.removeItem('maai.rec'); }catch(e){} },
+
+  // ---------- 分析 ----------
+  analyze(runs){
+    runs=runs||this.load();
+    const A={runs:runs.length, atk:0, read:0, perfect:0, good:0, late:0, noread:0,
+      react:[], byMove:{}, choice:0, noChoice:0, wastePress:0, press:0,
+      avoided:0, hit:0, dmgTaken:0, reversal:0, adv:0, counters:0, comboSum:0, comboN:0,
+      blindPress:0, guessed:0,
+      slowMs:0, slowUsed:[], gaps:[], live:0, total:0};
+    for(const r of runs){
+      let last=null, tEnd=0;
+      for(const e of r.ev){
+        tEnd=Math.max(tEnd,e.t);
+        switch(e.type){
+          case 'atk': A.atk++; last=e;
+            (A.byMove[e.move]=A.byMove[e.move]||{n:0,read:0,perfect:0,hit:0}).n++;
+            break;
+          case 'read': A.read++; A.react.push(e.react); if(e.guessed) A.guessed++;
+            if(e.q==='PERFECT') A.perfect++; else if(e.q==='GOOD') A.good++; else A.late++;
+            if(last&&A.byMove[last.move]){ A.byMove[last.move].read++;
+              if(e.q==='PERFECT') A.byMove[last.move].perfect++; }
+            break;
+          case 'noread':
+            if(e.why==='noattack') A.blindPress++;      // 攻撃が無いのに押した
+            else { A.noread++; if(e.react!=null) A.react.push(e.react); }
+            break;
+          case 'press': A.press++; if(e.waste) A.wastePress++; break;
+          case 'choice': A.choice++; if(e.slowUsed!=null) A.slowUsed.push(e.slowUsed); break;
+          case 'resolve':
+            if(e.choice==null) A.noChoice++;
+            if(e.avoided) A.avoided++; else A.hit++;
+            A.dmgTaken+=e.dmg||0;
+            if(e.reversal) A.reversal++;
+            if(e.adv) A.adv++;
+            if(last&&A.byMove[last.move]&&!e.avoided) A.byMove[last.move].hit++;
+            break;
+          case 'counter': A.counters++; break;
+          case 'combo': A.comboSum+=e.n; A.comboN++; break;
+          case 'slow': A.slowMs+=e.ms||0; break;
+          case 'gap': A.gaps.push(e.ms); break;
+        }
+      }
+      A.total+=tEnd;
+    }
+    const med=a=>{ if(!a.length) return null; const b=[...a].sort((x,y)=>x-y);
+      return Math.round(b[Math.floor(b.length/2)]); };
+    A.reactMed=med(A.react); A.reactMin=A.react.length?Math.round(Math.min(...A.react)):null;
+    A.gapMed=med(A.gaps);
+    A.slowUsedMed=A.slowUsed.length? Math.round(A.slowUsed.reduce((x,y)=>x+y,0)/A.slowUsed.length*100) : null;
+    A.combo=A.comboN? (A.comboSum/A.comboN).toFixed(1) : '0';
+    // 生きている時間＝攻防が動いている時間の割合
+    A.live = A.total? Math.round((A.atk*900)/A.total*100) : 0;
+    return A;
+  },
+};
+
+/* ============================================================
    19.5 到達可能性の監査
    ------------------------------------------------------------
    「実装は動いているのに、人間には一度も到達できない」という
@@ -4488,7 +4626,7 @@ let curDiff='NORMAL';
 let curFighter='arata';
 const el=id=>document.getElementById(id);
 const OV={title:el('ovTitle'),howto:el('ovHowto'),result:el('ovResult'),
-          sit:el('ovSit'),brief:el('ovBrief')};
+          sit:el('ovSit'),brief:el('ovBrief'),stats:el('ovStats')};
 
 function go(s){
   scene=s;
@@ -4659,6 +4797,76 @@ const HOWTO_ROWS=[
   ['　中央スライド','タックル'],
   ['　長押し','スプロール / 低い構え'],
 ];
+// プレイの記録。数字を並べるだけでなく、何が問題かを言葉で指摘する
+function buildStats(){
+  const runs=Rec.load();
+  if(!runs.length){ el('statsBody').innerHTML=
+    '<h2>プレイの記録</h2><div class="note">まだ記録がありません。一戦してから見てください。</div>';
+    return; }
+  const A=Rec.analyze(runs);
+  const pct=(a,b)=>b? Math.round(a/b*100)+'%' : '—';
+  const row=(k,v,note)=>`<div class="ctrl"><b style="flex:0 0 46%">${k}</b>
+    <span style="flex:1">${v}</span><em style="opacity:.6;font-size:11px">${note||''}</em></div>`;
+
+  // ---- 気づき：数字から問題を言い当てる ----
+  const say=[];
+  if(A.reactMed!=null && A.reactMed>430)
+    say.push(`反応が中央値${A.reactMed}msと遅い。予告が短すぎる可能性がある（速い人の下限は260ms）`);
+  if(A.read && A.perfect/A.read < 0.15)
+    say.push(`PERFECT見切りが${pct(A.perfect,A.read)}しかない。返しがほぼ起きないので、爽快感の山が来ていない`);
+  if(A.press && A.wastePress/A.press > 0.25)
+    say.push(`押した入力の${pct(A.wastePress,A.press)}が空振り。攻撃が来ていない時に触っている＝間が退屈`);
+  if(A.atk && A.noread/A.atk > 0.4)
+    say.push(`${pct(A.noread,A.atk)}の攻撃を見切れていない。予告が読めていないか、間隔が短い`);
+  if(A.gapMed!=null && A.gapMed>1600)
+    say.push(`打撃の間隔が中央値${A.gapMed}msと長い。待ち時間が退屈になっていないか`);
+  if(A.slowUsedMed!=null && A.slowUsedMed>80)
+    say.push(`スロー窓の${A.slowUsedMed}%を使って決めている。選択肢が多すぎて迷っている`);
+  if(A.slowUsedMed!=null && A.slowUsedMed<25)
+    say.push(`スロー窓を${A.slowUsedMed}%しか使っていない。反射で押しているだけで「考える時間」になっていない`);
+  if(A.avoided+A.hit && A.avoided/(A.avoided+A.hit) > 0.85)
+    say.push(`${pct(A.avoided,A.avoided+A.hit)}を捌けている。簡単すぎる可能性`);
+  if(A.reversal===0 && A.atk>6) say.push('返しが一度も出ていない');
+  if(A.read && A.guessed/A.read > 0.3)
+    say.push(`見切りの${pct(A.guessed,A.read)}が「山を張った」当たり。予告を見て押していない`);
+  if(A.blindPress > A.atk*1.5)
+    say.push(`攻撃が来ていない時に${A.blindPress}回押している。待ち時間に手が余っている`);
+  if(!say.length) say.push('目立った異常は無し。あとは手触りの問題');
+
+  el('statsBody').innerHTML=`<h2>プレイの記録</h2>
+    <div class="note">直近${A.runs}戦・攻防${A.atk}回から。この画面の数字はすべて実際のプレイから取っている。</div>
+    <div class="chgrp"><h3>気づいたこと</h3>
+      ${say.map(x=>`<div class="note" style="margin:6px 0">・${x}</div>`).join('')}
+    </div>
+    <div class="chgrp"><h3>見切り</h3>
+      ${row('反応時間（中央値）', A.reactMed!=null?A.reactMed+'ms':'—', '最速 '+(A.reactMin!=null?A.reactMin+'ms':'—'))}
+      ${row('見切れた割合', pct(A.read,A.atk), A.read+'/'+A.atk)}
+      ${row('PERFECT', pct(A.perfect,A.read), A.perfect+'回')}
+      ${row('GOOD / LATE', A.good+' / '+A.late,'')}
+      ${row('見切れなかった', A.noread+'回','')}
+      ${row('山を張った当たり', A.guessed+'回', pct(A.guessed,A.read))}
+      ${row('空押し（攻撃なし）', A.blindPress+'回','')}
+    </div>
+    <div class="chgrp"><h3>選択と結果</h3>
+      ${row('スロー窓の使用率', A.slowUsedMed!=null?A.slowUsedMed+'%':'—','1.0に近い＝迷っている')}
+      ${row('捌けた割合', pct(A.avoided,A.avoided+A.hit), A.avoided+'/'+(A.avoided+A.hit))}
+      ${row('返し', A.reversal+'回', pct(A.reversal,A.atk))}
+      ${row('有利を取れた', A.adv+'回','')}
+      ${row('反撃が当たった', A.counters+'回', '平均'+A.combo+'連')}
+      ${row('無入力で被弾', A.noChoice+'回','')}
+      ${row('総被弾', Math.round(A.dmgTaken),'')}
+    </div>
+    <div class="chgrp"><h3>間と入力</h3>
+      ${row('打撃の間隔（中央値）', A.gapMed!=null?A.gapMed+'ms':'—','')}
+      ${row('空振りした入力', A.wastePress+' / '+A.press, pct(A.wastePress,A.press))}
+    </div>
+    <div class="chgrp"><h3>技ごと</h3>
+      ${Object.entries(A.byMove).map(([k,v])=>row(
+        (MOVES[k]?MOVES[k].ja:k), '見切り '+pct(v.read,v.n)+'　被弾 '+pct(v.hit,v.n),
+        v.n+'回')).join('')}
+    </div>`;
+}
+
 function buildHowto(){
   el('howtoBody').innerHTML=`
     <h2>見　切　り</h2>
@@ -4903,6 +5111,15 @@ document.addEventListener('click',ev=>{
       if(n) buildBrief(n); else { buildSituations(); go('sit'); }
       break; }
     case 'howto': buildHowto(); go('howto'); break;
+    case 'stats': buildStats(); go('stats'); break;
+    case 'close-ov': go('title'); break;
+    case 'stats-clear': Rec.clear(); buildStats(); break;
+    case 'stats-copy': {
+      const t=JSON.stringify(Rec.load());
+      if(navigator.clipboard) navigator.clipboard.writeText(t).then(
+        ()=>{ el('statsBody').insertAdjacentHTML('afterbegin',
+          '<div class="note">記録をコピーしました（'+t.length+'文字）</div>'); });
+      break; }
     case 'close-howto': go('title'); break;
     case 'calib': Calib.start(); go('calib'); break;
     case 'retry': startFight(Fight.mode, Fight.sit); break;
