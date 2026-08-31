@@ -3969,6 +3969,9 @@ const CHAPTERS = [
 //   sprawl  : タックルを n 回切る
 //   escape  : 金網圧力を 0 に戻す
 //   reach   : 打撃距離まで入る
+// 開発中フラグ：全局面を選べるようにする。公開時に false へ
+const DEV_UNLOCK_ALL = true;
+
 const SITUATIONS = [
   {id:'S01', ch:1, title:'起こりを見切る', hint:'肩が動いた瞬間に画面へ指を置く',
    brief:'肩が溜まり腰が回った瞬間に、画面へ指を置く。そこで世界が遅くなる。置いてから、どちらの手で受けるか決める。押さなければ遅くならない。',
@@ -4037,7 +4040,10 @@ const Progress = {
   save(){ try{ localStorage.setItem('maai.progress',JSON.stringify(this.data)); }catch(e){} },
   stars(id){ return this.data[id]||0; },
   set(id,st){ if(st>this.stars(id)){ this.data[id]=st; this.save(); } },
+  // 公開前は全局面を解放しておく（作っていない局面はそのまま出す）。
+  // 公開時に DEV_UNLOCK_ALL を false にすれば、元の順次解放に戻る
   unlocked(i){
+    if(DEV_UNLOCK_ALL) return true;
     if(i===0) return true;
     return this.stars(SITUATIONS[i-1].id)>0;
   },
