@@ -975,10 +975,13 @@ Object.assign(Fight,{
     const m=MOVES[id]; if(!m) return;
     const e=this.e;
     const st=this.ftr.move;
-    // 予告の大きさと速さは選手ごとに違う
+    // 文献：クロスの速さはリーチと相関(r=0.57)、ジャブは習熟と相関(r=0.56)。
+    // 後ろ手はリーチ、前手は選手の速さを効かせる
+    const reachGain = (m.hand==='rear') ? (0.72+0.28*this.ftr.build.reach) : 1;
+    const spd = st.speed * reachGain;
     const tellMul=this.diff.tellMul * st.tell * (st.tellBy[id]||1) * (this.feintPenalty?0.8:1);
-    const tell   = m.tell*tellMul / st.speed;
-    const impact = m.impact*tellMul / st.speed;
+    const tell   = m.tell*tellMul / spd;
+    const impact = m.impact*tellMul / spd;
     e.state='windup'; e.stateT=Clock.game; e.stam=Math.max(0,e.stam-m.stam);
     this.lastMove=m;
     // 攻撃方向のヒントとして目線を動かす（必ずしも一致させない §4.2）
@@ -1893,8 +1896,9 @@ function drawOpponent(F){
     if(Clock.game<tellEnd) wind=clamp((Clock.game-ex.t0)/ex.tell,0,1);
     else { wind=1; strike=clamp((Clock.game-tellEnd)/Math.max(1,ex.impact-tellEnd),0,1); }
   }else if(e.state==='recover'){
-    // 引き戻しは伸展より速い
-    const back=clamp((Clock.game-e.stateT)/260,0,1);
+    // 文献：引き戻しは伸展と同等かそれ以上の速さで鍛えられる。
+    // 伸展が約106msなので、引き戻しも同程度に揃える
+    const back=clamp((Clock.game-e.stateT)/130,0,1);
     prog=1-easeOut(back); strike=prog; wind=prog>0?1:0;
     const lm=F.lastMove; if(lm){ m=lm; side=lm.side==='R'?-1:(lm.side==='L'?1:0); arc=lm.arc; }
   }
@@ -1921,6 +1925,9 @@ function drawOpponent(F){
                : side*bh*0.022*CH.chamber - side*bh*wshift*CH.hip;
   // 文献：アッパーは膝を曲げて脚をバネにし、そこから伸び上がる
   const spring = (arc==='upper') ? (bh*0.050*CH.chamber - bh*0.030*CH.hip) : 0;
+  // 文献：踏み込みジャブでは前足が接地するのと拳の到達が同時になる。
+  // 腕の伸展に合わせて前脚が前へ出る
+  const stepIn = (m && m.hand==='lead' && arc==='straight') ? CH.arm : 0;
   const bodyDY = (arc==='tackle'? bh*0.12*lean : 0) + spring
                + (arc!=='tackle' ? bh*0.010*CH.chamber : 0)
                + bh*EB.crouch;                       // 低い構えの選手はここで沈む
@@ -1940,7 +1947,8 @@ function drawOpponent(F){
   if(feet-bh*0.52 < V.H){
     const stepK=e.legStep;
     // 前脚（画面右）は前へ出て手前、後ろ脚（画面左）は引いて奥・やや外
-    const legs=[[-1,bh*0.128,-bh*0.010*stepK],[1,bh*0.095,bh*0.02*wind]];
+    const legs=[[-1,bh*0.128,-bh*0.010*stepK],
+                [1,bh*0.095,bh*0.02*CH.chamber + bh*0.030*stepIn]];
     for(const [sg,spread,off] of legs){
       const isLead = (sg===LEAD);
       const depth  = isLead ? 1.14 : 0.86;        // 手前ほど大きく
