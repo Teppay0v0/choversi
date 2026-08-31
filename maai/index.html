@@ -419,10 +419,45 @@ const BEAT = 60000 / BPM;          // 600 ms
 // 実測では 502〜671ms しかなく、被弾直後に次が来て見る余裕が無かった。
 // 人の反応は約250ms、Joch(1981)の平均反応は427ms。
 // 「見て・決めて・構え直す」ために、その2倍以上を空ける
-const GAP_MIN = 900;
-// 視覚刺激から指が動くまでの下限。単純反応で約190ms（選択反応はさらに遅い）。
-// 見切りの質はここを起点に測る
-const REACT_FLOOR = 190;
+/* ------------------------------------------------------------
+   人間の時間定数 —— 実測に基づく。ここを勘で置くと、
+   「動いているのに実プレイでは一度も起きない機能」が生まれる。
+   （実際に、到達不能なPERFECT要求のせいで返しが0回になっていた）
+
+   HUMAN.SRT_MEAN 231ms / SRT_FAST 190ms
+     単純視覚反応。n=1469、18〜65歳の地域住民標本。
+     平均231ms、計測機材の遅延を補正すると213ms。
+     健常成人はおよそ200〜300msに収まる。
+     速い層（およそ下位10%）で190ms前後。
+     Woods et al., Front Hum Neurosci (2015) PMC4374455
+
+   HUMAN.DEVICE 70ms
+     端末そのものの遅延。iPhone 12 の touch-to-photon 実測 78ms
+     （960fps撮影による）。iPhone 5 は 55ms、iPhone 4 は 85ms。
+     表示側と入力側に分かれるが、往復の合計としてこの桁を見込む。
+     GameBench / TriboTouch (CHI 2022) の計測より
+
+   HUMAN.HICK_A 200ms / HUMAN.HICK_B 150ms
+     選択反応。RT = a + b·log2(n+1)。選択肢が増えるほど対数的に伸びる。
+     Hick (1952)。定数の代表値は a≈200ms, b≈150ms/bit。
+     Proctor & Schneider, QJEP (2018) のレビューによる
+   ------------------------------------------------------------ */
+const HUMAN = { SRT_MEAN:231, SRT_FAST:190, DEVICE:70, HICK_A:200, HICK_B:150 };
+
+// 見切りの下限：速い人の単純反応 ＋ 端末の遅延。
+// 誰にも詰められない時間なので、判定の起点をここに置く
+const REACT_FLOOR = HUMAN.SRT_FAST + HUMAN.DEVICE;      // 260ms
+
+// 主観時間の中で「何を選ぶか」に要る実時間。
+// スロー中の選択肢は ガード / 左右スリップ / スウェー / スプロール /
+// 打ち返す の6通りとして Hick の式で見積もる
+const CHOICE_OPTIONS = 6;
+const CHOICE_NEED = Math.round(
+  HUMAN.HICK_A + HUMAN.HICK_B*Math.log2(CHOICE_OPTIONS+1) + HUMAN.DEVICE);  // 691ms
+
+// 着弾から次の予備動作までの間隔。
+// 「結果を見る → 選択反応を1周する → 構え直す」に要る時間
+const GAP_MIN = Math.round(CHOICE_NEED*1.3);            // 898ms
 
 // --- ジェスチャー認識 (§7) 画面短辺比 ---
 // 画面を上下に分ける。上＝ガード帯（触れた瞬間に構える）／下＝打撃帯
@@ -1363,10 +1398,14 @@ Object.assign(Fight,{
     // ここを引かずに rel<=0.35 で PERFECT としていたため、
     // ジャブは61ms以内・ストレートは113ms以内という到達不能な要求になり、
     // 実プレイでPERFECTが一度も出ず、返しも永久に起きていなかった（実測）
-    const rel = Math.max(0, el-REACT_FLOOR) / ex.tell;
+    // PERFECT窓は予告の35%。ただし短い技（ジャブは予告173ms＝60msしかない）で
+    // 潰れないよう、最低90msは確保する
+    const perfW = Math.max(ex.tell*0.35, 90);
+    const after = Math.max(0, el-REACT_FLOOR);
 
+    const rel = after/ex.tell;
     let q, mul;
-    if(rel<=0.35)      { q='PERFECT'; mul=1.45; }     // 反応できる限界で捉えた
+    if(after<=perfW)   { q='PERFECT'; mul=1.45; }     // 反応できる限界で捉えた
     else if(rel<=1.0)  { q='GOOD';    mul=1.00; }     // 予備動作のうちに反応した
     else               { q='LATE';    mul=0.45; }     // 拳が出てから気づいた
 
@@ -4342,6 +4381,47 @@ Object.assign(Fight,{
     this.finish(ok, ok?'CLEAR':'FAILED');
   },
 });
+
+/* ============================================================
+   19.5 到達可能性の監査
+   ------------------------------------------------------------
+   「実装は動いているのに、人間には一度も到達できない」という
+   バグを二度と作らないための自己点検。
+   全ての技 × 全ての難易度について、各判定に人間が届くかを計算する。
+   数値を触ったら必ずこれを通す（scratchpad/reach.mjs）。
+   ============================================================ */
+function auditReachability(){
+  const rows=[]; let ng=0;
+  // 到達に要る実時間。速い人／平均的な人の2水準で見る
+  const fast = HUMAN.SRT_FAST + HUMAN.DEVICE;          // 260ms
+  const mean = HUMAN.SRT_MEAN + HUMAN.DEVICE;          // 301ms
+  for(const dk of Object.keys(DIFF)){
+    const D=DIFF[dk];
+    for(const id of Object.keys(MOVES)){
+      const m=MOVES[id];
+      // 素の予告（選手補正なしの基準値）
+      const tell = m.tell*D.tellMul;
+      const perfW = Math.max(tell*0.35, 90);
+      // 見切りが成立する上限（これを過ぎると見切れない）
+      const readable = tell*D.readWindow + D.readGrace;
+      const perfEnd  = REACT_FLOOR + perfW;
+      const goodEnd  = Math.min(readable, REACT_FLOOR + tell);
+      const r={
+        diff:dk, move:id, ja:m.ja, tell:Math.round(tell),
+        perfect:[REACT_FLOOR, Math.round(perfEnd)],
+        good:[Math.round(perfEnd), Math.round(goodEnd)],
+        limit:Math.round(readable),
+        // 判定
+        perfectFast: perfEnd>=fast,      // 速い人がPERFECTに届く
+        perfectMean: perfEnd>=mean,      // 平均的な人が届く
+        readableMean: readable>=mean,    // 平均的な人が見切れる
+      };
+      if(!r.perfectFast || !r.readableMean) ng++;
+      rows.push(r);
+    }
+  }
+  return {rows, ng, fast, mean};
+}
 
 /* ============================================================
    20. タイミング補正 (§9  ±200ms)
