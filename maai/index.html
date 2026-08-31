@@ -1919,8 +1919,10 @@ function drawOpponent(F){
 
   const lean = (wind*0.5+strike*0.5);
   // 体重移動：打ち出しで前脚へ乗る
-  // 文献：打ち出しで体重が前足へ乗る。フックは前足が軸になる
-  const wshift = (arc==='hook') ? 0.036 : 0.026;
+  // 実測(Dinu & Louis 2020 Table 1)：接触時の床反力配分
+  //   クロス 前足60.6% / 後足39.4%、フック 58.9/41.1、アッパー 49.9/50.1
+  // アッパーだけ左右均等で、クロスとフックは前足へ乗る
+  const wshift = (arc==='upper') ? 0.004 : (arc==='hook' ? 0.034 : 0.030);
   const bodyDX = arc==='tackle' ? 0
                : side*bh*0.022*CH.chamber - side*bh*wshift*CH.hip;
   // 文献：アッパーは膝を曲げて脚をバネにし、そこから伸び上がる
@@ -1979,7 +1981,8 @@ function drawOpponent(F){
       const isPivot = pivotLead ? isLead : !isLead;
       const pv = isPivot ? CH.foot*(rearMove||pivotLead?1:0.5) : 0;
       const heel = bh*0.046*pv;                       // 踵が浮く
-      const toe  = sg*(0.30+1.05*pv);                 // 爪先を軸に外へ回る
+      // 「つま先が正面を向くまでひねる」＝構えの角度から正面まで回し切る
+      const toe  = sg*(0.30+1.28*pv);
       ctx.fillStyle='#0f1424';
       ctx.beginPath();
       ctx.ellipse(ankX+sg*bh*0.014*depth, feet+dy-heel,
@@ -2100,9 +2103,19 @@ function chain(a){
   };
 }
 
-// 肘が直角を保つときの、肩から拳までの距離。
-// フックとアッパーは肘角90度を保つのが正しいフォームなので、この距離が一定になる
-const R90 = Math.sqrt(0.172*0.172 + 0.185*0.185);
+// 接触時の肘角（実測値・エリート選手）
+//   Dinu & Louis (2020) Table 1
+//   クロス 112.9±9.2°  フック 116.9±22.6°  アッパー 100.1±12.6°
+// コーチング文献の「フックは肘90度」は指導上の目安で、実測はもっと開いている。
+// 肘角から余弦定理で「肩から拳までの距離」を出し、それを軌道の終点にする。
+const ELBOW_IMPACT = { straight:112.9, hook:116.9, upper:100.1 };
+function reachAt(deg){
+  const L1=ARM.upper, L2=ARM.fore, c=Math.cos(deg*Math.PI/180);
+  return Math.sqrt(L1*L1 + L2*L2 - 2*L1*L2*c);
+}
+const R_CROSS = reachAt(ELBOW_IMPACT.straight);   // 0.298
+const R_HOOK  = reachAt(ELBOW_IMPACT.hook);       // 0.304
+const R_UPPER = reachAt(ELBOW_IMPACT.upper);      // 0.274
 
 // カメラ軸（画面中央）へ向かう透視投影
 function projArm(ax,ay,dx,dy,dz,bh){
@@ -2136,26 +2149,25 @@ function solveElbow(px,py,pz,hx,hy,hz){
 function fistPath(arc, s, u, lead){
   // u: 腕の伸展 0→1
   const e=easeOut(u);
+  // 方向と半径を分けて扱う。半径＝肩から拳までの距離は肘角そのものなので、
+  // 実測の肘角どおりの距離を必ず満たすようにする
+  const unit=(v)=>{ const l=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/l,v[1]/l,v[2]/l]; };
   if(arc==='hook'){
-    // フック：肘は90度を保つ。開くと「遅い振り回し」になる。
-    // 拳・肘・肩が水平に一直線に並び、前腕は床と平行に回る。
+    // フック：接触時の肘角は約117度（実測）。肩が主働で円軌道を描く。
     const th=(-0.08+1.12*e)*Math.PI*0.5;
-    return { p:[ s*R90*Math.cos(th), -0.030, R90*Math.sin(th)*1.30 ],
+    return { dir:unit([ s*Math.cos(th), -0.115, Math.sin(th)*1.30 ]), R:R_HOOK,
              hint:[ s*0.85, -0.28, -0.60 ] };        // 肘は肩の高さで外へ、拳より先行
   }
   if(arc==='upper'){
-    // アッパー：肘は90度のまま体側に近く、脚のバネと腰で下から突き上げる。
-    // 肩が主働で、矢状面の円軌道を描く。
-    const ph=(0.62+0.96*e);                          // 下から上への回転
-    return { p:[ s*(0.052-0.026*e),
-                 R90*Math.cos(ph)*0.92,
-                 R90*Math.sin(ph)*0.86 ],
+    // アッパー：接触時の肘角は約100度（実測）で、3技のうち最も閉じている。
+    // 肩が主働（貢献度54.8%）で、矢状面の円軌道
+    const ph=(0.62+0.96*e);
+    return { dir:unit([ s*(0.19-0.10*e), Math.cos(ph)*0.92, Math.sin(ph)*0.86 ]), R:R_UPPER,
              hint:[ -s*0.30, 0.85, 0.45 ] };         // 肘は体側の前で下
   }
-  // ストレート／ジャブ：肘はピストンのように矢状面で伸展し、回旋はほとんど無い。
-  // 拳は顎の横から標的まで最短距離で進む。
-  const reach = lead ? 0.300 : 0.335;              // 肩からの到達距離（骨の長さ以内）
-  return { p:[ s*(0.040-0.150*e), -0.048-0.030*e, -0.03+ (reach+0.03)*e ],
+  // ストレート／ジャブ：接触時の肘角は約113度（実測）。完全伸展はしない。
+  // 肘がピストンのように矢状面で伸展し（貢献度39.2%＝3技で最大）、回旋はほとんど無い
+  return { dir:unit([ -s*0.30, -0.24, 1.0 ]), R:R_CROSS*(lead?0.96:1.0),
            hint:[ 0, 1.00, -0.35 ] };                // 肘は下がったまま拳の真後ろ
 }
 
@@ -2174,7 +2186,10 @@ function drawEnemyArm(F,s,o){
   const dep = isLead ? o.leadScale : o.rearScale;
   const shx = cx+s*hw*0.92;
   // 文献：ジャブでは前肩が上がって顎を守る／クロスでは接触時に後ろ肩が顎に密着する
-  const guardShrug = punching ? bh*0.052*CH.arm : 0;
+  // ジャブは前肩が上がって顎を守る。アッパーは打つ側の肩を先に落とす
+  const guardShrug = punching
+    ? (arc==='upper' ? bh*(0.052*CH.arm - 0.070*CH.chamber) : bh*0.052*CH.arm)
+    : 0;
   const shy = shY+bh*0.012+(isLead?bh*0.014:-bh*0.016)
             + (punching? bh*0.012*CH.chamber - guardShrug : 0);
   if(s===LEAD) V.shL={x:shx,y:shy}; else V.shR={x:shx,y:shy};
@@ -2192,13 +2207,24 @@ function drawEnemyArm(F,s,o){
     const chP=[ -s*0.004, -0.062+gh, -0.032 ];
     const base=[ lerp(rest[0],chP[0],ch), lerp(rest[1],chP[1],ch), lerp(rest[2],chP[2],ch) ];
     const u=CH.arm;
-    let px=lerp(base[0],g.p[0],u), py=lerp(base[1],g.p[1],u), pz=lerp(base[2],g.p[2],u);
+    // 引き手の距離 → 実測の肘角が与える距離 へ伸ばす
+    const baseLen=Math.hypot(base[0],base[1],base[2])||0.01;
+    const len=lerp(baseLen, g.R, easeOut(u));
+    const tx=g.dir[0]*len, ty=g.dir[1]*len, tz=g.dir[2]*len;
+    let px=lerp(base[0],tx,u), py=lerp(base[1],ty,u), pz=lerp(base[2],tz,u);
+    // 伸展中も肘角どおりの長さを保つ
+    const cl=Math.hypot(px,py,pz)||1;
+    px=px/cl*len; py=py/cl*len; pz=pz/cl*len;
     // 打撃は標的（＝カメラ＝こちらの顔）へ収束する。
     // 肩の延長線ではなく、狙点へ向かって伸びるのが正しい
-    if(arc!=='hook'){
-      const aimX=(V.W*0.5-shx)/bh, aimY=(V.H*0.44-shy)/bh;
-      const w=easeOut(u)*0.80;
+    // 標的へ収束させる。ストレートは正面、フックは顔の側面に当たる
+    {
+      const aimSX = V.W*0.5 + (arc==='hook' ? s*V.W*0.15 : 0);
+      const aimX=(aimSX-shx)/bh, aimY=(V.H*0.44-shy)/bh;
+      const w=easeOut(u)*(arc==='hook'?0.62:0.55);
       px=lerp(px,aimX,w); py=lerp(py,aimY,w);
+      const c2=Math.hypot(px,py,pz)||1;      // 長さは肘角どおりに戻す
+      px=px/c2*len; py=py/c2*len; pz=pz/c2*len;
     }
     P={ p:[px,py,pz], hint:g.hint };
   }else{
