@@ -2120,33 +2120,49 @@ function drawOpponent(F){
     // 方向ベクトルが後ろ上を向き、拳が頭上へ飛ぶ（実際に起きたバグ）。
     // 肩フレームで顎の横＝肘角60度（Joch 1981）の位置
     const chamberW=(()=>{
-      const local=[ -s*0.055, +0.078, +0.085 ];
+      // 方向：やや内・わずかに上・大きく前。（上成分を大きくすると
+      // 正規化×肘角距離で拳が目の高さまで浮く——実際に起きたバグ）
+      const local=[ -s*0.055, +0.028, +0.105 ];
       const d=rotY(local, shYaw);
       return v3.add(S, v3.mul(v3.norm(d), reachAt(ELBOW_CHAMBER,H)*reachMul));
     })();
     // 標的：自分（カメラ）の顔・顔の横・顎
-    const TGT = arc==='hook'  ? [Cam.x+s*0.15, Cam.eyeH-0.02, Cam.dist-0.28]
-              : arc==='upper' ? [Cam.x,        Cam.eyeH-0.09, Cam.dist-0.30]
-              :                 [Cam.x+s*0.02, Cam.eyeH-0.05, Cam.dist-0.28];
-    const u=easeOut(CH.arm);
-    const dir0=v3.norm(v3.sub(chamberW,S));
+    // 自分の顎・鼻の高さ（目＝カメラは1.62m。顎は約12cm下）
+    const TGT = arc==='hook'  ? [Cam.x+s*0.15, Cam.eyeH-0.06, Cam.dist-0.28]
+              : arc==='upper' ? [Cam.x,        Cam.eyeH-0.12, Cam.dist-0.30]
+              :                 [Cam.x+s*0.02, Cam.eyeH-0.10, Cam.dist-0.28];
+    // 速度プロファイル：実測ではピーク速度は接触の8〜21ms前（Stanley 2018）。
+    // つまり打撃は最後まで「加速」する。easeOut（最初速く最後遅い）だと
+    // 減速しながら当たる＝押すパンチに見える。加速型に置き換える
+    const u=Math.pow(clamp(CH.arm,0,1), 1.75);
     const dir1=v3.norm(v3.sub(TGT,S));
-    let dir=v3.mix(dir0,dir1,u);
-    // 軌道の膨らみ：フックは外へ回り、アッパーは下から掬う
-    const bulge=Math.sin(Math.PI*clamp(u,0,1));
-    if(arc==='hook')  dir=v3.add(dir, v3.mul(rotY([s,0,0],hipYaw), 0.62*bulge));
-    if(arc==='upper') dir=v3.add(dir, [0,-0.55*bulge,0]);
-    dir=v3.norm(dir);
-    // 伸展中の肘角：60度 → 実測の接触角へ。距離＝肘角そのもの
-    const deg=lerp(ELBOW_CHAMBER, ELBOW_IMPACT[arc]||ELBOW_IMPACT.straight, u);
-    const len=reachAt(deg,H)*reachMul;
-    const wrist=v3.add(S, v3.mul(dir, Math.min(len, v3.len(v3.sub(TGT,S)))));
+    // 肩甲骨の前方突出＋シュラッグ：肩関節そのものが標的へ出て、顎を隠す
+    const Sp=v3.add(S, v3.add(v3.mul(dir1, 0.065*u), [0, 0.030*u, 0]));
+    let wrist;
+    if(arc==='straight'){
+      // ストレートは名前どおり「直線」。引き手の拳から標的まで一直線に飛ぶ。
+      // 方向ブレンドで作ると弧を描いてしまう（実際に起きた問題）
+      const contactW=v3.add(Sp, v3.mul(dir1, reachAt(ELBOW_IMPACT.straight,H)*reachMul));
+      wrist=v3.mix(chamberW, contactW, u);
+    }else{
+      // フック／アッパーは肩を中心とした円軌道（肩が主働：貢献度50〜55%）
+      const dir0=v3.norm(v3.sub(chamberW,Sp));
+      let dir=v3.mix(dir0,dir1,u);
+      const bulge=Math.sin(Math.PI*clamp(u,0,1));
+      if(arc==='hook')  dir=v3.add(dir, v3.mul(rotY([s,0,0],hipYaw), 0.44*bulge));
+      if(arc==='upper') dir=v3.add(dir, [0,-0.55*bulge,0]);
+      dir=v3.norm(dir);
+      // 伸展中の肘角：60度 → 実測の接触角へ。距離＝肘角そのもの
+      const deg=lerp(ELBOW_CHAMBER, ELBOW_IMPACT[arc]||ELBOW_IMPACT.straight, u);
+      const len=reachAt(deg,H)*reachMul;
+      wrist=v3.add(Sp, v3.mul(dir, Math.min(len, v3.len(v3.sub(TGT,Sp)))));
+    }
     // 肘の旋回：ストレート＝下、フック＝外に立てて前腕を床と平行、アッパー＝内
     const swiv = arc==='hook'? s*1.30 : arc==='upper'? -s*0.30 : s*0.10;
     // 引き手中は肘を後ろへ畳む
     const swMix = lerp(s*0.38, swiv, u);
-    const sol=ik2(S,wrist,L1,L2,swMix);
-    return {sol, punching:true, u, s};
+    const sol=ik2(Sp,wrist,L1,L2,swMix);
+    return {sol, punching:true, u, s, Sp};
   }
   const armL=armPose(+1), armR=armPose(-1);
 
@@ -2253,8 +2269,7 @@ function drawOpponent(F){
   // --- 腕（上腕・前腕・グローブを別々に深度ソート） ---
   function arm(A){
     const s=A.s, sol=A.sol;
-    const S=(s===LEAD)?shL:shR;
-    const pS=(s===LEAD)?pjShL:pjShR, pE=P(sol.E), pW=P(sol.W);
+    const pS=A.Sp? P(A.Sp) : ((s===LEAD)?pjShL:pjShR), pE=P(sol.E), pW=P(sol.W);
     // 拳＝手首から前腕方向へ半手分
     const fdir=v3.norm(v3.sub(sol.W,sol.E));
     const fist=v3.add(sol.W, v3.mul(fdir, RIG.hand*H*0.40));
