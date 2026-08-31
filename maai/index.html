@@ -442,7 +442,10 @@ const JUDGE = {
   EARLY  : -250,   // -250 〜 -151
   LATE   :  250,   // +151 〜 +250
 };
-const COUNTER_WINDOW = 600;   // PERFECT防御後のカウンター受付 (ms)
+const COUNTER_WINDOW = 1250;  // 見切って外した後の反撃受付 (ms)
+// 当てるたびに窓が延びて連打が繋がる。ただし上限あり（一方的にならないため）
+const COMBO_EXTEND = 520;     // 一発当てるごとに延びる時間
+const COMBO_MAX    = 3;       // 一度の有利で繋がる最大打数
 
 // --- 主観時間 (§9.1) ---
 const TS = {
@@ -1154,8 +1157,37 @@ const AI = {
   // BEGINNER：ほぼ固定順（§13 第2段階の譜面に対応）
   fixedOrder:['P06','P02','P01','P10','P03','P11','P04','P08','P05','P01','P12','P09'],
 
+  // こちらが繰り返している対応を数える（減衰つき）
+  noteHabit(F, ch){
+    if(!ch) return;
+    const h=F.p.habit || (F.p.habit={});
+    for(const k in h) h[k]*=0.72;              // 古い癖は薄れる
+    h[ch]=(h[ch]||0)+1;
+  },
+  // 最も偏っている対応。十分に偏っていなければ null
+  dominantHabit(F){
+    const h=F.p.habit; if(!h) return null;
+    let best=null, sum=0;
+    for(const k in h){ sum+=h[k]; if(!best||h[k]>h[best]) best=k; }
+    if(!best || sum<2.4 || h[best]/sum < 0.55) return null;
+    return best;
+  },
+
   choose(F){
     const e=F.e;
+    // 強い相手は、こちらの癖を外す技を選んでくる。
+    // ただし必ず「読んだ」ことが分かるよう予告を長めにして、
+    // 理不尽にはしない（ストレスにならない程度に）
+    const hab=this.dominantHabit(F);
+    const adapt=(F.ftr&&F.ftr.ai.readMul||1)-1;        // 選手ごとの読みの鋭さ
+    if(hab && Math.random() < clamp(0.18+adapt*1.6, 0, 0.45)){
+      const counters=PATTERNS.filter(x=>this.usable(F,x) &&
+        x.steps.some(st=>MOVES[st.a] && MOVES[st.a].bad && MOVES[st.a].bad.includes(hab)));
+      if(counters.length){
+        F.e.readYou=hab;                                // 予告を伸ばす目印
+        return pick(counters);
+      }
+    }
     if(F.diff.fixedOrder){
       const id=this.fixedOrder[F.ai.order % this.fixedOrder.length];
       F.ai.order++;
@@ -1240,7 +1272,10 @@ Object.assign(Fight,{
     // 後ろ手はリーチ、前手は選手の速さを効かせる
     const reachGain = (m.hand==='rear') ? (0.72+0.28*this.ftr.build.reach) : 1;
     const spd = st.speed * reachGain;
-    const tellMul=this.diff.tellMul * st.tell * (st.tellBy[id]||1) * (this.feintPenalty?0.8:1);
+    // こちらの癖を読んで出す技は、予告を伸ばして必ず見切れるようにする。
+    // 「読まれた」ことが分かり、かつ対応できる ——これがストレスにならない条件
+    const readMul = e.readYou ? 1.45 : 1;
+    const tellMul=this.diff.tellMul * st.tell * (st.tellBy[id]||1) * (this.feintPenalty?0.8:1) * readMul;
     const tell   = m.tell*tellMul / spd;
     const impact = m.impact*tellMul / spd;
     e.state='windup'; e.stateT=Clock.game; e.stam=Math.max(0,e.stam-m.stam);
@@ -1253,8 +1288,9 @@ Object.assign(Fight,{
     Audio_.step(true);
     SlowFx.emitSweat(V.faceX, V.faceY, 3+((e.fatigue*5)|0), 0.7);
 
+    const readYou=e.readYou; e.readYou=null;
     this.exchange={
-      id, data:m, t0:Clock.game, tell, impact:Clock.game+impact,
+      id, data:m, t0:Clock.game, tell, impact:Clock.game+impact, readYou,
       // 主観時間は自動では発動しない。予備動作の間に指を置けた時だけ開く (§9.1)
       read:null, readRel:0, slowAt:0, slowScale:TS.CHOICE,
       slowed:false, slowRealT:0, returning:false,
@@ -1396,6 +1432,12 @@ Object.assign(Fight,{
   resolveExchange(){
     const ex=this.exchange, m=ex.data, p=this.p, e=this.e;
     const ch=ex.choice; let j=ex.judge;
+    // 見切って主観時間に入っているなら、そこでの選択はもうタイミング当てではない。
+    // 「見えた瞬間、世界は遅くなる」の約束どおり、見切りの質がそのまま対応の質になる。
+    // これを MISS 判定より前に置く。後ろに置いていたため、落ち着いて選んだ
+    // スリップが MISS で弾かれ、フルダメージになっていた
+    // （実測：PERFECT見切り＋正しいスリップ＝何もしないのと同じ被弾11）
+    if(ex.read && ex.slowed && ch){ j=bestJudge(j, ex.read); this.lastJudge=j; }
     let dmg=m.dmg, note='', color=C.accent, avoided=false;
 
     // 迎撃／相打ちが先に成立していた場合
@@ -1416,11 +1458,13 @@ Object.assign(Fight,{
     }else{
       const safe = m.safe.includes(ch);
       const bad  = m.bad.includes(ch);
+      // 癖を読まれて、その癖のまま入った場合だけ告げる。
+      // 予告が1.45倍に伸びているので、見切れば別の対応に変えられる
+      if(ex.readYou && ch===ex.readYou && bad) this.float('読まれた','#ff8a3d',true,'what');
       // 来る側と逆の手で受けると肩越しになり、止め切れない
       const want = (ch==='guard') ? blockSide(m) : null;
       const wrongHand = !!want && p.guardSide!==want;
-      // 構え続けた防御は、押した時刻ではなく「どれだけ早く見切ったか」で質が決まる
-      if(ex.soft && ex.read){ j=bestJudge(j, ex.read); this.lastJudge=j; }
+        if(ex.soft && ex.read){ j=bestJudge(j, ex.read); this.lastJudge=j; }
       if(wrongHand && j==='PERFECT'){ j='GOOD'; this.lastJudge='GOOD'; }
       this.countJudge(j);
 
@@ -1442,6 +1486,7 @@ Object.assign(Fight,{
           this.burst(hitX,hitY,'guard',j==='PERFECT'?1:0.6);
           Audio_.guardHit(); haptic(j==='PERFECT'?'perfect':'guard');
           if(j==='PERFECT') this.grantAdvantage(true);
+          else if(ex.read) this.grantAdvantage(false);   // 見切った上でのガードも反撃可
           avoided=true;
         }
       }else if(safe){
@@ -1453,13 +1498,14 @@ Object.assign(Fight,{
           if(!this.sit || !this.sit.goal.only || this.sit.goal.only.includes(ch)) this.sitStats.defended++;
           this.float(j,j==='PERFECT'?C.good:C.ink,j==='PERFECT');
           Audio_.whoosh(); haptic(j==='PERFECT'?'perfect':'good');
+          // 見切って正しく外したなら、必ず反撃の窓を開く。
+          // ここを PERFECT 限定にしていたため「避けても何も起きない」
+          // 状態が続いていた（実測：有利が一度も取れない）
           if(j==='PERFECT'){
             this.grantAdvantage(true);
-            // PERFECT回避後の回り込み → 金網圧力 -1 (§5)
             if(p.cage>0){ p.cage--; this.float('回り込み','#8d93a6'); }
           }else{
-            // GOOD／EARLY は姿勢を崩すだけで、カウンター受付は与えない
-            e.state='stagger'; e.stateT=Clock.game; e.stagger=0.4;
+            this.grantAdvantage(false);
           }
           avoided=true;
           if(ch==='sprawl'){ this.sitStats.sprawled++; }
@@ -1513,8 +1559,10 @@ Object.assign(Fight,{
 
   // ---------- 有利状態 (§9) ----------
   grantAdvantage(perfect){
-    this.p.advUntil=Clock.game+COUNTER_WINDOW;
+    this.p.advUntil=Clock.game+COUNTER_WINDOW*(perfect?1.15:1);
     this.p.advPerfect=perfect;
+    this.p.combo=0;                       // この有利で当てた数
+    this.p.comboDmg=0;
     this.e.state='stagger'; this.e.stateT=Clock.game;
     this.e.stagger=perfect?1:0.55;
   },
@@ -1664,6 +1712,18 @@ Object.assign(Fight,{
     dmg=Math.round(dmg*10)/10;
     e.hp=Math.max(0,e.hp-dmg);
     this.stats.hits++;
+    // 有利の中で当てたら窓が延びて次が繋がる。600msでは1発しか入らず
+    // 「攻撃を組み立てる」体験になっていなかった（実測）
+    if(isCounter){
+      p.combo=(p.combo||0)+1; p.comboDmg=(p.comboDmg||0)+dmg;
+      if(p.combo<COMBO_MAX){
+        p.advUntil=Math.max(p.advUntil, Clock.game+COMBO_EXTEND);
+        e.state='stagger'; e.stateT=Clock.game; e.stagger=Math.max(e.stagger,0.5);
+      }else{
+        p.advUntil=Clock.game;                 // 打ち切り。相手が立て直す
+        this.float(p.combo+'連　'+Math.round(p.comboDmg), C.accent, true, 'what');
+      }
+    }
     if(perfect) this.stats.perfect++; else if(judge==='GOOD') this.stats.good++;
 
     const x=this.oppFaceX(), y=arc==='kick'?this.oppBodyY():this.oppFaceY();
@@ -1687,7 +1747,9 @@ Object.assign(Fight,{
       if(this.distT<0 && this.dist<2){ this.distTarget=Math.min(2,this.dist); }
       this.enemyKnockback();
     }
-    this.p.advUntil=-1;
+    // 一発当てるたびに有利を潰していたため、窓を伸ばしても連打が繋がらなかった。
+    // 上限（COMBO_MAX）までは維持し、打ち切った時だけ閉じる
+    if(!(isCounter && (p.combo||0)<COMBO_MAX)) this.p.advUntil=-1;
     if(e.hp<=0) this.finish(true,'KO');
   },
 
@@ -1701,6 +1763,15 @@ Object.assign(Fight,{
   // ---------- 決着 ----------
   finish(win,reason){
     if(this.over) return;
+    // 局面で相手を倒し切った場合も達成として扱う。
+    // 反撃が繋がるようになった結果、課題の途中でKOが起きるようになった
+    if(win && this.sit && reason!=='TAKEDOWN' && !this.sitStars){
+      const [cur,need]=this.goalProgress();
+      let st = cur>=need ? 1 : 1;                 // 倒し切った時点で最低★1
+      if(this.sitStats.damage<=0) st=2;
+      if(st===2 && this.stats.perfect>=(this.sit.star3?this.sit.star3.perfect:99)) st=3;
+      Progress.set(this.sit.id, st); this.sitStars=st;
+    }
     this.over=true; this.win=win; this.endReason=reason;
     this.overT=Clock.real;
     Clock.to(0.35,300);
@@ -1730,6 +1801,7 @@ Object.assign(Fight,{
       j='GOOD'; ex.heldEarly=true;
     }
     ex.choice=kind; ex.choiceT=gtime; ex.judge=j; ex.diff=diff; ex.soft=!!soft;
+    if(!soft) AI.noteHabit(this, kind);          // 同じ対応の繰り返しを相手が覚える
     this.lastJudge=ex.judge; this.lastDiff=Math.round(diff);
     return ex.judge;
   },
