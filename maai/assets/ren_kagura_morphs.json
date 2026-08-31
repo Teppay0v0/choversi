@@ -1,0 +1,8 @@
+{
+  "mesh": "MAAi_Ren_Body",
+  "morphs": [
+    "blink",
+    "mouthOpen",
+    "pain"
+  ]
+}
