@@ -3633,6 +3633,72 @@ const ASSIST_LABEL={
   sway:'両指下でスウェー', sprawl:'両指長押しでスプロール',
   retreat:'両指下で後退', intercept:'上スライドで迎撃',
 };
+// 安全な行動 → 画面上のどこを触ればいいか。
+// ガード帯は上（BAND_Y より上）、打撃帯は下。左右は画面の半分で決まる。
+function assistTargets(F,m,safe){
+  const gy=V.H*BAND_Y*0.62, sy=V.H*0.775;      // ガード帯の中ほど / 打撃帯の中ほど
+  const lx=V.W*0.26, rx=V.W*0.74;
+  switch(safe){
+    case 'guard': {
+      // 来る側の手で受ける。blockSide が 'L'/'R' を返す
+      const side=blockSide(m);
+      const x = side==='L'? lx : side==='R'? rx : V.W*0.5;
+      return [{x, y:gy, label:'長押し'}];
+    }
+    case 'slipL': return [{x:lx, y:sy, dx:-1, label:'左へ'}];
+    case 'slipR': return [{x:rx, y:sy, dx:+1, label:'右へ'}];
+    case 'sway':
+    case 'retreat': return [{x:lx,y:sy,dy:+1},{x:rx,y:sy,dy:+1,label:'両指を下へ'}];
+    case 'sprawl':  return [{x:lx,y:sy,hold:true},{x:rx,y:sy,hold:true,label:'両指で長押し'}];
+    case 'intercept': return [{x:V.W*0.5, y:sy, dy:-1, label:'上へ'}];
+  }
+  return [];
+}
+
+// 触る場所を示す赤い丸。方向があれば、そこへ伸びる矢印を添える
+function drawTouchTarget(t){
+  const pulse=0.5+0.5*Math.sin(Clock.real/170);
+  const r=V.W*0.058*(1+0.10*pulse);
+  ctx.save();
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  // 外側の広がる輪：目を引かせる
+  ctx.globalAlpha=0.30*(1-pulse);
+  ctx.strokeStyle=C.accent; ctx.lineWidth=Math.max(2,V.W*0.006);
+  ctx.beginPath(); ctx.arc(t.x,t.y,r*(1+0.85*pulse),0,7); ctx.stroke();
+  // 本体
+  ctx.globalAlpha=0.20; ctx.fillStyle=C.accent;
+  ctx.beginPath(); ctx.arc(t.x,t.y,r,0,7); ctx.fill();
+  ctx.globalAlpha=0.95; ctx.lineWidth=Math.max(2.5,V.W*0.008);
+  ctx.beginPath(); ctx.arc(t.x,t.y,r,0,7); ctx.stroke();
+  // 長押しは二重丸で区別する
+  if(t.hold){
+    ctx.globalAlpha=0.75; ctx.lineWidth=Math.max(1.5,V.W*0.004);
+    ctx.beginPath(); ctx.arc(t.x,t.y,r*0.55,0,7); ctx.stroke();
+  }
+  // 滑らせる方向
+  const dx=t.dx||0, dy=t.dy||0;
+  if(dx||dy){
+    const L=V.W*0.15, ex2=t.x+dx*L, ey2=t.y+dy*L;
+    ctx.globalAlpha=0.9; ctx.lineWidth=Math.max(2.5,V.W*0.008);
+    ctx.setLineDash([V.W*0.018, V.W*0.014]);
+    ctx.beginPath(); ctx.moveTo(t.x+dx*r,t.y+dy*r); ctx.lineTo(ex2,ey2); ctx.stroke();
+    ctx.setLineDash([]);
+    const h=V.W*0.030;
+    ctx.beginPath();
+    ctx.moveTo(ex2,ey2);
+    ctx.lineTo(ex2-dx*h+dy*h*0.6, ey2-dy*h+dx*h*0.6);
+    ctx.moveTo(ex2,ey2);
+    ctx.lineTo(ex2-dx*h-dy*h*0.6, ey2-dy*h-dx*h*0.6);
+    ctx.stroke();
+  }
+  if(t.label){
+    ctx.globalAlpha=0.95; ctx.textAlign='center'; ctx.fillStyle=C.accent;
+    ctx.font=`600 ${Math.round(V.W*0.032)}px -apple-system,sans-serif`;
+    ctx.fillText(t.label, t.x, t.y+r+V.W*0.055);
+  }
+  ctx.restore();
+}
+
 function drawAssist(F,phase){
   const ex=F.exchange; if(!ex||ex.resolved) return;
   const m=ex.data, D=F.diff;
@@ -3699,29 +3765,23 @@ function drawAssist(F,phase){
     ctx.beginPath(); ctx.arc(x,y,V.bh*0.050*(1.6-k*0.6),0,7); ctx.stroke();
     ctx.restore();
   }
-  // BEGINNER：正しい移動方向と操作する腕を短時間表示 (§12)
+  // BEGINNER：正しい操作を「触る場所」として画面に出す (§12)
+  // 文字と矢印だけでは、どこを触ればいいのか分からないという指摘への対応
   if(phase==='screen' && D.showArrow && ex.slowed && !ex.choice){
     const safe=m.safe&&m.safe[0];
     if(safe){
-      const txt=ASSIST_LABEL[safe]||safe;
+      for(const t of assistTargets(F,m,safe)) drawTouchTarget(t);
       ctx.save();
-      ctx.globalAlpha=0.85;
-      ctx.textAlign='center'; ctx.fillStyle=C.accent;
+      ctx.globalAlpha=0.9; ctx.textAlign='center'; ctx.fillStyle=C.accent;
       ctx.font=`600 ${Math.round(V.W*0.036)}px -apple-system,sans-serif`;
-      ctx.fillText(txt,V.W*0.5,V.H*0.795);
-      // 方向矢印
-      const dir = safe==='slipL'?-1:safe==='slipR'?1:0;
-      if(dir!==0){
-        const ax=V.W*0.5+dir*V.W*0.20, ay=V.H*0.745, s=V.W*0.035;
-        ctx.strokeStyle=C.accent; ctx.lineWidth=3; ctx.lineCap='round';
-        ctx.beginPath();
-        ctx.moveTo(ax-dir*s,ay); ctx.lineTo(ax+dir*s,ay);
-        ctx.moveTo(ax+dir*s,ay); ctx.lineTo(ax+dir*s*0.35,ay-s*0.55);
-        ctx.moveTo(ax+dir*s,ay); ctx.lineTo(ax+dir*s*0.35,ay+s*0.55);
-        ctx.stroke();
-      }
+      // 下端すぎるとレターボックスに隠れる。安全な位置へ
+      ctx.fillText(ASSIST_LABEL[safe]||safe, V.W*0.5, V.H*0.905);
       ctx.restore();
     }
+  }
+  // BEGINNER：予備動作の間は「ここに指を置く＝見切る」を示す
+  if(phase==='screen' && D.showArrow && !ex.read && !ex.resolved && Clock.game<tellEnd){
+    drawTouchTarget({x:V.W*0.5, y:V.H*0.42, label:'指を置く'});
   }
   // 初心者モード：タッチ時に左右の入力領域を薄く表示 (§4)
   if(phase==='screen' && D.showIcon && Input.pts.size>0){
