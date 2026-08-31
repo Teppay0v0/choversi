@@ -255,10 +255,10 @@ const STEP_MS = 300, STEP_MS_PERFECT = 240, STEP_STAMINA = 4;
 const MOVES = {
   // リード（左）— 肩が既に前にあるので溜めがほとんど無い。差し合いの道具
   jab      :{ja:'左ジャブ',      hand:'lead', dmg:5, stam:3, whiff:2, tell:110, impact:250, recover:180, arc:'straight', side:'L', from:+1, read:0.46, safe:['guard','slipL','sway'],    bad:['advance']},
-  hook     :{ja:'左フック',      hand:'lead', dmg:11,stam:8, whiff:5, tell:210, impact:430, recover:340, arc:'hook',     side:'L', from:+1, read:0.72, safe:['guard','sway','retreat'],  bad:['slipL','slipR']},
+  hook     :{ja:'左フック',      hand:'lead', dmg:11,stam:8, whiff:5, tell:280, impact:520, recover:360, arc:'hook',     side:'L', from:+1, read:0.86, safe:['guard','sway','retreat'],  bad:['slipL','slipR']},
   // リア（右）— 肩の溜め・腰の回転・後ろ足の返りが出る。読めるが重い
   straight :{ja:'右ストレート',  hand:'rear', dmg:11,stam:6, whiff:4, tell:280, impact:480, recover:380, arc:'straight', side:'R', from:-1, read:1.00, safe:['guard','slipR','sway'],    bad:['slipL','advance']},
-  upper    :{ja:'右アッパー',    hand:'rear', dmg:14,stam:10,whiff:6, tell:280, impact:500, recover:400, arc:'upper',    side:'R', from: 0, read:0.88, safe:['slipL','slipR','retreat'], bad:['advance','sway']},
+  upper    :{ja:'右アッパー',    hand:'rear', dmg:14,stam:10,whiff:6, tell:300, impact:545, recover:410, arc:'upper',    side:'R', from: 0, read:0.94, safe:['slipL','slipR','retreat'], bad:['advance','sway']},
   // 蹴り — 前蹴りは前脚、ロー／ミドル／ハイは後ろ脚
   frontKick:{ja:'前蹴り',        hand:'lead', dmg:7, stam:6, whiff:3, tell:180, impact:400, recover:300, arc:'kick',     side:'L', from: 0, read:0.60, safe:['guard','retreat'],         bad:['advance']},
   lowKick  :{ja:'ローキック',    hand:'rear', dmg:8, stam:7, whiff:4, tell:250, impact:450, recover:340, arc:'kick',     side:'R', from:-1, read:0.85, safe:['guard','retreat'],         bad:['slipL','slipR']},
