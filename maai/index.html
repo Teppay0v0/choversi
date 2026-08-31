@@ -415,6 +415,11 @@ const Rig3 = {
    ============================================================ */
 const BPM  = 100;
 const BEAT = 60000 / BPM;          // 600 ms
+// 着弾から次の予備動作が始まるまでの最小間隔。
+// 実測では 502〜671ms しかなく、被弾直後に次が来て見る余裕が無かった。
+// 人の反応は約250ms、Joch(1981)の平均反応は427ms。
+// 「見て・決めて・構え直す」ために、その2倍以上を空ける
+const GAP_MIN = 900;
 
 // --- ジェスチャー認識 (§7) 画面短辺比 ---
 // 画面を上下に分ける。上＝ガード帯（触れた瞬間に構える）／下＝打撃帯
@@ -577,21 +582,21 @@ function setFighter(id){
 // s: 拍単位の相対開始位置 / a: 行動
 const PATTERNS = [
   // 1-2：ジャブで反応を引き出し、0.9拍後に本命の右を通す
-  {id:'P01', dist:STRIKE, next:['P02','P03','P08','P11'], steps:[{s:0,a:'jab'},{s:0.9,a:'straight'}]},
+  {id:'P01', dist:STRIKE, next:['P02','P03','P08','P11'], steps:[{s:0,a:'jab'},{s:1.7,a:'straight'}]},
   // ダブルジャブ：距離を測る差し合い
-  {id:'P02', dist:STRIKE, next:['P01','P05','P04','P11'], steps:[{s:0,a:'jab'},{s:0.75,a:'jab'},{s:1.9,a:'retreat'}]},
+  {id:'P02', dist:STRIKE, next:['P01','P05','P04','P11'], steps:[{s:0,a:'jab'},{s:1.5,a:'jab'},{s:3.2,a:'retreat'}]},
   // ジャブ → 左フック：同じ前手から角度を変える
-  {id:'P11', dist:STRIKE, next:['P04','P10','P03'],       steps:[{s:0,a:'jab'},{s:1.1,a:'hook'}]},
-  {id:'P03', dist:STRIKE, next:['P04','P10','P11'],       steps:[{s:0,a:'feint'},{s:1,a:'straight'}]},
+  {id:'P11', dist:STRIKE, next:['P04','P10','P03'],       steps:[{s:0,a:'jab'},{s:2.0,a:'hook'}]},
+  {id:'P03', dist:STRIKE, next:['P04','P10','P11'],       steps:[{s:0,a:'feint'},{s:1.8,a:'straight'}]},
   // ジャブでタックルに入る（打撃と組みの二択）
-  {id:'P12', dist:STRIKE, next:['P08','P02','P10'],       steps:[{s:0,a:'jab'},{s:1.0,a:'tackle'}]},
+  {id:'P12', dist:STRIKE, next:['P08','P02','P10'],       steps:[{s:0,a:'jab'},{s:1.9,a:'tackle'}]},
   {id:'P04', dist:STRIKE, next:['P08','P01','P12'],       steps:[{s:0,a:'tackle'}]},
-  {id:'P05', dist:FAR,    next:['P06','P01','P09'],       steps:[{s:0,a:'advance'},{s:1.5,a:'midKick'}]},
+  {id:'P05', dist:FAR,    next:['P06','P01','P09'],       steps:[{s:0,a:'advance'},{s:2.2,a:'midKick'}]},
   {id:'P06', dist:FAR,    next:['P01','P02','P11'],       steps:[{s:0,a:'advance'},{s:1,a:'advance'}]},
-  {id:'P07', dist:STRIKE, next:['P04','P08'],       steps:[{s:0,a:'hook'},{s:1.5,a:'jab'},{s:3,a:'tackle'}], cageOnly:true},
+  {id:'P07', dist:STRIKE, next:['P04','P08'],       steps:[{s:0,a:'hook'},{s:2.4,a:'jab'},{s:4.6,a:'tackle'}], cageOnly:true},
   {id:'P08', dist:STRIKE, next:['P01','P05','P10'],       steps:[{s:0,a:'block'},{s:1.5,a:'retreat'}]},
-  {id:'P09', dist:FAR,    next:['P05','P06','P01'],       steps:[{s:0,a:'lowKick'},{s:2,a:'advance'}]},
-  {id:'P10', dist:STRIKE, next:['P08','P12','P02'],       steps:[{s:0,a:'hook'},{s:1,a:'upper'}]},
+  {id:'P09', dist:FAR,    next:['P05','P06','P01'],       steps:[{s:0,a:'lowKick'},{s:2.8,a:'advance'}]},
+  {id:'P10', dist:STRIKE, next:['P08','P12','P02'],       steps:[{s:0,a:'hook'},{s:1.9,a:'upper'}]},
 ];
 
 // --- 難易度 (§12) ---
@@ -1198,7 +1203,8 @@ const AI = {
       ai.pattern=p; ai.step=0; ai.t0=Clock.game;
       ai.history.push(p.id); if(ai.history.length>6) ai.history.shift();
       // パターン間の休み
-      ai.restUntil=Clock.game + BEAT*rnd(0.4,1.0)*F.diff.aiRest*F.ftr.ai.rest;
+      ai.restUntil=Clock.game + Math.max(GAP_MIN*0.7*F.diff.aiRest,
+        BEAT*rnd(0.7,1.3)*F.diff.aiRest*F.ftr.ai.rest);
       return;
     }
     const st=ai.pattern.steps[ai.step];
@@ -1498,7 +1504,11 @@ Object.assign(Fight,{
     this.exchange=null; this.hint=null;
     e.state='recover'; e.stateT=Clock.game;
     Clock.to(TS.OBSERVE, TS.EXIT_MS);
-    this.ai.restUntil=Clock.game+BEAT*rnd(0.5,1.1)*this.diff.aiRest*this.ftr.ai.rest;
+    // 出題側が既に置いた間隔（シチュエーションの waves）を潰さず、
+    // 「着弾から最低 GAP_MIN は空ける」という下限としてだけ効かせる
+    this.ai.restUntil=Math.max(this.ai.restUntil,
+      Clock.game+Math.max(GAP_MIN*this.diff.aiRest,
+        BEAT*rnd(1.0,1.6)*this.diff.aiRest*this.ftr.ai.rest));
   },
 
   // ---------- 有利状態 (§9) ----------
@@ -3975,22 +3985,22 @@ const DEV_UNLOCK_ALL = true;
 const SITUATIONS = [
   {id:'S01', ch:1, title:'起こりを見切る', hint:'肩が動いた瞬間に画面へ指を置く',
    brief:'肩が溜まり腰が回った瞬間に、画面へ指を置く。そこで世界が遅くなる。置いてから、どちらの手で受けるか決める。押さなければ遅くならない。',
-   dist:STRIKE, waves:[{pool:['straight'],n:3,gap:[1.6,2.2]}],
+   dist:STRIKE, waves:[{pool:['straight'],n:3,gap:[2.0,2.6]}],
    goal:{kind:'defend',n:3}, star3:{perfect:2}},
 
   {id:'S02', ch:1, title:'外へ抜ける', hint:'右半分を外側（右）へスライド',
    brief:'見切ってから、置いた指をそのまま外側へ滑らせる。ガードは使わない。',
-   dist:STRIKE, waves:[{pool:['straight'],n:3,gap:[1.6,2.2]}],
+   dist:STRIKE, waves:[{pool:['straight'],n:3,gap:[2.0,2.6]}],
    goal:{kind:'defend',n:3,only:['slipL','slipR']}, star3:{perfect:2}},
 
   {id:'S03', ch:1, title:'差しは見切れない', hint:'右手を先に上げて置いておく',
    brief:'左ジャブは溜めが無く、見切る時間が無い。読むのではなく、来る側の手を先に上げておく。ガードは接触の瞬間に上がっていれば止まる。',
-   dist:STRIKE, waves:[{pool:['jab'],n:4,gap:[1.1,1.6]}],
+   dist:STRIKE, waves:[{pool:['jab'],n:4,gap:[1.9,2.4]}],
    goal:{kind:'defend',n:4}, star3:{perfect:2}},
 
   {id:'S04', ch:1, title:'1-2 を読む', hint:'ジャブに深く反応しない',
    brief:'ジャブは殴るためではなく、あなたに防御を使わせるために出てくる。本命は後ろ手。',
-   dist:STRIKE, combo:[['jab','straight']], waves:[{pool:['jab','straight'],n:6,gap:[0.9,0.9]}],
+   dist:STRIKE, combo:[['jab','straight']], waves:[{pool:['jab','straight'],n:6,gap:[1.8,2.2]}],
    goal:{kind:'defend',n:6}, star3:{perfect:3}},
 
   {id:'S05', ch:2, title:'隙を突く', hint:'PERFECT回避のあと 0.6 秒以内にタップ',
@@ -4015,7 +4025,7 @@ const SITUATIONS = [
 
   {id:'S09', ch:3, title:'金網を背負う', hint:'PERFECT回避で回り込む',
    brief:'背中が金網。下がれない。完全に見切って角度を取り直す。',
-   dist:STRIKE, pCage:2, waves:[{pool:['hook','straight','jab'],n:6,gap:[1.4,2.0]}],
+   dist:STRIKE, pCage:2, waves:[{pool:['hook','straight','jab'],n:6,gap:[2.0,2.6]}],
    goal:{kind:'escape'}, star3:{perfect:3}},
 
   {id:'S10', ch:4, title:'タックルを切る', hint:'両指長押しでスプロール',
@@ -4030,7 +4040,7 @@ const SITUATIONS = [
 
   {id:'S12', ch:4, title:'フェイントを置く', hint:'腰が落ちても、150ms で戻ったら本命ではない',
    brief:'偽の組みに反応すると、続く本命の読みが浅くなる。',
-   dist:STRIKE, waves:[{pool:['feint','tackle','straight'],n:6,gap:[1.6,2.2]}],
+   dist:STRIKE, waves:[{pool:['feint','tackle','straight'],n:6,gap:[2.0,2.6]}],
    goal:{kind:'defend',n:6}, star3:{perfect:3}},
 ];
 
