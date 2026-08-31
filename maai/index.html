@@ -389,7 +389,7 @@ const DIFF = {
 
 // --- パレット (§4.1  基調2色 + アクセント1) ---
 const C = {
-  bg0:'#070910', bg1:'#131a2b', bg2:'#1d2740',
+  bg0:'#070910', bg1:'#131a2b', bg2:'#1d2740', bg2d:'#16203a',
   ink:'#e8e2d4', inkDim:'#8d93a6', inkFaint:'#5c6274',
   accent:'#ff3b30', accentSoft:'#ff6257',
   skin:'#d6ac8b', skinShade:'#a37c62', skinLit:'#f0ceae',
@@ -2048,17 +2048,20 @@ function drawOpponent(F){
   ctx.fillRect(sx-hw*0.64+hipDX,hy-bh*0.012,hw*1.28,bh*0.026);
   ctx.globalAlpha=1;
 
-  // --- 腕 ---
+  // --- 腕と頭 ---
+  // 構えた拳は顔より「手前」にある。だから腕は頭より後に描く。
+  // 例外は引き手（chamber）で、そのときだけ拳は顔より奥へ入る。
   const armOpt={cx:sx,shY:sy,headY,headR,bh,hw,side,wind,strike,arc,m,prog,
                 twL,twR,leadScale,rearScale};
-  drawEnemyArm(F,-1,armOpt);
-  drawEnemyArm(F,+1,armOpt);
+  const CHo=chain(prog,arc);
+  const behind = (side!==0 && arc!=='kick' && arc!=='tackle' && CHo.chamber>0.45) ? side : 0;
 
-  // --- 頭 ---
+  if(behind!==0) drawEnemyArm(F,behind,armOpt);        // 引き中の腕だけ顔の奥
   drawEnemyHead(F,{cx:hdX, headY:hdY, headR,bh,wind,strike,arc});
-
-  // 手前へ来た拳は顔より前
-  if(side!==0 && CH.arm>0.30 && arc!=='kick' && arc!=='tackle') drawEnemyArm(F,side,armOpt);
+  if(behind!==-1) drawEnemyArm(F,-1,armOpt);
+  if(behind!==+1) drawEnemyArm(F,+1,armOpt);
+  // 伸びきった拳はいちばん手前
+  if(side!==0 && CHo.arm>0.30 && arc!=='kick' && arc!=='tackle') drawEnemyArm(F,side,armOpt);
 
   ctx.restore();
 }
@@ -2221,8 +2224,8 @@ function drawEnemyArm(F,s,o){
     const g=fistPath(arc, s, CH.arm, isLead);
     const gh=(EB.guardHigh-0.62)*0.10;
     // Düz(2011) の構えの定義：前手は「頭の高さ」、後ろ手は「顎の高さ」に置く
-    const rest= isLead ? [ -s*0.020, -0.118+gh, 0.046 ]     // 前手：頭の高さ
-                       : [ -s*0.036, -0.046+gh, 0.020 ];    // 後ろ手：顎の高さ
+    const rest= isLead ? [ -s*0.068, -0.118+gh, 0.175 ]     // 前手：頭の高さ・顔の前
+                       : [ -s*0.030, -0.052+gh, 0.140 ];    // 後ろ手：顎の高さ・頬の横
     const ch=CH.chamber;
     // 溜め：拳を顎の横へ引く（奥へ引くので小さく見える）
     // 引き手：肘角60度（実測）。方向を保ったまま距離を合わせる
@@ -2255,9 +2258,12 @@ function drawEnemyArm(F,s,o){
     // 構え：前手は前へ低く、後ろ手は顎の横
     const gh=(EB.guardHigh-0.62)*0.10;
     // Düz(2011)：前手は頭の高さ、後ろ手は顎の高さ
+    // 拳は顔の「前」。肩の真上に置くと肘が肩の高さの水平円上にしか置けず、
+    // 上腕がカメラを向いて完全に短縮され、腕全体が一本の棒に見えてしまう。
+    // 肘のヒントは「下 ＋ やや外」。前方成分を入れると肘が手前へ飛び出す。
     P= isLead
-      ? { p:[ -s*0.020, -0.118+gh, 0.046 ], hint:[ 0, 1.00, 0.30 ] }
-      : { p:[ -s*0.036, -0.046+gh, 0.020 ], hint:[ 0, 0.60, 0.85 ] };
+      ? { p:[ -s*0.068, -0.118+gh, 0.175 ], hint:[ s*0.25, 1.00, 0 ] }
+      : { p:[ -s*0.030, -0.052+gh, 0.140 ], hint:[ s*0.20, 1.00, 0 ] };
     // 相手が打っている間、反対の手は顎を締める
     if(side===s*-1 && a>0){
       P.p[1]-=0.022*CH.torso; P.p[0]-=s*0.010*CH.torso;
@@ -2268,7 +2274,14 @@ function drawEnemyArm(F,s,o){
   const k=solveElbow(P.p[0],P.p[1],P.p[2],P.hint[0],P.hint[1],P.hint[2]);
   const E=projArm(shx,shy,k.ex,k.ey,k.ez,bh);
   const Fp=projArm(shx,shy,k.fx,k.fy,k.fz,bh);
-  const gr=bh*0.048*(0.9+0.1*dep)*Math.min(Fp.k,4.6);
+  // MMAグローブは4オンス。拳よりわずかに大きい程度で、頭より小さい。
+  // 構えでは遠近の拡大を6割に落とす（そのままだと頭より大きくなる）。
+  // ただし打撃中は「拳が近づいて大きくなる」ことが唯一の奥行きの手がかりなので、
+  // 拡大を減らしてはいけない。ここを削ると正面から見た突きが棒に見える。
+  const raw=Math.min(Fp.k,4.6);
+  const gk = punching ? raw : 1+(raw-1)*0.60;
+  const gr=bh*0.040*(0.9+0.1*dep)*gk;
+  if(window.__armdbg) window.__armdbg[s]={shx,shy,E,Fp,k};
   if(punching && CH.arm>0.25) V.fist={x:Fp.x,y:Fp.y,r:gr,active:true,s};
 
   // 拳の回転（インパクトへ向けて手の甲が下を向く）
@@ -2283,14 +2296,14 @@ function drawEnemyArm(F,s,o){
 
   // ---- 上腕：肩 → 肘 ----
   const dw=0.88+0.12*dep;
-  const w1a=bh*0.039*dw, w1b=bh*0.034*dw*Math.min(E.k,2.2);
-  tube(shx,shy,w1a, E.x,E.y,w1b, C.bg2, bh);
+  const w1a=bh*0.034*dw, w1b=bh*0.029*dw*Math.min(E.k,2.2);
+  tube(shx,shy,w1a, E.x,E.y,w1b, C.bg2d, bh);   // 上腕は奥＝暗い
   // ---- 前腕：肘 → 拳 ----
-  const w2a=bh*0.033*dw*Math.min(E.k,2.2), w2b=bh*0.028*dw*Math.min(Fp.k,3.0);
+  const w2a=bh*0.029*dw*Math.min(E.k,2.2), w2b=bh*0.025*dw*Math.min(Fp.k,3.0);
   tube(E.x,E.y,w2a, Fp.x,Fp.y,w2b, C.bg2, bh);
   // 肘の丸み
   ctx.fillStyle=C.bg2;
-  ctx.beginPath(); ctx.arc(E.x,E.y,w1b*0.52,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(E.x,E.y,w1b*0.72,0,7); ctx.fill();
 
   // ---- グローブ ----
   drawEnemyGlove(Fp.x,Fp.y,gr,pron,s,bh);
