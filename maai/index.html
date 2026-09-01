@@ -173,9 +173,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 
   <!-- プレイの記録 -->
   <div class="overlay hidden" id="ovStats">
-    <div class="result" id="statsBody" style="overflow-y:auto;max-height:70vh"></div>
+    <div class="result" id="statsBody" style="overflow-y:auto;max-height:62vh"></div>
+    <div id="statsMsg" class="note" style="text-align:center"></div>
+    <textarea id="statsOut" class="hidden" readonly
+      style="width:100%;height:22vh;background:#0b0f19;color:#e8e2d4;border:1px solid #2a3350;
+             border-radius:8px;padding:8px;font:12px/1.5 ui-monospace,monospace;
+             -webkit-user-select:text;user-select:text"></textarea>
     <div class="menu">
-      <button class="btn sub" data-act="stats-copy">記録をコピー</button>
+      <button class="btn sub" data-act="stats-copy">記録を書き出す</button>
       <button class="btn sub" data-act="stats-clear">記録を消す</button>
       <button class="btn primary" data-act="close-ov">戻る</button>
     </div>
@@ -1483,6 +1488,9 @@ Object.assign(Fight,{
 
   // ---------- フェイントの解決 ----------
   resolveFeint(){
+    Rec.push('resolve',{move:'feint', choice:(this.exchange&&this.exchange.choice)||null,
+      judge:null, dmg:0, avoided:true, feint:true,
+      read:(this.exchange&&this.exchange.read)||null});
     const ex=this.exchange;
     if(ex.choice || ex.read){
       // フェイントに反応 → 主観時間を消費し、本命の受付が短くなる (§9.1)
@@ -1520,6 +1528,12 @@ Object.assign(Fight,{
 
     // 迎撃／相打ちが先に成立していた場合
     if(ex.pAtk && ex.pAtk.interrupt){
+      // ここも決着の一種。記録しないと「攻撃はあったのに結果が無い」
+      // 穴になる（実際に空いていた）
+      this._lastImpactReal=Clock.real;
+      Rec.push('resolve',{move:ex.id, choice:'intercept', judge:null, dmg:0,
+        avoided:true, interrupt:true, reversal:false, adv:this.advantage,
+        read:ex.read||null});
       this.exchange=null; this.hint=null; return;
     }
 
@@ -4465,13 +4479,59 @@ const Rec = {
   load(){ try{ return JSON.parse(localStorage.getItem('maai.rec')||'[]'); }catch(e){ return []; } },
   clear(){ try{ localStorage.removeItem('maai.rec'); }catch(e){} },
 
+  // ---------- 貼り付け用の要約 ----------
+  // 生ログは数万文字になり、iPhoneから貼るのが現実的でない。
+  // 分析に必要な形へ畳んでから出す
+  digest(){
+    const runs=this.load(); if(!runs.length) return '（記録なし）';
+    const A=this.analyze(runs);
+    const pc=(x,y)=>y?Math.round(x/y*100)+'%':'—';
+    const L=[];
+    L.push('MAAi プレイ記録  '+A.runs+'戦 / 攻防'+A.atk+'回');
+    L.push('端末 '+((navigator.userAgent||'').match(/iPhone|iPad|Android|Mac|Windows/)||['?'])[0]
+      +' 画面 '+V.W+'x'+V.H);
+    L.push('');
+    L.push('[見切り]');
+    L.push(' 反応時間 中央'+(A.reactMed??'—')+'ms 最速'+(A.reactMin??'—')+'ms  n='+A.react.length);
+    L.push(' 反応の分布 '+(()=>{const b=[0,0,0,0,0];
+      for(const r of A.react){ b[r<260?0:r<340?1:r<450?2:r<600?3:4]++; }
+      return '〜260:'+b[0]+' 〜340:'+b[1]+' 〜450:'+b[2]+' 〜600:'+b[3]+' 600〜:'+b[4];})());
+    L.push(' 見切れた '+pc(A.read,A.atk)+' ('+A.read+'/'+A.atk+')  PERFECT '+pc(A.perfect,A.read)
+      +'  GOOD '+A.good+'  LATE '+A.late);
+    L.push(' 山を張った '+A.guessed+'  見切れず '+A.noread+'  空押し '+A.blindPress);
+    L.push('');
+    L.push('[選択と結果]');
+    L.push(' スロー窓の使用率 '+(A.slowUsedMed??'—')+'%  (n='+A.slowUsed.length+')');
+    L.push(' 捌けた '+pc(A.avoided,A.avoided+A.hit)+'  返し '+A.reversal+'  有利 '+A.adv
+      +'  反撃 '+A.counters+'発 平均'+A.combo+'連');
+    L.push(' 無入力で被弾 '+A.noChoice+'  総被弾 '+Math.round(A.dmgTaken));
+    L.push(' 迎撃で潰した '+A.intercepted+'  フェイント '+A.feints);
+    L.push('');
+    L.push('[間と入力]');
+    L.push(' 打撃の間隔 中央'+(A.gapMed??'—')+'ms  空振り入力 '+A.wastePress+'/'+A.press
+      +' ('+pc(A.wastePress,A.press)+')');
+    L.push('');
+    L.push('[技ごと]');
+    for(const [k,v] of Object.entries(A.byMove))
+      L.push(' '+((MOVES[k]&&MOVES[k].ja)||k)+' n='+v.n+' 見切り'+pc(v.read,v.n)
+        +' PERFECT'+v.perfect+' 被弾'+pc(v.hit,v.n));
+    L.push('');
+    L.push('[各戦]');
+    for(const r of runs.slice(-6)){
+      const st=r.ev[0]||{}, en=r.ev[r.ev.length-1]||{};
+      L.push(' '+(st.mode||'?')+'/'+(st.diff||'?')+(st.sit?'/'+st.sit:'')
+        +' → '+(en.reason||'?')+' HP'+JSON.stringify(en.hp||[]));
+    }
+    return L.join('\n');
+  },
+
   // ---------- 分析 ----------
   analyze(runs){
     runs=runs||this.load();
     const A={runs:runs.length, atk:0, read:0, perfect:0, good:0, late:0, noread:0,
       react:[], byMove:{}, choice:0, noChoice:0, wastePress:0, press:0,
       avoided:0, hit:0, dmgTaken:0, reversal:0, adv:0, counters:0, comboSum:0, comboN:0,
-      blindPress:0, guessed:0,
+      blindPress:0, guessed:0, intercepted:0, feints:0,
       slowMs:0, slowUsed:[], gaps:[], live:0, total:0};
     for(const r of runs){
       let last=null, tEnd=0;
@@ -4494,6 +4554,8 @@ const Rec = {
           case 'choice': A.choice++; if(e.slowUsed!=null) A.slowUsed.push(e.slowUsed); break;
           case 'resolve':
             if(e.choice==null) A.noChoice++;
+            if(e.interrupt) A.intercepted++;
+            if(e.feint) A.feints++;
             if(e.avoided) A.avoided++; else A.hit++;
             A.dmgTaken+=e.dmg||0;
             if(e.reversal) A.reversal++;
@@ -5115,10 +5177,20 @@ document.addEventListener('click',ev=>{
     case 'close-ov': go('title'); break;
     case 'stats-clear': Rec.clear(); buildStats(); break;
     case 'stats-copy': {
-      const t=JSON.stringify(Rec.load());
-      if(navigator.clipboard) navigator.clipboard.writeText(t).then(
-        ()=>{ el('statsBody').insertAdjacentHTML('afterbegin',
-          '<div class="note">記録をコピーしました（'+t.length+'文字）</div>'); });
+      // アーティファクトはiframeの中で動くため navigator.clipboard は
+      // 権限が無く拒否される。失敗しても何も出ず「反応しない」に見えていた。
+      // クリップボードに頼らず、選択できる形で画面に出す
+      const t=Rec.digest();
+      const box=el('statsOut');
+      box.value=t; box.classList.remove('hidden');
+      box.focus(); box.select();
+      try{ box.setSelectionRange(0, t.length); }catch(e){}
+      let msg='下の枠を長押し → 全選択 → コピー';
+      try{ if(document.execCommand('copy')) msg='コピーしました。貼り付けてください'; }catch(e){}
+      try{ if(navigator.clipboard&&navigator.clipboard.writeText)
+             navigator.clipboard.writeText(t).catch(()=>{}); }catch(e){}
+      el('statsMsg').textContent=msg+'（'+t.length+'文字）';
+      box.scrollIntoView({block:'center'});
       break; }
     case 'close-howto': go('title'); break;
     case 'calib': Calib.start(); go('calib'); break;
