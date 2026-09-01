@@ -1594,8 +1594,11 @@ Object.assign(Fight,{
       this.countJudge(j);
 
       if(ch==='guard'){
-        // ガードは接触の瞬間も保持している必要がある
-        const still = Input.isHolding(p.guardSide);
+        // ガードは接触の瞬間も保持している必要がある。
+        // ただし見切った上で構えたなら、指を離しても接触まで保たれる。
+        // 見切りという判断は済んでいるのに、指の保持という別の要求で
+        // 崩れるのは理不尽（実測：被弾39のうち18が「ガードを離した」）
+        const still = Input.isHolding(p.guardSide) || !!ex.read;
         if(!still){ this._why='ガードを離した'; this.hurt(dmg,m,'clean'); this.float('ガード解除','#5c6274'); }
         else if(j==='LATE'){
           this._why='ガードが遅い';
