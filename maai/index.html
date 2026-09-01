@@ -1582,7 +1582,10 @@ Object.assign(Fight,{
           if(!this.sit || !this.sit.goal.only || this.sit.goal.only.includes('guard')) this.sitStats.defended++;
           if(wrongHand) this.float('逆の手','#8d93a6');
           this.float(j,j==='PERFECT'?C.good:C.ink,j==='PERFECT');
-          this.burst(hitX,hitY,'guard',j==='PERFECT'?1:0.6);
+          // 火花は相手の顔ではなく、実際に当たった場所＝こちらのグローブへ
+          const gv=Arms[p.guardSide]||Arms.L;
+          this.burst(gv.x, gv.y-V.H*0.02, 'guard', j==='PERFECT'?1:0.6);
+          this.impactFeedback('guard', m, j==='PERFECT'?1.25:0.85);
           Audio_.guardHit(); haptic(j==='PERFECT'?'perfect':'guard');
           // ガードは「凌ぐ」だけ。ここから攻めには繋がらない。
           //
@@ -1608,6 +1611,7 @@ Object.assign(Fight,{
           if(!this.sit || !this.sit.goal.only || this.sit.goal.only.includes(ch)) this.sitStats.defended++;
           this.float(j==='PERFECT'?'完 全 に 外 し た':'外 し た',
                      j==='PERFECT'?C.good:C.accent, j==='PERFECT');
+          this.impactFeedback('slip', m, j==='PERFECT'?1.3:0.9);
           Audio_.whoosh(); haptic(j==='PERFECT'?'perfect':'good');
           // 見切って正しく外したなら、必ず反撃の窓を開く。
           // ここを PERFECT 限定にしていたため「避けても何も起きない」
@@ -1718,6 +1722,35 @@ Object.assign(Fight,{
     this.sitStats.perfectCounter++;
   },
 
+  // 打撃を受け止めた／外した瞬間に、こちらの体が反応する。
+  // これが無いと、拳が消えるだけで何も起きていないのと同じになる
+  // （実測：防御成功時にヒットストップ0・画面の揺れ0・腕の反動0、
+  //   Macには振動も無く、残るのは小さな文字だけだった）
+  impactFeedback(kind, m, strength){
+    const p=this.p, k=clamp(strength||1,0,1.6);
+    const from = m? (m.from||0) : 0;              // 打撃の向き（+右 / −左）
+    switch(kind){
+      case 'guard':
+        this.hitstop=Clock.real+Math.round(70+50*k);   // 時間が止まる
+        p.shake=Math.max(p.shake, 0.55*k);             // 画面が揺れる
+        p.camKick={x:-from*V.W*0.045*k, y:V.H*0.018*k, t:Clock.real};
+        Arms.recoil(k*1.0, from);                      // 腕が押し返される
+        break;
+      case 'slip':
+        p.shake=Math.max(p.shake, 0.22*k);
+        p.camKick={x:from*V.W*0.075*k, y:-V.H*0.010*k, t:Clock.real};
+        this.hitstop=Clock.real+Math.round(30*k);
+        Arms.recoil(k*0.35, from);
+        break;
+      case 'hurt':
+        this.hitstop=Clock.real+90;
+        p.shake=Math.max(p.shake, 1.0);
+        p.camKick={x:-from*V.W*0.075, y:V.H*0.035, t:Clock.real};
+        Arms.recoil(1.3, from);
+        break;
+    }
+  },
+
   grantAdvantage(perfect){
     this.p.advUntil=Clock.game+COUNTER_WINDOW*(perfect?1.15:1);
     this.p.advPerfect=perfect;
@@ -1743,6 +1776,7 @@ Object.assign(Fight,{
     this.burst(this.oppFaceX(),this.oppFaceY(),kind==='guard'?'guard':'hurt',
                clamp(dmg/14,0.3,1));
     SlowFx.emitSweat(V.W*0.5, V.H*0.55, 8+((dmg)|0), 1.3);
+    this.impactFeedback(kind==='guard'?'guard':'hurt', m, clamp(dmg/12,0.4,1.4));
     if(kind==='guard') Audio_.guardHit(); else { Audio_.punchHit(clamp(dmg/14,0.2,1)); haptic('hurt'); }
     // 強打を受ける → 30%で1段階後退 (§5)
     if(kind==='clean' && dmg>=10 && Math.random()<0.3 && this.distT<0){
@@ -1758,29 +1792,56 @@ Object.assign(Fight,{
   // 人は同時に2発は打てず、同じ手は引き戻しが終わるまで次を打てない。
   playerAttack(id, gestureName, buffered){
     const p=this.p, e=this.e;
-    const m=pmove(id); if(!m) return;
+    let m=pmove(id); if(!m) return;
     if(Clock.game<p.stunUntil) return;
     if(this.inIntro()) return;                 // 対峙中はまだ届かない
     // 両手を組み防御に使っている間は打てない
     if(Input.isDualHolding()) return;
 
-    const side = m.side==='C' ? 'R' : m.side;
+    const side = m.side==='C' ? 'R' : m.side;   // 押された側
     const travel = (MOVES[id]?MOVES[id].impact:420)*0.72;
     const recover = travel*0.9;
 
+    // その手がまだ戻っていないなら、空いている方の手で打つ。
+    // 拳は左右交互に出るもので、塞がった手を押して「無反応」になるのは
+    // 操作として間違っている。
+    // （実測：6回クリックして攻撃が出たのは2回。同じ手は657ms塞がり、
+    //   その間のタップは何の反応も無く捨てられていた。
+    //   これが「ただクリックしているだけ」の最大の原因）
+    let side2=side, id2=id;
+    if(Clock.game < (p.handReady[side]||0)){
+      const other = side==='L' ? 'R' : 'L';
+      if(Clock.game >= (p.handReady[other]||0)){
+        const alt = PLAYER_MOVES[other==='L'?'tapL':'tapR'];
+        if(alt && alt[this.dist]){ id2=alt[this.dist]; side2=other; }
+      }
+    }
+    const m2 = pmove(id2) || m;
+    // まだ当たっていない拳を、次の入力で上書きしてはいけない。
+    // punchLock が着弾より早く空くため、連続で押すと前の拳が
+    // 空中で消えていた（実測：6回クリックして着弾3発）。
+    // これが「こっちのパンチから当てることができない」の正体。
+    const inFlight = p.action && !p.action.landed;
     // 体幹が前の打撃に使われている間は次を出せない。
     // 入力は 220ms だけ保持し、空いた瞬間に出す（1-2 が繋がるように）
-    if(Clock.game < p.punchLock || Clock.game < (p.handReady[side]||0)){
+    if(inFlight || Clock.game < p.punchLock || Clock.game < (p.handReady[side2]||0)){
       if(!buffered) p.buffer={id, gesture:gestureName, t:Clock.game};
+      // 押したのに出ない理由を必ず返す。無反応が一番よくない
+      if(!p.busyFlash || Clock.real-p.busyFlash>260){
+        p.busyFlash=Clock.real; Arms.tense(0.5);
+      }
       return;
     }
+    id=id2; m=m2;
     if(p.stam<=0){ p.stunUntil=Clock.game+900; this.float('スタミナ切れ','#5c6274'); return; }
 
     // その手でガードしていたなら、打つために構えが解ける
-    if(p.guard===side) p.guard=null;
+    if(p.guard===side2) p.guard=null;
 
-    p.punchLock = Clock.game + travel*0.62;      // 体幹が空くまで
-    p.handReady[side] = Clock.game + travel + recover;  // その手は1サイクル塞がる
+    // 体幹は着弾まで塞がる。ここを着弾より早く空けていたため、
+    // 次の入力が飛行中の拳を上書きしていた
+    p.punchLock = Clock.game + travel;
+    p.handReady[side2] = Clock.game + travel + recover*0.55;  // その手が戻るまで
     p.buffer=null;
 
     const impactT = Clock.game+travel;
@@ -1803,9 +1864,8 @@ Object.assign(Fight,{
     const p=this.p;
     // 保持した入力を、体幹が空いた瞬間に出す
     if(p.buffer){
-      if(Clock.game-p.buffer.t>220) p.buffer=null;
-      else if(Clock.game>=p.punchLock &&
-              Clock.game>=(p.handReady[pmove(p.buffer.id).side==='C'?'R':pmove(p.buffer.id).side]||0)){
+      if(Clock.game-p.buffer.t>420) p.buffer=null;   // 着弾を待てる長さに
+      else if(!(p.action&&!p.action.landed) && Clock.game>=p.punchLock){
         const b=p.buffer; p.buffer=null; this.playerAttack(b.id,b.gesture,true);
       }
     }
@@ -3306,8 +3366,19 @@ const Arms = {
       ? {x:V.W*0.5-V.W*0.262, y:V.H*0.912, r:V.W*0.140}
       : {x:V.W*0.5+V.W*0.318, y:V.H*0.984, r:V.W*0.184};
   },
+  // 打撃を受けた反動。押し返されて、戻る
+  kick:{L:0,R:0,dir:0,t:0},
+  // 出せないときの反応。腕が一瞬締まって「今は打てない」を返す
+  tense(k){ this.tenseV=Math.max(this.tenseV||0,k); this.tenseT=Clock.real; },
+  recoil(k,from){ this.kick.L=Math.max(this.kick.L,k); this.kick.R=Math.max(this.kick.R,k);
+                  this.kick.dir=from||0; this.kick.t=Clock.real; },
+
   update(F){
     const p=F.p, dt=Clock.realDt;
+    // 反動の減衰
+    const kd=Math.exp(-dt/95);
+    this.kick.L*=kd; this.kick.R*=kd;
+    this.tenseV=(this.tenseV||0)*Math.exp(-dt/110);
     for(const side of ['L','R']){
       const a=this[side], b=this.base(side);
       if(!a.init){ a.x=b.x; a.y=b.y; a.r=b.r; a.init=true; }
@@ -3315,6 +3386,7 @@ const Arms = {
 
       const f=Input.finger(side);
       const holding=Input.isHolding(side);
+      const kick=this.kick[side];
 
       if(holding||p.guard===side){
         // ガード：肘より先を画面中央へ入れ、視界を狭める (§4)
@@ -3358,6 +3430,12 @@ const Arms = {
         // 打っていない側の手は動かさず、わずかに締めて顎を守る
         tx=b.x+s*V.W*0.012; ty=b.y-V.H*0.028; tr=b.r; rate=16;
       }
+      // 押し返される：腕は手前・外側へ弾かれ、すぐ戻る
+      tx += this.kick.dir*V.W*0.055*kick*(side==='L'?1:1);
+      ty += V.H*0.045*kick;
+      tr *= 1+0.10*kick;
+      ty += V.H*0.020*(this.tenseV||0);      // 締まる（打てない合図）
+      tr *= 1+0.05*(this.tenseV||0);
       a.x=damp(a.x,tx,rate,dt); a.y=damp(a.y,ty,rate,dt); a.r=damp(a.r,tr,rate,dt);
     }
   },
@@ -3473,6 +3551,14 @@ function updateCamera(F){
   const f=Input.finger(Input.isHolding('L')?'L':(Input.isHolding('R')?'R':null));
   if(f) tx += (f.x-V.W/2)*0.05;
 
+  // 打撃を受けた瞬間の突き上げ。減衰の速い一発の変位で、
+  // 揺れ（連続）とは別に「殴られた／受け止めた」を身体で伝える
+  if(p.camKick){
+    const e=(t-p.camKick.t)/150;
+    if(e>=1) p.camKick=null;
+    else { const w=Math.exp(-e*3.2)*Math.cos(e*7);
+           tx += p.camKick.x*w; ty += p.camKick.y*w; rot += p.camKick.x/V.W*0.5*w; }
+  }
   // 被弾シェイク
   tx += p.shake*Math.sin(t/17)*V.W*0.035;
   ty += p.shake*Math.cos(t/13)*V.H*0.012;
