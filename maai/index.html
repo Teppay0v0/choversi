@@ -533,11 +533,11 @@ const STEP_MS = 300, STEP_MS_PERFECT = 240, STEP_STAMINA = 4;
 // safe   : 有効な防御手段
 const MOVES = {
   // リード（左）— 肩が既に前にあるので溜めがほとんど無い。差し合いの道具
-  jab      :{ja:'左ジャブ',      hand:'lead', dmg:6.5,stam:3, whiff:2, tell:150, impact:330, recover:210, arc:'straight', side:'L', from:+1, read:0.52, safe:['guard','slipL','sway'],    bad:['advance']},
+  jab      :{ja:'左ジャブ',      hand:'lead', dmg:6.5,stam:3, whiff:2, tell:150, impact:330, recover:210, arc:'straight', side:'L', from:+1, read:0.52, safe:['guard','slipL','sway'],    bad:['advance','slipR']},
   hook     :{ja:'左フック',      hand:'lead', dmg:11,stam:8, whiff:5, tell:280, impact:520, recover:360, arc:'hook',     side:'L', from:+1, read:0.86, safe:['guard','sway','retreat'],  bad:['slipL','slipR']},
   // リア（右）— 肩の溜め・腰の回転・後ろ足の返りが出る。読めるが重い
   straight :{ja:'右ストレート',  hand:'rear', dmg:11,stam:6, whiff:4, tell:280, impact:480, recover:380, arc:'straight', side:'R', from:-1, read:1.00, safe:['guard','slipR','sway'],    bad:['slipL','advance']},
-  upper    :{ja:'右アッパー',    hand:'rear', dmg:14,stam:10,whiff:6, tell:300, impact:545, recover:410, arc:'upper',    side:'R', from: 0, read:0.94, safe:['slipL','slipR','retreat'], bad:['advance','sway']},
+  upper    :{ja:'右アッパー',    hand:'rear', dmg:14,stam:10,whiff:6, tell:300, impact:545, recover:410, arc:'upper',    side:'R', from: 0, read:0.94, safe:['slipL','retreat'],         bad:['advance','sway','slipR']},
   // 蹴り — 前蹴りは前脚、ロー／ミドル／ハイは後ろ脚
   frontKick:{ja:'前蹴り',        hand:'lead', dmg:7, stam:6, whiff:3, tell:180, impact:400, recover:300, arc:'kick',     side:'L', from: 0, read:0.60, safe:['guard','retreat'],         bad:['advance']},
   lowKick  :{ja:'ローキック',    hand:'rear', dmg:8, stam:7, whiff:4, tell:250, impact:450, recover:340, arc:'kick',     side:'R', from:-1, read:0.85, safe:['guard','retreat'],         bad:['slipL','slipR']},
@@ -1572,8 +1572,11 @@ Object.assign(Fight,{
           Audio_.guardHit(); haptic('guard');
         }else{
           if(wrongHand) this._why='逆の手で受けた';
-          const red=dmg*(wrongHand?0.48:0.30);   // 70%軽減 (§10)。逆の手なら軽減が落ちる
-          p.stam=Math.max(0,p.stam-dmg*0.5*(j==='EARLY'?1.5:1)*(wrongHand?1.4:1));
+          // 受け続けると腕が落ちる。スタミナが尽きたガードは崩れる
+          const worn = p.stam<25 ? 1.9 : 1;
+          const red=dmg*(wrongHand?0.48:0.30)*worn;
+          p.stam=Math.max(0,p.stam-dmg*0.9*(j==='EARLY'?1.5:1)*(wrongHand?1.4:1));
+          if(worn>1) this.float('ガードが重い','#ff8a3d');
           this.hurt(red,m,'guard');
           this.stats.guarded++;
           if(!this.sit || !this.sit.goal.only || this.sit.goal.only.includes('guard')) this.sitStats.defended++;
@@ -1581,14 +1584,17 @@ Object.assign(Fight,{
           this.float(j,j==='PERFECT'?C.good:C.ink,j==='PERFECT');
           this.burst(hitX,hitY,'guard',j==='PERFECT'?1:0.6);
           Audio_.guardHit(); haptic(j==='PERFECT'?'perfect':'guard');
-          // 受け止めてから返す。パンチの攻防でこそ反転が起きてほしいので、
-          // 振り切る技をPERFECTで受け切ったときはガードでも「返し」になる。
-          // （スリップ限定にしていたため、最も使われるガードでは
-          //   一度も反転が起きていなかった ——実測で返し3/24）
-          const committedG = m.recover>=340 && !wrongHand;
-          if(j==='PERFECT' && committedG) this.reversal('counter', 0);
-          else if(j==='PERFECT') this.grantAdvantage(true);
-          else if(ex.read) this.grantAdvantage(false);   // 見切った上でのガードも反撃可
+          // ガードは「凌ぐ」だけ。ここから攻めには繋がらない。
+          //
+          // ガードでも有利が取れるようにしていたが、実プレイのデータで
+          // 「なんとなくクリックしているだけ」という結論になった。
+          // 原因は選択肢が実質1つだったこと：ガードはほぼ全ての技に有効で、
+          // しかも攻めにも繋がるので、他を選ぶ理由が無かった。
+          //
+          // 凌ぐ（安全・前進なし）か、外す（危険・唯一の攻め口）か。
+          // これが毎回の決断になる。
+          if(j==='PERFECT'){ this.float('完 全 に 止 め た', C.good, true); }
+          else this.float('凌 い だ', '#8d93a6');
           avoided=true;
         }
       }else if(safe){
@@ -1596,10 +1602,12 @@ Object.assign(Fight,{
           this._why='回避が遅い';
           this.hurt(dmg*0.35,m,'graze'); this.float('LATE','#8d93a6',true);
         }else{
-          p.stam=Math.max(0,p.stam-(j==='PERFECT'?2:4)*(j==='EARLY'?1.5:1));
+          // 外すのはタダではない。足を使う
+          p.stam=Math.max(0,p.stam-(j==='PERFECT'?5:9)*(j==='EARLY'?1.5:1));
           this.stats.slipped++;
           if(!this.sit || !this.sit.goal.only || this.sit.goal.only.includes(ch)) this.sitStats.defended++;
-          this.float(j,j==='PERFECT'?C.good:C.ink,j==='PERFECT');
+          this.float(j==='PERFECT'?'完 全 に 外 し た':'外 し た',
+                     j==='PERFECT'?C.good:C.accent, j==='PERFECT');
           Audio_.whoosh(); haptic(j==='PERFECT'?'perfect':'good');
           // 見切って正しく外したなら、必ず反撃の窓を開く。
           // ここを PERFECT 限定にしていたため「避けても何も起きない」
@@ -4495,11 +4503,14 @@ Object.assign(Fight,{
    とくに「押したのに何も起きなかった入力」と「何もできない死に時間」は、
    面白くなさの主因になりやすいが、コードを読んでも出てこない。
    ============================================================ */
+// 記録の版。仕様を変えたら上げる。版の違う試合は分析から外す
+// （古い記録が混ざり、総被弾217に対して理由が54しか説明できない状態になった）
+const REC_V = 2;
 const Rec = {
   ev:[], t0:0, on:true, MAX:4000,
   start(mode,diff,ftr,sit){
     this.ev=[]; this.t0=Date.now();
-    this.push('start',{mode,diff,ftr,sit:sit||null,
+    this.push('start',{v:REC_V, mode,diff,ftr,sit:sit||null,
       ua:(navigator.userAgent||'').slice(0,90), w:V.W,h:V.H});
   },
   push(type,d){
@@ -4526,7 +4537,8 @@ const Rec = {
   // 生ログは数万文字になり、iPhoneから貼るのが現実的でない。
   // 分析に必要な形へ畳んでから出す
   digest(){
-    const runs=this.load(); if(!runs.length) return '（記録なし）';
+    const runs=this.load().filter(r=>r.ev&&r.ev[0]&&r.ev[0].v===REC_V);
+    if(!runs.length) return '（この版の記録がまだありません。一戦してから書き出してください）';
     const A=this.analyze(runs);
     const pc=(x,y)=>y?Math.round(x/y*100)+'%':'—';
     const L=[];
@@ -4578,6 +4590,7 @@ const Rec = {
   // ---------- 分析 ----------
   analyze(runs){
     runs=runs||this.load();
+    runs=runs.filter(r=>r.ev&&r.ev[0]&&r.ev[0].v===REC_V);   // 版の合う試合だけ
     const A={runs:runs.length, atk:0, read:0, perfect:0, good:0, late:0, noread:0,
       react:[], byMove:{}, choice:0, noChoice:0, wastePress:0, press:0,
       avoided:0, hit:0, dmgTaken:0, reversal:0, adv:0, counters:0, comboSum:0, comboN:0,
