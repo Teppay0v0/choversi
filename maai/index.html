@@ -1550,6 +1550,37 @@ Object.assign(Fight,{
       this.hurt(dmg, m, 'clean');
       this.float('MISS','#5c6274',true); this.stats.miss++;
     }else{
+      // 見切った上で打ち返すのは、このゲームの看板の行為。
+      // これまで 'attack' はどの技の safe にも無く「安全でない対応」として
+      // フルダメージだった（実測：6回すべてPERFECTで見切って6回すべて被弾）。
+      // 主観時間の中で合わせた拳は、見切りの質どおりに通る。
+      if(ch==='attack' && ex.read && ex.slowed){
+        const q = j;
+        if(q==='PERFECT'){
+          // 完全に見切って合わせた ＝ 相手の拳が届く前に潰す
+          if(p.action) p.action.interrupt=true, p.action.late=false, p.action.trade=false;
+          this.reversal('counter', 0);
+          this.stats.slipped++;
+          if(!this.sit || !this.sit.goal.only || this.sit.goal.only.includes('counter'))
+            this.sitStats.defended++;
+          this.float('合 わ せ た', C.accent, true, 'what');
+          avoided=true;
+        }else{
+          // 読めてはいたが甘い ＝ 相打ち。互いに入る
+          if(p.action) p.action.trade=true, p.action.late=false;
+          this._why='相打ち';
+          this.hurt(dmg*0.55, m, 'clean');
+          this.impactFeedback('hurt', m, 0.8);
+          this.float('相 打 ち', '#ff8a3d', true, 'what');
+          this.grantAdvantage(false);
+        }
+        this._lastImpactReal=Clock.real;
+        Rec.push('resolve',{move:ex.id, choice:'attack', judge:j, why:this._why||null,
+          dmg:Math.round(this._takenNow||0), avoided:!!avoided,
+          reversal:(p.reversalUntil||0)>Clock.real, adv:this.advantage, read:ex.read});
+        this.exchange=null; this.hint=null;
+        return;
+      }
       const safe = m.safe.includes(ch);
       const bad  = m.bad.includes(ch);
       // 癖を読まれて、その癖のまま入った場合だけ告げる。
