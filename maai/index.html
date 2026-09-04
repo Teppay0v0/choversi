@@ -517,6 +517,9 @@ const JUDGE = {
   EARLY  : -250,   // -250 〜 -151
   LATE   :  250,   // +151 〜 +250
 };
+// 溜めが満ちるまでの実時間。人が親指で押している時間の中央値あたりに置く。
+// これ以上押しても増えない（押し得にしない）
+const WIND_FULL = 260;
 const COUNTER_WINDOW = 1250;  // 見切って外した後の反撃受付 (ms)
 // 当てるたびに窓が延びて連打が繋がる。ただし上限あり（一方的にならないため）
 const COMBO_EXTEND = 520;     // 一発当てるごとに延びる時間
@@ -1058,9 +1061,10 @@ const Input = {
     }else if(p.holding){
       this.emit(p.side==='L'?'LEFT_RELEASE':'RIGHT_RELEASE',{held:dur,band:p.band}, e.timeStamp);
     }else if(!p.gesture && !p.consumed){
-      // 180ms 以内 かつ 移動量 3% 未満 → タップ (§7 優先順位 4)
-      if(dur<=G.TAP_MAX_MS && p.maxMove<G.TAP_MAX_MOVE){
-        this.emit('TAP',{side:p.side,x:p.x,y:p.y,band:p.band}, e.timeStamp);
+      // 指を動かさずに離した＝タップ。押していた長さは問わない。
+      // 溜めた時間はそのまま打撃の重さになる（playerAttack）
+      if(p.maxMove<G.TAP_MAX_MOVE){
+        this.emit('TAP',{side:p.side,x:p.x,y:p.y,band:p.band,held:dur}, e.timeStamp);
       }else{
         this.emit('INVALID',{side:p.side}, e.timeStamp);
       }
@@ -1146,12 +1150,13 @@ const Input = {
             this.emit('SWIPE',ev,ts);
           }
         }
-      }else if(!p.holding && p.band==='S' &&
-               Clock.evReal(ts)-p.t0>=G.HOLD_MS && p.maxMove<G.GUARD_IGNORE){
-        // 打撃帯で 220ms 静止 → 長押しガード (§7 優先順位 3)
-        p.holding=true;
-        this.emit('HOLD',{side:p.side,band:'S'}, ts);
       }
+      // 打撃帯の長押しガードは廃止した。
+      // 170ms以上押していると TAP が成立せず、220ms を超えると HOLD になって
+      // 離しても何も出なかった（実測：60/110ms は出る、170ms 以降は全て不発）。
+      // 人が親指で押す時間は 80〜250ms に散らばる。指を離す速さで
+      // 打撃の有無が決まるのは、操作として理不尽だった。
+      // ガードは上帯（画面上部66%）だけの役目とする。
     }
   },
 
@@ -1201,6 +1206,7 @@ const Fight = {
     this.feintPenalty=false; this.heartT=0;
     this.p={hp:100,stam:100,cage:0,guard:null,guardSide:'L',guardT:0,swayT:-9999,
             punchLock:0, handReady:{L:0,R:0}, buffer:null, flinchUntil:0,
+            wind:null,
             advUntil:-1,advPerfect:false,
             stunUntil:-1,action:null,anim:null,slip:0,slipT:0,sway:0,lean:0,
             crouch:0,camX:0,camY:0,camRot:0,shake:0,hurtT:-9999};
@@ -1932,7 +1938,7 @@ Object.assign(Fight,{
   // ---------- プレイヤー攻撃 ----------
   // 打撃は「溜め → 伸展 → 接触 → 引き戻し」の1サイクル。
   // 人は同時に2発は打てず、同じ手は引き戻しが終わるまで次を打てない。
-  playerAttack(id, gestureName, buffered){
+  playerAttack(id, gestureName, held, buffered){
     const p=this.p, e=this.e;
     let m=pmove(id); if(!m) return;
     if(Clock.game<p.stunUntil) return;
@@ -1941,7 +1947,13 @@ Object.assign(Fight,{
     if(Input.isDualHolding()) return;
 
     const side = m.side==='C' ? 'R' : m.side;   // 押された側
-    const travel = (MOVES[id]?MOVES[id].impact:420)*0.72;
+    // 溜め：指を置いてから離すまでの実時間。0〜WIND_FULL で 0→1
+    const wind = clamp(((held!==undefined ? held
+                        : (p.wind && p.wind.side===side ? Clock.real-p.wind.t0 : 0))
+                       )/WIND_FULL, 0, 1);
+    // 溜めた拳は重いが、届くのが遅れる。指を置いている時間そのものが
+    // 「速さを取るか、重さを取るか」の選択になる
+    const travel = (MOVES[id]?MOVES[id].impact:420)*0.72*(1+0.14*wind);
     const recover = travel*0.9;
 
     // その手がまだ戻っていないなら、空いている方の手で打つ。
@@ -1967,7 +1979,7 @@ Object.assign(Fight,{
     // 体幹が前の打撃に使われている間は次を出せない。
     // 入力は 220ms だけ保持し、空いた瞬間に出す（1-2 が繋がるように）
     if(inFlight || Clock.game < p.punchLock || Clock.game < (p.handReady[side2]||0)){
-      if(!buffered) p.buffer={id, gesture:gestureName, t:Clock.game};
+      if(!buffered) p.buffer={id, gesture:gestureName, held, t:Clock.game};
       // 押したのに出ない理由を必ず返す。無反応が一番よくない
       if(!p.busyFlash || Clock.real-p.busyFlash>260){
         p.busyFlash=Clock.real; Arms.tense(0.5);
@@ -1987,10 +1999,15 @@ Object.assign(Fight,{
     p.buffer=null;
 
     const impactT = Clock.game+travel;
-    p.action={id,m,side,t0:Clock.game,impact:impactT,dur:travel,recover,gesture:gestureName};
-    p.stam=Math.max(0,p.stam-m.stam);
+    p.action={id,m,side:side2,t0:Clock.game,impact:impactT,dur:travel,recover,
+              gesture:gestureName, wind};
+    p.wind=null;
+    Rec.push('swing',{move:id, wind:Math.round(wind*100), side:side2, g:gestureName});
+    p.stam=Math.max(0,p.stam-m.stam*(1+0.30*wind));
     this.stats.inputs++;
-    Audio_.glove();
+    // 溜めた拳ほど、放つ音が重い
+    Audio_.hit({f0:900+700*(1-wind), f1:260, dur:0.07+0.05*wind, gain:0.16+0.14*wind, q:1.0});
+    Audio_.whoosh();
 
     // 相手の攻撃中に打つ → 迎撃 or 相打ち
     const ex=this.exchange;
@@ -2004,11 +2021,13 @@ Object.assign(Fight,{
 
   updatePlayerAttack(){
     const p=this.p;
+    // 指が無いのに溜めが残っていたら捨てる
+    if(p.wind && !Input.finger(p.wind.side)) p.wind=null;
     // 保持した入力を、体幹が空いた瞬間に出す
     if(p.buffer){
       if(Clock.game-p.buffer.t>420) p.buffer=null;   // 着弾を待てる長さに
       else if(!(p.action&&!p.action.landed) && Clock.game>=p.punchLock){
-        const b=p.buffer; p.buffer=null; this.playerAttack(b.id,b.gesture,true);
+        const b=p.buffer; p.buffer=null; this.playerAttack(b.id,b.gesture,b.held,true);
       }
     }
     if(!p.action) return;
@@ -2056,6 +2075,7 @@ Object.assign(Fight,{
         this.pending={t:Clock.game+rnd(120,260), move:Math.random()<0.6?'straight':'hook'};
       }
     }
+    if(action && action.wind) dmg *= 1+0.38*action.wind;   // 溜めた分だけ重い
     if(this.stepping) dmg*=0.9;
     if(p.stam<20) dmg*=0.8;                      // §10
 
@@ -2198,6 +2218,15 @@ Object.assign(Fight,{
           p.guard=g.side; p.guardSide=g.side; p.guardT=Clock.game;
           if(this.exchange) this.setChoice('guard', g.game, true);
           Audio_.glove();
+        }else{
+          // 打撃帯：触れた瞬間から拳が引かれて溜まりはじめる。
+          // 指を置いてから離すまでの間、画面上で体が動いていないと
+          // 「押している」という手応えがどこにも返らない（実測：押してから
+          // 拳が動きだすまで89ms、しかもその間は無反応）
+          if(!(p.action && !p.action.landed) && Clock.game>=p.punchLock){
+            p.wind={side:g.side, t0:Clock.real};
+            Audio_.hit({f0:1800,f1:700,dur:0.06,gain:0.10,type:'bandpass',q:1.2});
+          }
         }
         break;
       }
@@ -2211,6 +2240,7 @@ Object.assign(Fight,{
 
       case 'LEFT_RELEASE': case 'RIGHT_RELEASE': {
         const side=g.type[0]==='L'?'L':'R';
+        if(p.wind && p.wind.side===side) p.wind=null;
         if(p.guard===side){
           p.guard=null;
           // 有利を取れているときだけ、離し際がクイックカウンターになる (§6)
@@ -2223,10 +2253,11 @@ Object.assign(Fight,{
       }
 
       case 'TAP': {
+        if(p.wind && p.wind.side===g.side) p.wind=null;
         if(g.band==='G') break;            // ガード帯からは打たない
         const id=PLAYER_MOVES[g.side==='L'?'tapL':'tapR'][d];
         if(ex) this.setChoice('attack', g.game);
-        this.playerAttack(id,'tap');
+        this.playerAttack(id,'tap',g.held);
         break;
       }
 
@@ -2236,7 +2267,7 @@ Object.assign(Fight,{
           if(p.guard===g.side) p.guard=null;
           const id=PLAYER_MOVES[g.side==='L'?'tapL':'tapR'][d];
           if(ex) this.setChoice('attack', g.game);
-          this.playerAttack(id,'drop');
+          this.playerAttack(id,'drop',g.held);
           break;
         }
         if(g.dir==='OUT'){
@@ -2253,7 +2284,7 @@ Object.assign(Fight,{
         }else if(g.dir==='IN'){
           const id=PLAYER_MOVES.slideIn[d];
           if(ex) this.setChoice('attack', g.game);
-          this.playerAttack(id,'in');
+          this.playerAttack(id,'in',g.held);
         }else if(g.dir==='UP'){
           if(ex && ex.data.arc==='tackle'){    // 膝・アッパー迎撃 (§11)
             this.setChoice('intercept', g.game);
@@ -2261,7 +2292,7 @@ Object.assign(Fight,{
           }else{
             const id=PLAYER_MOVES.slideUp[d];
             if(ex) this.setChoice('attack', g.game);
-            this.playerAttack(id,'up');
+            this.playerAttack(id,'up',g.held);
           }
         }
         break;
@@ -3547,14 +3578,20 @@ const Arms = {
       // ---- 攻撃中の腕 (§4 §14) ----
       const act=p.action;
       const s=side==='L'?-1:1;
+      // 溜め：指を置いた瞬間から拳が引かれる。見た目は指数で立ち上げ、
+      // 1フレーム目から動く（実測：押してから拳が動くまで89msあった）
+      const wnd = (p.wind && p.wind.side===side && !(act&&act.side===side))
+                ? 1-Math.exp(-(Clock.real-p.wind.t0)/40) : 0;
       if(act && act.side===side){
         const tt=Clock.game-act.t0;
         const out=clamp(tt/act.dur,0,1);
         const back=clamp((tt-act.dur)/Math.max(1,act.recover),0,1);
-        // 溜め(0-18%) → 伸展 → 接触 → 引き戻し
-        const u = back>0 ? 1-easeIn(back)
-                         : (out<0.18 ? 0 : easeOut((out-0.18)/0.82));
-        const chamber = back>0 ? 0 : (out<0.18 ? Math.sin(out/0.18*Math.PI) : 0);
+        // 伸展は加速しながら接触する。easeOut は接触へ向けて減速する形で、
+        // 当たる瞬間には拳がほぼ止まっていた（実測：接触直前の速度は
+        // 最高速の 7%）。Stanley(2018) では最高速度は接触の 8〜21ms 前
+        const u = back>0 ? 1-easeIn(back) : Math.pow(out,1.7);
+        // 溜めは指を置いている間に済んでいる。打ち出しに空白を作らない
+        const chamber = back>0 ? 0 : (act.wind||0)*(1-out)*(1-out);
 
         // 発射点は顎の横。そこから相手へ伸ばす
         const lx = V.W*0.5 + s*V.W*(act.m.arc==='hook'?0.50:0.165);
@@ -3562,12 +3599,22 @@ const Arms = {
         const fx_= V.faceX + s*V.bh*0.010;
         const fy_= (act.m.arc==='kick'||act.m.arc==='upper') ? V.bodyY : V.faceY;
         // 構え → 顎の横 → 相手 の2次ベジェ
-        const p0x=b.x - s*V.W*0.02*chamber, p0y=b.y + V.H*0.012*chamber;
+        const p0x=b.x - s*V.W*0.045*chamber, p0y=b.y + V.H*0.030*chamber;
         tx=(1-u)*(1-u)*p0x + 2*(1-u)*u*lx + u*u*fx_;
         ty=(1-u)*(1-u)*p0y + 2*(1-u)*u*ly + u*u*fy_;
-        // 遠ざかるほど小さくなる。溜めの一瞬だけカメラへ寄って大きくなる
-        tr = lerp(b.r*(1+0.12*chamber), V.bh*0.052, easeOut(u));
-        rate=42;
+        // 自分の拳の大きさは、自分の目からの距離だけで決まる。
+        // 伸ばした先を相手の遠近（V.bh）に結びつけていたため、
+        // 至近距離では伸ばすほど拳が大きくなっていた
+        // （実測：構え72px → 伸ばして 距離1で69px, クリンチで115px）
+        const endR = Math.min(V.bh*0.052*0.62, b.r*0.42);
+        tr = lerp(b.r*(1+0.22*chamber), endR, u);
+        rate=64;
+      }else if(wnd>0){
+        // 引き手。カメラへ寄るので大きくなる
+        tx=b.x - s*V.W*0.045*wnd;
+        ty=b.y + V.H*0.030*wnd;
+        tr=b.r*(1+0.22*wnd);
+        rate=45;
       }else if(act){
         // 打っていない側の手は動かさず、わずかに締めて顎を守る
         tx=b.x+s*V.W*0.012; ty=b.y-V.H*0.028; tr=b.r; rate=16;
@@ -4733,7 +4780,7 @@ Object.assign(Fight,{
    ============================================================ */
 // 記録の版。仕様を変えたら上げる。版の違う試合は分析から外す
 // （古い記録が混ざり、総被弾217に対して理由が54しか説明できない状態になった）
-const REC_V = 2;
+const REC_V = 3;   // 入力モデルが変わったので旧データとは混ぜない
 const Rec = {
   ev:[], t0:0, on:true, MAX:4000,
   start(mode,diff,ftr,sit){
@@ -4800,6 +4847,10 @@ const Rec = {
     L.push('[間と入力]');
     L.push(' 打撃の間隔 中央'+(A.gapMed??'—')+'ms  空振り入力 '+A.wastePress+'/'+A.press
       +' ('+pc(A.wastePress,A.press)+')');
+    L.push(' 溜め n='+A.wind.length+'  平均'+(A.wind.length?
+      Math.round(A.wind.reduce((a,b)=>a+b,0)/A.wind.length):'—')+'%  '+
+      (()=>{const b=[0,0,0,0]; for(const w of A.wind) b[w<25?0:w<50?1:w<80?2:3]++;
+        return '浅'+b[0]+' 中'+b[1]+' 深'+b[2]+' 満'+b[3];})());
     L.push('');
     L.push('[技ごと]');
     for(const [k,v] of Object.entries(A.byMove))
@@ -4823,6 +4874,7 @@ const Rec = {
       react:[], byMove:{}, choice:0, noChoice:0, wastePress:0, press:0,
       avoided:0, hit:0, dmgTaken:0, reversal:0, adv:0, counters:0, comboSum:0, comboN:0,
       blindPress:0, guessed:0, intercepted:0, feints:0, why:{}, dmgWhy:{}, cN:{},
+      wind:[],
       slowMs:0, slowUsed:[], gaps:[], live:0, total:0};
     for(const r of runs){
       let last=null, tEnd=0;
@@ -4842,6 +4894,7 @@ const Rec = {
             else { A.noread++; if(e.react!=null) A.react.push(e.react); }
             break;
           case 'press': A.press++; if(e.waste) A.wastePress++; break;
+          case 'swing': A.wind.push(e.wind); break;
           case 'choice': A.choice++; if(e.slowUsed!=null) A.slowUsed.push(e.slowUsed); break;
           case 'resolve':
             if(e.choice==null) A.noChoice++;
@@ -5145,7 +5198,8 @@ const HOWTO_ROWS=[
   ['　内へスライド','ミドルキック / フック / 肘・膝'],
   ['　上へスライド','ハイキック / アッパー / 膝　※タックルには迎撃'],
   ['　外へスライド','スリップ / 回り込み'],
-  ['　長押し','ガード'],
+  ['　押している間','拳が引かれて溜まる。離した瞬間に出る'],
+  ['　長く押す','重く、遅い。短く押す＝速く、軽い'],
   ['両指（どこでも）',''],
   ['　上スライド','1段階 前進'],
   ['　下スライド','1段階 後退 / スウェー'],
@@ -5287,6 +5341,16 @@ function buildHowto(){
       <b>下は打撃帯</b>。タップとスライドで技を出します。<br><br>
       構えた手を<b>下へ滑らせる</b>と、その手をそのまま振り下ろして打てます。
       守りから攻めへ、指を止めずに繋がります。
+    </div>
+    <h3>溜　め</h3>
+    <div class="note">
+      打撃帯は<b>触れた瞬間から拳が引かれます</b>。押している間ずっと溜まり、
+      <b>離した瞬間に出ます</b>。押している長さは自由で、長く押しても
+      短く押しても必ず出ます。<br><br>
+      <b>短く離す</b>　速い。軽い。差し込みや、相手の攻撃に合わせる用。<br>
+      <b>溜めて離す</b>　重い（最大 +38%）。ただし届くのが遅れ、スタミナも余分に減ります。
+      合わせに行くと差し返されます。<br><br>
+      指を置いてから離すまでが、そのまま<b>ひとつの打撃</b>です。
     </div>
     <h3>INPUT</h3>
     ${HOWTO_ROWS.map(r=>`<div class="ctrl"><div class="k">${r[0]}</div><div class="v">${r[1]}</div></div>`).join('')}
@@ -5604,7 +5668,7 @@ Progress.load(); SlowFx.init(); setFighter(curFighter);
 Fight.reset('match',DIFF[curDiff],Fight.offsetMs,null,curFighter);
 document.querySelectorAll('[data-diff]').forEach(x=>x.dataset.on = x.dataset.diff===curDiff?'1':'0');
 go('title');
-GL3.boot();
+if(!window.__noGL) GL3.boot();   // __noGL は計測用に2Dへ落とすためのフック
 requestAnimationFrame(frame);
 </script>
 </body>
