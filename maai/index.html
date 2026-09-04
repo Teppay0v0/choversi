@@ -32,6 +32,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
   backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
   z-index:10;
 }
+.hidden{display:none!important}
 .overlay.hidden{display:none}
 
 .brand{text-align:center;margin-bottom:auto;padding-top:6vh}
@@ -162,6 +163,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
       <div class="row">
         <button class="btn sub" data-act="stats">プレイの記録を見る</button>
       </div>
+      <div class="row">
+        <button class="btn sub" data-act="check">音と振動を確かめる</button>
+      </div>
     </div>
   </div>
 
@@ -193,6 +197,21 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
       <button class="btn primary" data-act="brief-go">はじめる</button>
       <button class="btn sub" data-act="situations">戻る</button>
     </div>
+  </div>
+
+  <!-- 音と振動の確認 -->
+  <div class="overlay hidden" id="ovCheck">
+    <div class="result" id="checkBody" style="overflow-y:auto;max-height:56vh"></div>
+    <div class="menu">
+      <button class="btn primary" data-act="check-sound">音を鳴らす</button>
+      <button class="btn" data-act="check-haptic">振動させる</button>
+      <button class="btn sub" data-act="check-copy">結果を書き出す</button>
+      <button class="btn" data-act="title">戻る</button>
+    </div>
+    <textarea id="checkOut" class="hidden" readonly
+      style="width:100%;height:18vh;background:#0b0f19;color:#e8e2d4;border:1px solid #2a3350;
+             border-radius:8px;padding:8px;font:12px/1.5 ui-monospace,monospace;
+             -webkit-user-select:text;user-select:text"></textarea>
   </div>
 
   <!-- 操作説明 -->
@@ -697,17 +716,31 @@ const bestJudge=(a,b)=>(JUDGE_RANK[b]||0)>(JUDGE_RANK[a]||0)?b:a;
 /* ============================================================
    3. AUDIO  —  足音・呼吸・打撃を合成 (§14 リズム音響レイヤー)
    ============================================================ */
+// 0.05秒の無音WAV。iOSでメディア再生セッションを起こすためだけに使う
+const SILENT_WAV = 'data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
 const Audio_ = {
   ctx:null, master:null, lp:null, env:null, envGain:null, ready:false,
   heartTimer:0, crowdNode:null,
 
   init(){
     if(this.ctx) return;
+    // iOS は WebAudio だけの出力を「環境音」扱いにするため、本体の消音スイッチで
+    // 丸ごと消える。AudioSession API（Safari 16.4+）で playback を宣言すると
+    // 消音スイッチを無視して鳴る。これが無いと iPhone では全SEが無音になる。
+    try{
+      if(navigator.audioSession) { navigator.audioSession.type='playback'; this.sess='playback'; }
+      else this.sess='none';
+    }catch(e){ this.sess='err'; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if(!AC) return;
     this.ctx = new AC();
     this.master = this.ctx.createGain();
     this.master.gain.value = 0.9;
+    // 出力の実測用。鳴っているつもりで鳴っていない事故を検知するため
+    try{
+      this.an = this.ctx.createAnalyser(); this.an.fftSize=1024;
+      this.anBuf = new Float32Array(this.an.fftSize);
+    }catch(e){ this.an=null; }
     // 主観時間に入るとローパスが閉じる (§9.1 音響)
     this.lp = this.ctx.createBiquadFilter();
     this.lp.type='lowpass'; this.lp.frequency.value=18000; this.lp.Q.value=0.6;
@@ -715,9 +748,37 @@ const Audio_ = {
     // 環境音（観客）レイヤー
     this.envGain = this.ctx.createGain(); this.envGain.gain.value=0.0;
     this.envGain.connect(this.lp);
+    if(this.an) this.master.connect(this.an);
     this.ready = true;
   },
-  resume(){ this.init(); if(this.ctx && this.ctx.state==='suspended') this.ctx.resume(); },
+  // AudioSession API が無い古い iOS 向けの保険。
+  // 無音の <audio> を再生してメディア再生セッションを確立させる
+  unmute(){
+    if(this.unmuted) return;
+    try{
+      const a=document.createElement('audio');
+      a.src=SILENT_WAV; a.loop=true; a.volume=0.02;
+      a.setAttribute('playsinline',''); a.preload='auto';
+      const pr=a.play();
+      if(pr && pr.catch) pr.catch(()=>{});
+      this.unEl=a; this.unmuted=true;
+    }catch(e){}
+  },
+  resume(){
+    this.init(); this.unmute();
+    if(this.ctx && this.ctx.state!=='running'){
+      try{ const r=this.ctx.resume(); if(r&&r.catch) r.catch(()=>{}); }catch(e){}
+    }
+  },
+  // 直近の出力レベル（0..1）。実際に信号が出ているかの実測値
+  level(){
+    if(!this.an) return -1;
+    try{
+      this.an.getFloatTimeDomainData(this.anBuf);
+      let m=0; for(let i=0;i<this.anBuf.length;i++){ const v=Math.abs(this.anBuf[i]); if(v>m) m=v; }
+      return m;
+    }catch(e){ return -1; }
+  },
   get t(){ return this.ctx ? this.ctx.currentTime : 0; },
 
   // ローパスを主観時間に追従させる
@@ -823,13 +884,54 @@ const Audio_ = {
   },
 };
 
-// 触覚 (§14)
+/* 触覚 (§14)
+   iOS Safari は Vibration API を実装していない。navigator.vibrate は
+   iPhone では常に undefined で、これまで触覚は完全に無効だった。
+   代わりに switch 属性つきチェックボックスの切替でシステムが返す触覚を借りる
+   （Safari 17.4+）。ユーザー操作の呼び出し階層の中でのみ発火するため、
+   自分の入力（タップ・スワイプ・ガード）には必ず届き、被弾など時間駆動の
+   イベントでは端末により届かないことがある。 */
+const Haptic = {
+  mode:'none',      // 'vibrate' | 'switch' | 'none'
+  sw:null, lbl:null, fired:0, lastT:0,
+  init(){
+    if(navigator.vibrate){ this.mode='vibrate'; return; }
+    try{
+      const i=document.createElement('input');
+      if(!('switch' in i)) { this.mode='none'; return; }
+      i.type='checkbox'; i.switch=true; i.setAttribute('switch','');
+      i.style.cssText='appearance:none;width:1px;height:1px';
+      const lbl=document.createElement('label');
+      lbl.setAttribute('aria-hidden','true');
+      // display:none / visibility:hidden にすると触覚が出ない。
+      // 描画はされたまま画面外へ逃がす
+      lbl.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;'+
+                        'opacity:0.001;overflow:hidden;z-index:-1';
+      lbl.appendChild(i); document.body.appendChild(lbl);
+      this.sw=i; this.lbl=lbl; this.mode='switch';
+    }catch(e){ this.mode='none'; }
+  },
+  // n: 連打回数, ms: パターン
+  fire(pat){
+    const now = (performance.now()|0);
+    if(now - this.lastT < 16) return;       // 過剰な連続発火を抑える
+    this.lastT = now;
+    if(this.mode==='vibrate'){ try{ navigator.vibrate(pat); this.fired++; }catch(e){} return; }
+    if(this.mode==='switch' && this.lbl){
+      // 強さを持てないので、回数で重さを表す
+      const n = Array.isArray(pat) ? pat.filter((v,k)=>k%2===0).length
+              : (pat>=50 ? 3 : pat>=24 ? 2 : 1);
+      for(let k=0;k<n;k++){ try{ this.lbl.click(); this.fired++; }catch(e){} }
+    }
+  },
+};
 function haptic(kind){
-  if(!navigator.vibrate) return;
-  if(kind==='good')      navigator.vibrate(12);
-  else if(kind==='perfect')navigator.vibrate(28);
-  else if(kind==='guard')  navigator.vibrate([10,40,10]);
-  else if(kind==='hurt')   navigator.vibrate(60);
+  if(kind==='good')        Haptic.fire(12);
+  else if(kind==='perfect')Haptic.fire(28);
+  else if(kind==='guard')  Haptic.fire([10,40,10]);
+  else if(kind==='hurt')   Haptic.fire(60);
+  else if(kind==='touch')  Haptic.fire(8);    // 自分の入力そのもの
+  else if(kind==='swing')  Haptic.fire(16);   // 自分が振った
 }
 
 /* ============================================================
@@ -898,6 +1000,9 @@ const Input = {
 
   down(e){
     if(this.onFirstTouch){ this.onFirstTouch(); }
+    // 触れた事実そのものを手に返す。iOS ではユーザー操作の中でしか
+    // 触覚を出せないため、この経路が唯一確実に届く
+    haptic('touch');
     const W = window.innerWidth;
     const side = e.clientX < W/2 ? 'L' : 'R';
     const band = e.clientY < window.innerHeight*BAND_Y ? 'G' : 'S';
@@ -940,6 +1045,7 @@ const Input = {
     this.update(e.timeStamp);
     if(p.pendSwipe && !p.gesture && !p.consumed && !this.dualHandled){
       p.gesture=p.pendSwipe.ev.raw;
+      haptic('swing');
       this.emit('SWIPE',p.pendSwipe.ev,p.pendSwipe.ts);
       p.pendSwipe=null;
     }
@@ -980,6 +1086,7 @@ const Input = {
       const L=a.side==='L'?a:b, R=a.side==='L'?b:a;
       const inBoth = (L.x-L.x0)> th && (R.x-R.x0)< -th;
       if(upBoth||downBoth||inBoth){
+        haptic('swing');
         this.emit(upBoth?'DUAL_UP':downBoth?'DUAL_DOWN':'DUAL_IN', null, ts);
         a.gesture=b.gesture='dual'; a.consumed=b.consumed=true;
         this.dualHandled=true;
@@ -1035,6 +1142,7 @@ const Input = {
             p.pendSwipe={ev, ts};
           }else{
             p.gesture=dir;
+            haptic('swing');
             this.emit('SWIPE',ev,ts);
           }
         }
@@ -4873,7 +4981,7 @@ let curDiff='NORMAL';
 let curFighter='arata';
 const el=id=>document.getElementById(id);
 const OV={title:el('ovTitle'),howto:el('ovHowto'),result:el('ovResult'),
-          sit:el('ovSit'),brief:el('ovBrief'),stats:el('ovStats')};
+          sit:el('ovSit'),brief:el('ovBrief'),stats:el('ovStats'),check:el('ovCheck')};
 
 function go(s){
   scene=s;
@@ -5341,6 +5449,86 @@ Object.assign(Fight,{
   },
 });
 
+/* ============================================================
+   音と振動の確認
+   iPhone では WebAudio が消音スイッチで落ち、Vibration API は存在しない。
+   実機で「本当に出ているか」を目で確かめられないと、体感の議論ができない
+   ============================================================ */
+const Check = {
+  raf:0, peak:0, since:0,
+  open(){
+    Audio_.resume(); Haptic.init();
+    this.peak=0; this.since=performance.now();
+    el('checkOut').classList.add('hidden');
+    go('check'); this.tick();
+  },
+  close(){ if(this.raf) cancelAnimationFrame(this.raf); this.raf=0; },
+  tick(){
+    const lv=Audio_.level();
+    if(lv>this.peak) this.peak=lv;
+    this.render();
+    if(scene!=='check'){ this.raf=0; return; }
+    this.raf=requestAnimationFrame(()=>this.tick());
+  },
+  ua(){
+    const u=navigator.userAgent;
+    const iOS = /iPad|iPhone|iPod/.test(u) ||
+                (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+    return {iOS, u};
+  },
+  data(){
+    const {iOS,u}=this.ua(), A=Audio_;
+    return {
+      '端末': iOS ? 'iPhone / iPad' : (/Android/.test(u)?'Android':'PC'),
+      '音の器 (AudioContext)': A.ctx ? A.ctx.state : '作られていない',
+      '再生セッション宣言': A.sess==='playback' ? 'playback（消音スイッチを無視）'
+                        : A.sess==='none' ? '非対応（消音スイッチで消える）' : '失敗',
+      '無音トラック': A.unmuted ? '再生中' : '未',
+      '出力の実測ピーク': A.an ? (this.peak<0?'計測不可':(this.peak*100).toFixed(1)+' %') : '計測不可',
+      '触覚の方式': Haptic.mode==='vibrate' ? 'Vibration API'
+                 : Haptic.mode==='switch'  ? 'スイッチ触覚（iOS 17.4+）'
+                 : '手段なし',
+      '触覚を出した回数': String(Haptic.fired),
+      '画面': innerWidth+'x'+innerHeight+' @'+(devicePixelRatio||1),
+    };
+  },
+  render(){
+    const d=this.data(), {iOS}=this.ua();
+    const rows=Object.keys(d).map(k=>
+      `<div class="stat"><span>${k}</span><span>${d[k]}</span></div>`).join('');
+    const warnAudio = (Audio_.ctx && Audio_.ctx.state!=='running');
+    const warnMute  = iOS && Audio_.sess!=='playback';
+    const warnHap   = Haptic.mode==='none';
+    el('checkBody').innerHTML=`
+      <div class="verdict" style="font-size:clamp(22px,6vw,32px)">音と振動</div>
+      <div class="note" style="text-align:left;margin:10px 0 16px">
+        下の2つのボタンを押して、<b>耳と手で</b>確かめてください。
+        数字ではなく、あなたが感じたかどうかが答えです。</div>
+      <div class="stats">${rows}</div>
+      ${warnAudio?'<div class="note" style="color:#ff8a3d;margin-top:14px">音の器が止まっています。画面をどこかタップしてください。</div>':''}
+      ${warnMute ?'<div class="note" style="color:#ff8a3d;margin-top:14px">この端末は再生セッションを宣言できません。<b>本体側面の消音スイッチ</b>が下がっていると、音は一切鳴りません。</div>':''}
+      ${warnHap  ?'<div class="note" style="color:#ff8a3d;margin-top:14px">この端末では振動を出す手段がありません。</div>':''}`;
+  },
+  sound(){
+    Audio_.resume(); this.peak=0;
+    Audio_.step(true);
+    setTimeout(()=>Audio_.punchHit(1), 260);
+    setTimeout(()=>Audio_.slowIn(),    620);
+    setTimeout(()=>Audio_.punchPerfect(),1400);
+  },
+  haptic(){
+    haptic('touch');
+    setTimeout(()=>haptic('guard'), 300);
+    setTimeout(()=>haptic('hurt'),  800);
+  },
+  digest(){
+    const d=this.data();
+    return 'MAAi 音と振動の確認\n'+
+      Object.keys(d).map(k=>k+': '+d[k]).join('\n')+
+      '\nUA: '+navigator.userAgent;
+  },
+};
+
 document.addEventListener('click',ev=>{
   const fb=ev.target.closest('[data-ftr]');
   if(fb){ Audio_.resume(); Audio_.ui(); curFighter=fb.dataset.ftr;
@@ -5350,6 +5538,7 @@ document.addEventListener('click',ev=>{
     buildBrief(SITUATIONS.find(x=>x.id===sb.dataset.sit)); return; }
   const b=ev.target.closest('[data-act],[data-diff]'); if(!b) return;
   Audio_.resume(); Audio_.ui();
+  if(b.dataset.act!=='check-haptic') haptic('touch');
   if(b.dataset.diff){
     curDiff=b.dataset.diff;
     document.querySelectorAll('[data-diff]').forEach(x=>x.dataset.on = x.dataset.diff===curDiff?'1':'0');
@@ -5365,6 +5554,18 @@ document.addEventListener('click',ev=>{
       if(n) buildBrief(n); else { buildSituations(); go('sit'); }
       break; }
     case 'howto': buildHowto(); go('howto'); break;
+    case 'check': Check.open(); break;
+    case 'check-sound' : Check.sound();  break;
+    case 'check-haptic': Check.haptic(); break;
+    case 'check-copy': {
+      const t=Check.digest(), box=el('checkOut');
+      box.value=t; box.classList.remove('hidden');
+      box.focus(); box.select();
+      try{ box.setSelectionRange(0,t.length); }catch(e){}
+      try{ document.execCommand('copy'); }catch(e){}
+      try{ if(navigator.clipboard&&navigator.clipboard.writeText)
+             navigator.clipboard.writeText(t).catch(()=>{}); }catch(e){}
+      break; }
     case 'stats': buildStats(); go('stats'); break;
     case 'close-ov': go('title'); break;
     case 'stats-clear': Rec.clear(); buildStats(); break;
@@ -5388,12 +5589,15 @@ document.addEventListener('click',ev=>{
     case 'calib': Calib.start(); go('calib'); break;
     case 'retry': startFight(Fight.mode, Fight.sit); break;
     case 'ftr': break;
-    case 'title': go('title'); break;
+    case 'title': Check.close(); go('title'); break;
   }
 });
 
 Input.bind(cv);
+Haptic.init();
 Input.onFirstTouch=()=>{ Audio_.resume(); Input.onFirstTouch=null; };
+// 復帰時に音が死んだままにならないように
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) Audio_.resume(); });
 resize();
 try{ const o=localStorage.getItem('maai.offset'); if(o!==null) Fight.offsetMs=parseInt(o,10)||0; }catch(e){}
 Progress.load(); SlowFx.init(); setFighter(curFighter);
