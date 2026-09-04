@@ -5571,7 +5571,9 @@ const Check = {
       <div class="stats">${rows}</div>
       ${warnAudio?'<div class="note" style="color:#ff8a3d;margin-top:14px">音の器が止まっています。画面をどこかタップしてください。</div>':''}
       ${warnMute ?'<div class="note" style="color:#ff8a3d;margin-top:14px">この端末は再生セッションを宣言できません。<b>本体側面の消音スイッチ</b>が下がっていると、音は一切鳴りません。</div>':''}
-      ${warnHap  ?'<div class="note" style="color:#ff8a3d;margin-top:14px">この端末では振動を出す手段がありません。</div>':''}`;
+      ${warnHap  ?'<div class="note" style="color:#ff8a3d;margin-top:14px">'+
+        'この端末の<b>ブラウザ</b>には振動を出す手段がありません。'+
+        'ネイティブアプリでは Core Haptics が使えるので、ここは製品版で入ります。</div>':''}`;
   },
   sound(){
     Audio_.resume(); this.peak=0;
