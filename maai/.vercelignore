@@ -1,0 +1,4 @@
+# 3DモデルはGLBをbase64でindex.htmlに内蔵しているため、
+# assets/ は実行時に読まれない（ソース素材のみ）。7.7MBを上げない
+assets/
+*.md
